@@ -1,0 +1,314 @@
+Running 01_data_profiling.sql (32 statements) as SVC_CRM_PIPELINE / CRM_TRANSFORMER
+[ 1] USE ROLE CRM_TRANSFORMER;
+     Statement executed successfully.
+[ 2] USE SECONDARY ROLES NONE;
+     Statement executed successfully.
+[ 3] USE WAREHOUSE MARKETING_WH;
+     Statement executed successfully.
+[ 4] USE SCHEMA MARKETING_CRM.RAW;
+     Statement executed successfully.
+[ 5] WITH expected_rows (TABLE_NAME, EXPECTED_ROWS) AS (
+     TABLE_NAME             ROW_COUNT  EXPECTED_ROWS  BUSINESS_COLUMNS  LINEAGE_COLUMNS  NON_TEXT_BUSINESS_COLUMNS  COLUMNS_MATCH_HEADER  STATUS
+     CAMPAIGNS              120        120            7                 3                0                          True                  PASS  
+     DAILY_SPEND            11240      11240          6                 3                0                          True                  PASS  
+     LEADS                  261684     261684         5                 3                0                          True                  PASS  
+     CONVERSIONS            39696      39696          5                 3                0                          True                  PASS  
+     CHALLENGE_CAMPAIGNS    121        121            7                 3                0                          True                  PASS  
+     CHALLENGE_DAILY_SPEND  2001       2001           6                 3                0                          True                  PASS  
+     CHALLENGE_LEADS        2001       2001           5                 3                0                          True                  PASS  
+     CHALLENGE_CONVERSIONS  2001       2001           5                 3                0                          True                  PASS  
+[ 6] WITH documented_types (TABLE_NAME, COLUMN_NAME, ORDINAL, DOC_TYPE) AS (
+     TABLE_NAME   DOC_TYPE        COLUMNS_CHECKED       VALUES_CHECKED  NON_CONFORMING  EXPECTED  STATUS
+     CAMPAIGNS    key CMP0000     CAMPAIGN_ID           120             0               0         PASS  
+     CAMPAIGNS    name            CAMPAIGN_NAME         120             0               0         PASS  
+     CAMPAIGNS    category        CHANNEL, OBJECTIVE    240             0               0         PASS  
+     CAMPAIGNS    date            START_DATE, END_DATE  240             0               0         PASS  
+     CAMPAIGNS    money           BUDGET                120             0               0         PASS  
+     DAILY_SPEND  key DSP0000000  SPEND_ID              11240           0               0         PASS  
+     DAILY_SPEND  key CMP0000     CAMPAIGN_ID           11240           0               0         PASS  
+     DAILY_SPEND  date            SPEND_DATE            11240           0               0         PASS  
+     DAILY_SPEND  integer         IMPRESSIONS, CLICKS   22480           0               0         PASS  
+     DAILY_SPEND  money           SPEND                 11240           0               0         PASS  
+     LEADS        key L00000000   LEAD_ID               261684          0               0         PASS  
+     LEADS        key CMP0000     CAMPAIGN_ID           261684          0               0         PASS  
+     LEADS        date            CREATED_AT            261684          0               0         PASS  
+     LEADS        category        LEAD_SOURCE           261684          0               0         PASS  
+     LEADS        integer         LEAD_SCORE            261684          0               0         PASS  
+     CONVERSIONS  key CV0000000   CONVERSION_ID         39696           0               0         PASS  
+     CONVERSIONS  key L00000000   LEAD_ID               39696           0               0         PASS  
+     CONVERSIONS  date            CONVERTED_AT          39696           0               0         PASS  
+     CONVERSIONS  category        CONVERSION_TYPE       39696           0               0         PASS  
+     CONVERSIONS  money           REVENUE               39696           0               0         PASS  
+[ 7] WITH inputs (RAW_INPUT, DOC_TYPE, EXPECTED_CONFORMS) AS (
+     INPUT_TEXT    DOC_TYPE  TRY_CAST_RESULT  MATCHES_PATTERN  CONFORMS  EXPECTED_CONFORMS  STATUS
+     [2023-01-05]  date      2023-01-05       True             True      True               PASS  
+     [2023-02-29]  date      NULL             True             False     False              PASS  
+     [2023-1-5]    date      2023-01-05       False            False     False              PASS  
+     [2023/05/15]  date      NULL             False            False     False              PASS  
+     [1250.40]     money     1250.40          True             True      True               PASS  
+     [1250.4]      money     1250.40          False            False     False              PASS  
+     [1250.405]    money     1250.41          False            False     False              PASS  
+     [42]          integer   42               True             True      True               PASS  
+     [ 42]         integer   42               False            False     False              PASS  
+     [42.0]        integer   42               False            False     False              PASS  
+[ 8] SELECT TABLE_NAME, KEY_COLUMNS, ROW_COUNT, DISTINCT_KEYS,
+     TABLE_NAME   KEY_COLUMNS                           ROW_COUNT  DISTINCT_KEYS  DUPLICATES  EXPECTED  STATUS
+     CAMPAIGNS    CAMPAIGN_ID (PK)                      120        120            0           0         PASS  
+     CAMPAIGNS    CAMPAIGN_NAME (alternate key)         120        120            0           0         PASS  
+     CAMPAIGNS    all 7 columns (exact duplicate rows)  120        120            0           0         PASS  
+     DAILY_SPEND  SPEND_ID (PK)                         11240      11240          0           0         PASS  
+     DAILY_SPEND  CAMPAIGN_ID + SPEND_DATE (grain)      11240      11240          0           0         PASS  
+     DAILY_SPEND  all 6 columns (exact duplicate rows)  11240      11240          0           0         PASS  
+     LEADS        LEAD_ID (PK)                          261684     261684         0           0         PASS  
+     LEADS        all 5 columns (exact duplicate rows)  261684     261684         0           0         PASS  
+     CONVERSIONS  CONVERSION_ID (PK)                    39696      39696          0           0         PASS  
+     CONVERSIONS  LEAD_ID (1 conversion per lead)       39696      39696          0           0         PASS  
+     CONVERSIONS  all 5 columns (exact duplicate rows)  39696      39696          0           0         PASS  
+[ 9] WITH key_numbers AS (
+     TABLE_NAME   KEY_COLUMN     FIRST_NUMBER  LAST_NUMBER  ROW_COUNT  MISSING_NUMBERS  STATUS
+     CAMPAIGNS    CAMPAIGN_ID    1             120          120        0                PASS  
+     DAILY_SPEND  SPEND_ID       1             11240        11240      0                PASS  
+     LEADS        LEAD_ID        1             261684       261684     0                PASS  
+     CONVERSIONS  CONVERSION_ID  1             39696        39696      0                PASS  
+[10] WITH raw_values AS (
+     TABLE_NAME   COLUMN_NAME      ROW_COUNT  NULLS  EMPTY_STRINGS  WHITESPACE_ONLY  UNTRIMMED  NULL_TOKENS  NON_PRINTABLE  DISTINCT_VALUES  MIN_LENGTH  MAX_LENGTH  STATUS
+     CAMPAIGNS    CAMPAIGN_ID      120        0      0              0                0          0            0              120              7           7           PASS  
+     CAMPAIGNS    CAMPAIGN_NAME    120        0      0              0                0          0            0              120              14          20          PASS  
+     CAMPAIGNS    CHANNEL          120        0      0              0                0          0            0              5                5           11          PASS  
+     CAMPAIGNS    OBJECTIVE        120        0      0              0                0          0            0              3                8           11          PASS  
+     CAMPAIGNS    START_DATE       120        0      0              0                0          0            0              110              10          10          PASS  
+     CAMPAIGNS    END_DATE         120        0      0              0                0          0            0              116              10          10          PASS  
+     CAMPAIGNS    BUDGET           120        0      0              0                0          0            0              120              7           8           PASS  
+     DAILY_SPEND  SPEND_ID         11240      0      0              0                0          0            0              11240            10          10          PASS  
+     DAILY_SPEND  CAMPAIGN_ID      11240      0      0              0                0          0            0              120              7           7           PASS  
+     DAILY_SPEND  SPEND_DATE       11240      0      0              0                0          0            0              1064             10          10          PASS  
+     DAILY_SPEND  IMPRESSIONS      11240      0      0              0                0          0            0              10388            4           6           PASS  
+     DAILY_SPEND  CLICKS           11240      0      0              0                0          0            0              2026             2           4           PASS  
+     DAILY_SPEND  SPEND            11240      0      0              0                0          0            0              10440            5           7           PASS  
+     LEADS        LEAD_ID          261684     0      0              0                0          0            0              261684           9           9           PASS  
+     LEADS        CAMPAIGN_ID      261684     0      0              0                0          0            0              120              7           7           PASS  
+     LEADS        CREATED_AT       261684     0      0              0                0          0            0              1064             10          10          PASS  
+     LEADS        LEAD_SOURCE      261684     0      0              0                0          0            0              5                5           11          PASS  
+     LEADS        LEAD_SCORE       261684     0      0              0                0          0            0              100              1           3           PASS  
+     CONVERSIONS  CONVERSION_ID    39696      0      0              0                0          0            0              39696            9           9           PASS  
+     CONVERSIONS  LEAD_ID          39696      0      0              0                0          0            0              39696            9           9           PASS  
+     CONVERSIONS  CONVERTED_AT     39696      0      0              0                0          0            0              1080             10          10          PASS  
+     CONVERSIONS  CONVERSION_TYPE  39696      0      0              0                0          0            0              2                5           8           PASS  
+     CONVERSIONS  REVENUE          39696      0      0              0                0          0            0              16104            4           7           PASS  
+[11] WITH expected (COLUMN_NAME, DOMAIN_VALUE, EXPECTED_ROWS) AS (
+     COLUMN_NAME                  DOMAIN_VALUE  ROW_COUNT  SHARE   EXPECTED_ROWS  STATUS
+     CAMPAIGNS.CHANNEL            affiliate     24         0.2000  24             PASS  
+     CAMPAIGNS.CHANNEL            display       24         0.2000  24             PASS  
+     CAMPAIGNS.CHANNEL            paid_search   24         0.2000  24             PASS  
+     CAMPAIGNS.CHANNEL            paid_social   24         0.2000  24             PASS  
+     CAMPAIGNS.CHANNEL            video         24         0.2000  24             PASS  
+     CAMPAIGNS.OBJECTIVE          acquisition   35         0.2917  35             PASS  
+     CAMPAIGNS.OBJECTIVE          awareness     44         0.3667  44             PASS  
+     CAMPAIGNS.OBJECTIVE          lead_gen      41         0.3417  41             PASS  
+     LEADS.LEAD_SOURCE            affiliate     67849      0.2593  67849          PASS  
+     LEADS.LEAD_SOURCE            display       45149      0.1725  45149          PASS  
+     LEADS.LEAD_SOURCE            paid_search   65268      0.2494  65268          PASS  
+     LEADS.LEAD_SOURCE            paid_social   57619      0.2202  57619          PASS  
+     LEADS.LEAD_SOURCE            video         25799      0.0986  25799          PASS  
+     CONVERSIONS.CONVERSION_TYPE  purchase      16691      0.4205  16691          PASS  
+     CONVERSIONS.CONVERSION_TYPE  trial         23005      0.5795  23005          PASS  
+[12] SELECT IFF(GROUPING(c.CHANNEL) = 1, 'TOTAL', c.CHANNEL) AS CHANNEL,
+     CHANNEL      ACQUISITION  AWARENESS  LEAD_GEN  CAMPAIGNS
+     affiliate    8            11         5         24       
+     display      3            4          17        24       
+     paid_search  9            7          8         24       
+     paid_social  7            10         7         24       
+     video        8            12         4         24       
+     TOTAL        35           44         41        120      
+[13] SELECT COLUMN_NAME, ROW_COUNT, ROWS_OUTSIDE_ACCEPTED, DISTINCT_VALUES, EXPECTED_DISTINCT,
+     COLUMN_NAME                  ROW_COUNT  ROWS_OUTSIDE_ACCEPTED  DISTINCT_VALUES  EXPECTED_DISTINCT  CASE_OR_WHITESPACE_VARIANTS  STATUS
+     CAMPAIGNS.CHANNEL            120        0                      5                5                  0                            PASS  
+     CAMPAIGNS.OBJECTIVE          120        0                      3                3                  0                            PASS  
+     LEADS.LEAD_SOURCE            261684     0                      5                5                  0                            PASS  
+     CONVERSIONS.CONVERSION_TYPE  39696      0                      2                2                  0                            PASS  
+[14] WITH measures AS (
+     MEASURE                       N       MIN_VALUE  P25         MEDIAN      P75         MAX_VALUE  AVG_VALUE     STDDEV_VALUE  STATUS
+     CAMPAIGNS.BUDGET              120     8102.32    27094.5925  48059.1200  61425.7450  79884.92   45155.351333  20913.6146    PASS  
+     DAILY_SPEND.IMPRESSIONS       11240   2565.00    17993.7500  31236.0000  54272.7500  175793.00  38865.197420  27384.1313    PASS  
+     DAILY_SPEND.CLICKS            11240   17.00      242.7500    492.0000    842.0000    4126.00    631.878915    542.2532      PASS  
+     DAILY_SPEND.SPEND             11240   37.14      236.3750    369.5300    524.3475    1478.36    402.406585    231.1227      PASS  
+     LEADS.LEAD_SCORE              261684  1.00       26.0000     51.0000     76.0000     100.00     50.571059     28.869        PASS  
+     CONVERSIONS.REVENUE purchase  16691   99.11      682.2500    1292.9500   1893.3200   2498.92    1291.824277   695.2246      PASS  
+     CONVERSIONS.REVENUE all       39696   0.00       0.0000      0.0000      1057.0475   2498.92    543.174098    780.9479      PASS  
+[15] WITH measures AS (
+     MEASURE                       N       IQR         LOWER_FENCE  UPPER_FENCE  LOW_OUTLIERS  HIGH_OUTLIERS  OUTLIER_SHARE  EXPECTED_HIGH  STATUS
+     CAMPAIGNS.BUDGET              120     34331.1525  -24402.1363  112922.4738  0             0              0.0000         0              PASS  
+     DAILY_SPEND.IMPRESSIONS       11240   36279.0000  -36424.7500  108691.2500  0             301            0.0268         301            PASS  
+     DAILY_SPEND.CLICKS            11240   599.2500    -656.1250    1740.8750    0             559            0.0497         559            PASS  
+     DAILY_SPEND.SPEND             11240   287.9725    -195.5838    956.3063     0             303            0.0270         303            PASS  
+     LEADS.LEAD_SCORE              261684  50.0000     -49.0000     151.0000     0             0              0.0000         0              PASS  
+     CONVERSIONS.REVENUE purchase  16691   1211.0700   -1134.3550   3709.9250    0             0              0.0000         0              PASS  
+     CONVERSIONS.REVENUE all       39696   1057.0475   -1585.5713   2642.6188    0             0              0.0000         0              PASS  
+[16] WITH spend AS (
+     CHANNEL      SPEND_ROWS  HIGH_IMPRESSIONS  HIGH_CLICKS  HIGH_SPEND  STATUS
+     affiliate    2150        78                370          82          PASS  
+     display      2367        189               0            24          PASS  
+     paid_search  2307        0                 119          88          PASS  
+     paid_social  1906        34                70           89          PASS  
+     video        2510        0                 0            20          PASS  
+     TOTAL        11240       301               559          303         PASS  
+[17] WITH spend AS (
+     TABLE_NAME   RULE_NAME                                VIOLATIONS  EXPECTED  STATUS
+     DAILY_SPEND  clicks <= impressions                    0           0         PASS  
+     DAILY_SPEND  impressions > 0                          0           0         PASS  
+     DAILY_SPEND  clicks > 0                               0           0         PASS  
+     DAILY_SPEND  spend > 0                                0           0         PASS  
+     CAMPAIGNS    budget > 0                               0           0         PASS  
+     LEADS        lead_score between 1 and 100             0           0         PASS  
+     CONVERSIONS  trial => revenue = 0.00                  0           0         PASS  
+     CONVERSIONS  purchase => revenue > 0                  0           0         PASS  
+     CAMPAIGNS    total spend <= budget (campaign grain)   0           0         PASS  
+     DAILY_SPEND  leads <= clicks (campaign x date grain)  0           0         PASS  
+[18] WITH bands AS (
+     SCORE_BAND  SEGMENT         LEADS  SHARE   SEGMENT_LEADS  EXPECTED_LEADS  STATUS
+     1-10        Low (1-40)      26193  0.1001  104245         26193           PASS  
+     11-20       Low (1-40)      26058  0.0996  104245         26058           PASS  
+     21-30       Low (1-40)      25748  0.0984  104245         25748           PASS  
+     31-40       Low (1-40)      26246  0.1003  104245         26246           PASS  
+     41-50       Medium (41-70)  26293  0.1005  78862          26293           PASS  
+     51-60       Medium (41-70)  26173  0.1000  78862          26173           PASS  
+     61-70       Medium (41-70)  26396  0.1009  78862          26396           PASS  
+     71-80       High (71-100)   26184  0.1001  78577          26184           PASS  
+     81-90       High (71-100)   26068  0.0996  78577          26068           PASS  
+     91-100      High (71-100)   26325  0.1006  78577          26325           PASS  
+[19] SELECT RELATIONSHIP, ORPHAN_ROWS, EXPECTED, IFF(ORPHAN_ROWS = EXPECTED, 'PASS', 'FAIL') AS STATUS
+     RELATIONSHIP                           ORPHAN_ROWS  EXPECTED  STATUS
+     DAILY_SPEND.CAMPAIGN_ID -> CAMPAIGNS   0            0         PASS  
+     LEADS.CAMPAIGN_ID -> CAMPAIGNS         0            0         PASS  
+     CONVERSIONS.LEAD_ID -> LEADS           0            0         PASS  
+     CAMPAIGNS without DAILY_SPEND rows     0            0         PASS  
+     CAMPAIGNS without LEADS                0            0         PASS  
+     CAMPAIGNS without CONVERSIONS          0            0         PASS  
+     LEADS without a CONVERSION (expected)  221988       221988    PASS  
+[20] WITH per_lead AS (
+     CONVERSIONS_PER_LEAD  LEADS   SHARE     EXPECTED_LEADS  STATUS
+     0                     221988  0.848306  221988          PASS  
+     1                     39696   0.151694  39696           PASS  
+[21] WITH by_channel AS (
+     CHANNEL      LEADS  SOURCE_EQUALS_CHANNEL  MISMATCHES  EXPECTED_LEADS  STATUS
+     affiliate    67849  67849                  0           67849           PASS  
+     display      45149  45149                  0           45149           PASS  
+     paid_search  65268  65268                  0           65268           PASS  
+     paid_social  57619  57619                  0           57619           PASS  
+     video        25799  25799                  0           25799           PASS  
+[22] WITH dates AS (
+     DATE_COLUMN               MIN_DATE    MAX_DATE    DISTINCT_DATES  SPAN_DAYS  ROWS_2023  ROWS_2024  ROWS_2025  OUTSIDE_COVERAGE  STATUS
+     CAMPAIGNS.START_DATE      2023-01-04  2025-08-28  110             968        48         50         22         0                 PASS  
+     CAMPAIGNS.END_DATE        2023-03-14  2025-12-02  116             995        38         47         35         0                 PASS  
+     DAILY_SPEND.SPEND_DATE    2023-01-04  2025-12-02  1064            1064       3848       4405       2987       0                 PASS  
+     LEADS.CREATED_AT          2023-01-04  2025-12-02  1064            1064       87549      107371     66764      0                 PASS  
+     CONVERSIONS.CONVERTED_AT  2023-01-05  2025-12-21  1080            1082       12779      16148      10769      0                 PASS  
+[23] WITH campaigns AS (
+     CHECK_NAME                              ACTUAL  EXPECTED  STATUS
+     campaigns with end_date < start_date    0       0         PASS  
+     spend rows outside the campaign window  0       0         PASS  
+     campaigns with a gap in daily spend     0       0         PASS  
+     window days, all campaigns (= rows)     11240   11240     PASS  
+     shortest campaign window (days)         46      46        PASS  
+     longest campaign window (days)          150     150       PASS  
+     leads outside the campaign window       0       0         PASS  
+     leads on a day without a spend row      0       0         PASS  
+     spend rows with zero leads              7       7         PASS  
+     coverage days without any spend row     32      32        PASS  
+[24] WITH conv AS (
+     CONVERSION_TYPE  CONVERSIONS  BEFORE_LEAD  SAME_DAY  OVER_21_DAYS  AFTER_CAMPAIGN_END  AFTER_END_SHARE  AFTER_END_REVENUE  MAX_DAYS_AFTER_END  AFTER_COVERAGE  STATUS
+     purchase         16691        0            770       0             1951                0.116889         2532266.74         21                  0               PASS  
+     trial            23005        0            1041      0             2765                0.120191         0.00               21                  0               PASS  
+     all              39696        0            1811      0             4716                0.118803         2532266.74         21                  0               PASS  
+[25] WITH lagged AS (
+     SPLIT_BY         GROUP_VALUE  CONVERSIONS  MIN_LAG  P25    MEDIAN  P75     P90     MAX_LAG  AVG_LAG  STATUS
+     all              all          39696        0        5.000  10.000  16.000  19.000  21       10.5056  PASS  
+     conversion_type  purchase     16691        0        5.000  10.000  16.000  19.000  21       10.5025  PASS  
+     conversion_type  trial        23005        0        5.000  11.000  16.000  19.000  21       10.5078  PASS  
+     channel          affiliate    10352        0        5.000  10.000  16.000  19.000  21       10.4954  PASS  
+     channel          display      6744         0        5.000  10.000  16.000  19.000  21       10.5101  PASS  
+     channel          paid_search  10019        0        5.000  11.000  16.000  19.000  21       10.5017  PASS  
+     channel          paid_social  8648         0        5.000  11.000  16.000  19.000  21       10.5774  PASS  
+     channel          video        3933         0        5.000  10.000  16.000  19.000  21       10.3766  PASS  
+[26] WITH params AS (
+     LAST_LEAD_DATE  MAX_LAG_DAYS  MAX_LAG_2023_LEADS  LATEST_POSSIBLE_CONVERSION  LAST_CONVERSION_DATE  LEADS_WINDOW_PAST_DATA  COMPLETE_BY_OBSERVED_DATA  ASSUMED_AS_OF_DATE  DAYS_TO_AS_OF_YOUNGEST_LEAD  MATURE_IF_COMPLETE_TO_AS_OF  STATUS
+     2025-12-02      21            21                  2025-12-23                  2025-12-21            65                      False                      2025-12-31          29                           True                         PASS  
+[27] WITH campaigns AS (
+     START_YEAR  CAMPAIGNS_STARTED  ENDED_SAME_YEAR  CROSSED_INTO_NEXT_YEAR  SPAN_3_PLUS_YEARS  ACTIVE_IN_YEAR  BUDGET_OF_STARTS  STATUS
+     2023        48                 38               10                      0                  48              2011992.51        PASS  
+     2024        50                 37               13                      0                  60              2458235.85        PASS  
+     2025        22                 22               0                       0                  35              948413.80         PASS  
+     TOTAL       120                97               23                      0                  143             5418642.16        PASS  
+[28] WITH months AS (
+     CALENDAR_MONTH  ACTIVE_CAMPAIGNS  STARTED  ENDED  CAMPAIGNS_WITH_SPEND  STATUS
+     2023-01         3                 3        0      3                     PASS  
+     2023-02         5                 2        0      5                     PASS  
+     2023-03         10                5        3      10                    PASS  
+     2023-04         11                4        1      11                    PASS  
+     2023-05         14                4        3      14                    PASS  
+     2023-06         18                7        3      18                    PASS  
+     2023-07         16                1        4      16                    PASS  
+     2023-08         18                6        3      18                    PASS  
+     2023-09         18                3        5      18                    PASS  
+     2023-10         19                6        6      19                    PASS  
+     2023-11         16                3        3      16                    PASS  
+     2023-12         17                4        7      17                    PASS  
+     2024-01         12                2        3      12                    PASS  
+     2024-02         11                2        2      11                    PASS  
+     2024-03         16                7        3      16                    PASS  
+     2024-04         19                6        4      19                    PASS  
+     2024-05         17                2        5      17                    PASS  
+     2024-06         13                1        4      13                    PASS  
+     2024-07         13                4        4      13                    PASS  
+     2024-08         18                9        2      18                    PASS  
+     2024-09         20                4        5      20                    PASS  
+     2024-10         18                3        4      18                    PASS  
+     2024-11         19                5        6      19                    PASS  
+     2024-12         18                5        5      18                    PASS  
+     2025-01         16                3        4      16                    PASS  
+     2025-02         13                1        5      13                    PASS  
+     2025-03         12                4        2      12                    PASS  
+     2025-04         13                3        2      13                    PASS  
+     2025-05         14                3        4      14                    PASS  
+     2025-06         14                4        2      14                    PASS  
+     2025-07         15                3        2      15                    PASS  
+     2025-08         14                1        3      14                    PASS  
+     2025-09         11                0        6      11                    PASS  
+     2025-10         5                 0        2      5                     PASS  
+     2025-11         3                 0        2      3                     PASS  
+     2025-12         1                 0        1      1                     PASS  
+[29] WITH correct AS (
+     METHOD                                JOINED_ROWS  TOTAL_SPEND     INFLATION_FACTOR  EXPECTED_SPEND  STATUS
+     correct: SUM(spend) over DAILY_SPEND  11240        4523050.02      1.000000          4523050.02      PASS  
+     WRONG: JOIN LEADS ON campaign_id      25941510     11286380144.15  2495.302969       11286380144.15  PASS  
+     WRONG: JOIN LEADS ON campaign + date  261684       123557885.18    27.317382         123557885.18    PASS  
+[30] WITH starter AS (
+     LEAD_SOURCE  TOTAL_LEADS  SCORED_LEADS  AVG_LEAD_SCORE  STATUS
+     affiliate    67849        67849         50.5620         PASS  
+     paid_search  65268        65268         50.6614         PASS  
+     paid_social  57619        57619         50.4742         PASS  
+     display      45149        45149         50.5366         PASS  
+     video        25799        25799         50.6429         PASS  
+[31] WITH campaigns_by_channel AS (
+     CHANNEL      CAMPAIGNS  SPEND       IMPRESSIONS  CLICKS   LEADS   CONVERSIONS  PURCHASES  ATTRIBUTED_REVENUE  STATUS
+     affiliate    24         857835.07   95314042     2386856  67849   10352        4332       5610700.73          PASS  
+     paid_search  24         897091.53   49837405     1740314  65268   10019        4204       5439329.35          PASS  
+     paid_social  24         984731.88   89520215     1602785  57619   8648         3646       4690137.28          PASS  
+     display      24         955297.00   146967688    879874   45149   6744         2871       3734117.43          PASS  
+     video        24         828094.54   55205469     492490   25799   3933         1638       2087554.22          PASS  
+     TOTAL        120        4523050.02  436844819    7102319  261684  39696        16691      21561839.01         PASS  
+[32] WITH spend_by_month AS (
+     CALENDAR_MONTH  SPEND      LEADS  CONVERSIONS_IN_MONTH  CONVERSIONS_OF_MONTH_LEADS  STATUS
+     2023-01         23686.55   1325   110                   212                         PASS  
+     2023-02         49461.61   2825   325                   427                         PASS  
+     2023-03         104283.65  6229   798                   914                         PASS  
+     2023-04         104393.90  5748   902                   880                         PASS  
+     2023-05         97734.10   5188   811                   771                         PASS  
+     2023-06         123064.68  7491   963                   1137                        PASS  
+     2025-07         132922.32  7710   1101                  1156                        PASS  
+     2025-08         138359.57  7339   1190                  1109                        PASS  
+     2025-09         65610.05   3680   700                   513                         PASS  
+     2025-10         48774.54   2826   462                   445                         PASS  
+     2025-11         16510.95   1093   256                   173                         PASS  
+     2025-12         807.04     65     61                    11                          PASS  
+OK    01_data_profiling.sql: all 32 statements executed, no check row says FAIL

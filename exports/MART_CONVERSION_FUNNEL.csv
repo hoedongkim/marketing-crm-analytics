@@ -1,0 +1,26 @@
+CHANNEL,STAGE_ORDER,STAGE,STAGE_VALUE,PREV_STAGE_VALUE,TOP_OF_FUNNEL_VALUE
+affiliate,1,Impressions,95314042,,95314042
+affiliate,2,Clicks,2386856,95314042,95314042
+affiliate,3,Leads,67849,2386856,95314042
+affiliate,4,Converted leads,10352,67849,95314042
+affiliate,5,Purchases,4332,10352,95314042
+display,1,Impressions,146967688,,146967688
+display,2,Clicks,879874,146967688,146967688
+display,3,Leads,45149,879874,146967688
+display,4,Converted leads,6744,45149,146967688
+display,5,Purchases,2871,6744,146967688
+paid_search,1,Impressions,49837405,,49837405
+paid_search,2,Clicks,1740314,49837405,49837405
+paid_search,3,Leads,65268,1740314,49837405
+paid_search,4,Converted leads,10019,65268,49837405
+paid_search,5,Purchases,4204,10019,49837405
+paid_social,1,Impressions,89520215,,89520215
+paid_social,2,Clicks,1602785,89520215,89520215
+paid_social,3,Leads,57619,1602785,89520215
+paid_social,4,Converted leads,8648,57619,89520215
+paid_social,5,Purchases,3646,8648,89520215
+video,1,Impressions,55205469,,55205469
+video,2,Clicks,492490,55205469,55205469
+video,3,Leads,25799,492490,55205469
+video,4,Converted leads,3933,25799,55205469
+video,5,Purchases,1638,3933,55205469

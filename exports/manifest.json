@@ -1,0 +1,993 @@
+{
+  "manifest_version": 1,
+  "description": "Frozen export of the MART tables the Data Studio dashboard reads (Google Sheets snapshot, docs/sheets_snapshot.md).",
+  "exported_at_utc": "2026-10-14T19:18:06Z",
+  "source": {
+    "platform": "Snowflake",
+    "database": "MARKETING_CRM",
+    "schema": "MART",
+    "built_by": "dbt Core",
+    "read_as_user": "SVC_CRM_BI",
+    "read_as_role": "CRM_REPORTER"
+  },
+  "dbt_project": {
+    "name": "marketing_crm",
+    "version": "1.0.0",
+    "path": "dbt/dbt_project.yml"
+  },
+  "dataset": {
+    "name": "Marketing Campaigns & Conversions Dataset",
+    "version": "v1.0.0",
+    "publisher": "Analytics Engineering",
+    "url": "https://www.analyticsengineering.com/datasets/marketing-campaigns",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "synthetic": true
+  },
+  "attribution": "Data: Analytics Engineering, \"Marketing Campaigns & Conversions Dataset v1.0.0\" (https://www.analyticsengineering.com/datasets/marketing-campaigns), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Typed, cleaned and aggregated by Hoedong Kim; not endorsed by the publisher.",
+  "caveats": [
+    "Synthetic data: a fictional business, no real companies or people, no industry benchmarks.",
+    "Revenue is last-touch attributed: ROAS and revenue by channel or campaign describe attribution, not the causal effect of spend. Offline and view-through conversions are not included.",
+    "Two time bases, never on one date axis: activity months (MART_MONTHLY_MARKETING.MONTH_START, FCT_CAMPAIGN_DAILY_ACTIVITY.ACTIVITY_DATE) and lead-cohort months (MART_MONTHLY_COHORT.COHORT_MONTH). Conversion rates exist on the cohort basis only.",
+    "A ratio over several rows is SUM(numerator) / SUM(denominator); never SUM or AVG a stored ratio column. Budget utilisation only over whole campaigns (campaign or channel tables).",
+    "Every KPI is computed in Snowflake SQL (dbt models); this file only carries the results. Definitions: docs/kpi_definitions.md and docs/data_dictionary.md in the repository."
+  ],
+  "tools": {
+    "python": "3.13.5",
+    "snowflake-connector-python": "4.8.0",
+    "openpyxl": "3.1.5",
+    "dbt-core": "1.12.5"
+  },
+  "csv_format": "UTF-8, LF, header = exact column names; numbers as plain decimals at the column scale; dates YYYY-MM-DD; booleans TRUE/FALSE; NULL = empty field",
+  "workbook": {
+    "file": "marketing_crm_dashboard_snapshot.xlsx",
+    "sha256": "299bec212a34a3f84eedde6c4c39653edeb86c99ccc05f9f954e2d488aec412e",
+    "sheets": [
+      "README",
+      "MART_CHANNEL_PERFORMANCE",
+      "MART_CAMPAIGN_PERFORMANCE",
+      "MART_MONTHLY_MARKETING",
+      "MART_MONTHLY_COHORT",
+      "MART_CONVERSION_FUNNEL",
+      "MART_LEAD_QUALITY",
+      "FCT_CAMPAIGN_DAILY_ACTIVITY",
+      "DIM_CAMPAIGN"
+    ]
+  },
+  "tables": [
+    {
+      "table": "MART_CHANNEL_PERFORMANCE",
+      "source_object": "MARKETING_CRM.MART.MART_CHANNEL_PERFORMANCE",
+      "csv": "MART_CHANNEL_PERFORMANCE.csv",
+      "sheet": "MART_CHANNEL_PERFORMANCE",
+      "rows": 5,
+      "columns": [
+        {
+          "name": "CHANNEL",
+          "type": "TEXT"
+        },
+        {
+          "name": "CAMPAIGNS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "BUDGET",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "SPEND",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "IMPRESSIONS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CLICKS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CONVERTED_LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "TRIALS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "PURCHASES",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "REVENUE",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "CTR",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "CLICK_TO_LEAD_RATE",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "LEAD_CONVERSION_RATE",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "PURCHASE_RATE",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "COST_PER_LEAD",
+          "type": "NUMBER(18,4)"
+        },
+        {
+          "name": "COST_PER_CONVERSION",
+          "type": "NUMBER(18,4)"
+        },
+        {
+          "name": "COST_PER_PURCHASE",
+          "type": "NUMBER(18,4)"
+        },
+        {
+          "name": "ROAS",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "BUDGET_UTILIZATION",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "CPC",
+          "type": "NUMBER(18,4)"
+        },
+        {
+          "name": "CPM",
+          "type": "NUMBER(18,4)"
+        },
+        {
+          "name": "SPEND_SHARE",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "LEADS_SHARE",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "REVENUE_SHARE",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "LCR_CI_LOW",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "LCR_CI_HIGH",
+          "type": "NUMBER(18,6)"
+        }
+      ],
+      "order_by": [
+        "CHANNEL"
+      ],
+      "grain": "one row per channel",
+      "basis": "full range 2023-01-01..2025-12-31, no date dimension; its ratio columns are valid at channel grain only",
+      "sha256": "a39d10bcb92cfd610f959f99c7c8c8a86414add411c0a933c1a1a73e35b5be26",
+      "csv_bytes": 1409,
+      "snowflake_query_id": "01c7bb06-0308-fca0-0011-d1320002a216",
+      "checksum_query_id": "01c7bb06-0308-fca0-0011-d1320002a21a",
+      "exported_at_utc": "2026-10-14T19:18:06Z",
+      "table_last_altered_utc": "2026-10-14T18:05:36Z",
+      "table_comment": "Channel scorecard. Grain: one row per CHANNEL (5 rows), full date range 2023-01-01..2025-12-31, no date dimension. Campaigns/budget (DIM_CAMPAIGN), delivery and spend (FCT_DAILY_SPEND) and leads/conversions/revenue (FCT_LEAD_CONVERSIONS) are each aggregated to the channel first, then joined 1:1. Ratio columns are valid at channel grain only (aggregate across channels as SUM / SUM of the bases). ROAS is last-touch attributed revenue / spend, not causal. LCR_CI_LOW / LCR_CI_HIGH: Wilson 95% interval of LEAD_CONVERSION_RATE (sampling noise only). The funnel is an aggregate campaign funnel, not a person journey. Synthetic data. Built by dbt (models/marts/mart_channel_performance.sql, ported from sql/02c_analysis_marts.sql).",
+      "checksums": {
+        "rows": 5,
+        "hash_agg": "-8733952273888884832",
+        "sums": {
+          "CAMPAIGNS": "120",
+          "BUDGET": "5418642.16",
+          "SPEND": "4523050.02",
+          "IMPRESSIONS": "436844819",
+          "CLICKS": "7102319",
+          "LEADS": "261684",
+          "CONVERTED_LEADS": "39696",
+          "TRIALS": "23005",
+          "PURCHASES": "16691",
+          "REVENUE": "21561839.01",
+          "CTR": "0.092774",
+          "CLICK_TO_LEAD_RATE": "0.205577",
+          "LEAD_CONVERSION_RATE": "0.757989",
+          "PURCHASE_RATE": "0.318617",
+          "COST_PER_LEAD": "96.7351",
+          "COST_PER_CONVERSION": "638.4756",
+          "COST_PER_PURCHASE": "1519.7908",
+          "ROAS": "23.796455",
+          "BUDGET_UTILIZATION": "4.173327",
+          "CPC": "4.2564",
+          "CPM": "59.5008",
+          "SPEND_SHARE": "1.000000",
+          "LEADS_SHARE": "0.999999",
+          "REVENUE_SHARE": "0.999999",
+          "LCR_CI_LOW": "0.742071",
+          "LCR_CI_HIGH": "0.774195"
+        },
+        "null_counts": {
+          "CHANNEL": 0,
+          "CAMPAIGNS": 0,
+          "BUDGET": 0,
+          "SPEND": 0,
+          "IMPRESSIONS": 0,
+          "CLICKS": 0,
+          "LEADS": 0,
+          "CONVERTED_LEADS": 0,
+          "TRIALS": 0,
+          "PURCHASES": 0,
+          "REVENUE": 0,
+          "CTR": 0,
+          "CLICK_TO_LEAD_RATE": 0,
+          "LEAD_CONVERSION_RATE": 0,
+          "PURCHASE_RATE": 0,
+          "COST_PER_LEAD": 0,
+          "COST_PER_CONVERSION": 0,
+          "COST_PER_PURCHASE": 0,
+          "ROAS": 0,
+          "BUDGET_UTILIZATION": 0,
+          "CPC": 0,
+          "CPM": 0,
+          "SPEND_SHARE": 0,
+          "LEADS_SHARE": 0,
+          "REVENUE_SHARE": 0,
+          "LCR_CI_LOW": 0,
+          "LCR_CI_HIGH": 0
+        }
+      }
+    },
+    {
+      "table": "MART_CAMPAIGN_PERFORMANCE",
+      "source_object": "MARKETING_CRM.MART.MART_CAMPAIGN_PERFORMANCE",
+      "csv": "MART_CAMPAIGN_PERFORMANCE.csv",
+      "sheet": "MART_CAMPAIGN_PERFORMANCE",
+      "rows": 120,
+      "columns": [
+        {
+          "name": "CAMPAIGN_ID",
+          "type": "TEXT"
+        },
+        {
+          "name": "CAMPAIGN_NAME",
+          "type": "TEXT"
+        },
+        {
+          "name": "CHANNEL",
+          "type": "TEXT"
+        },
+        {
+          "name": "OBJECTIVE",
+          "type": "TEXT"
+        },
+        {
+          "name": "START_DATE",
+          "type": "DATE"
+        },
+        {
+          "name": "END_DATE",
+          "type": "DATE"
+        },
+        {
+          "name": "CAMPAIGN_DAYS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "START_YEAR",
+          "type": "NUMBER(4,0)"
+        },
+        {
+          "name": "START_MONTH",
+          "type": "DATE"
+        },
+        {
+          "name": "BUDGET",
+          "type": "NUMBER(12,2)"
+        },
+        {
+          "name": "SPEND_DAYS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "IMPRESSIONS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CLICKS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "SPEND",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CONVERTED_LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "TRIALS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "PURCHASES",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "REVENUE",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "CTR",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "CLICK_TO_LEAD_RATE",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "LEAD_CONVERSION_RATE",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "PURCHASE_RATE",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "COST_PER_LEAD",
+          "type": "NUMBER(18,4)"
+        },
+        {
+          "name": "COST_PER_CONVERSION",
+          "type": "NUMBER(18,4)"
+        },
+        {
+          "name": "COST_PER_PURCHASE",
+          "type": "NUMBER(18,4)"
+        },
+        {
+          "name": "ROAS",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "BUDGET_UTILIZATION",
+          "type": "NUMBER(18,6)"
+        }
+      ],
+      "order_by": [
+        "CAMPAIGN_ID"
+      ],
+      "grain": "one row per campaign",
+      "basis": "full range, no date dimension (START_DATE / START_MONTH are campaign attributes, not activity dates); its ratio columns are valid at campaign grain only",
+      "sha256": "5d16bdd1901546f2e37a829f6eb907a18a1a5847cf24a10a3c5fc0a3018182a3",
+      "csv_bytes": 27812,
+      "snowflake_query_id": "01c7bb06-0308-fca1-0011-d13200026e0a",
+      "checksum_query_id": "01c7bb06-0308-fca2-0011-d13200029482",
+      "exported_at_utc": "2026-10-14T19:18:06Z",
+      "table_last_altered_utc": "2026-10-14T18:05:33Z",
+      "table_comment": "Campaign KPI table. Grain: one row per CAMPAIGN_ID (120 rows). Spend (STG_DAILY_SPEND), leads (STG_LEADS) and conversions (STG_CONVERSIONS via their lead) are each aggregated to the campaign FIRST, then joined 1:1 to DIM_CAMPAIGN, so nothing is double counted. Ratio columns are valid only at campaign grain; aggregate with SUM(numerator) / SUM(denominator) of the base columns. The date columns (START_*, END_DATE) are campaign attributes, not activity dates: a date-range control, year filter or time axis on them puts a whole campaign at its start. Use this table without a date-range dimension (fixed full range); time series come from FCT_DAILY_SPEND and FCT_LEAD_CONVERSIONS. Built by dbt (models/marts/mart_campaign_performance.sql, ported from sql/02b_core_models.sql).",
+      "checksums": {
+        "rows": 120,
+        "hash_agg": "6171642545708145185",
+        "sums": {
+          "CAMPAIGN_DAYS": "11240",
+          "START_YEAR": "242854",
+          "BUDGET": "5418642.16",
+          "SPEND_DAYS": "11240",
+          "IMPRESSIONS": "436844819",
+          "CLICKS": "7102319",
+          "SPEND": "4523050.02",
+          "LEADS": "261684",
+          "CONVERTED_LEADS": "39696",
+          "TRIALS": "23005",
+          "PURCHASES": "16691",
+          "REVENUE": "21561839.01",
+          "CTR": "2.225247",
+          "CLICK_TO_LEAD_RATE": "5.187871",
+          "LEAD_CONVERSION_RATE": "18.216593",
+          "PURCHASE_RATE": "7.664992",
+          "COST_PER_LEAD": "2371.5738",
+          "COST_PER_CONVERSION": "15768.7254",
+          "COST_PER_PURCHASE": "37723.7296",
+          "ROAS": "626.436624",
+          "BUDGET_UTILIZATION": "100.498897"
+        },
+        "null_counts": {
+          "CAMPAIGN_ID": 0,
+          "CAMPAIGN_NAME": 0,
+          "CHANNEL": 0,
+          "OBJECTIVE": 0,
+          "START_DATE": 0,
+          "END_DATE": 0,
+          "CAMPAIGN_DAYS": 0,
+          "START_YEAR": 0,
+          "START_MONTH": 0,
+          "BUDGET": 0,
+          "SPEND_DAYS": 0,
+          "IMPRESSIONS": 0,
+          "CLICKS": 0,
+          "SPEND": 0,
+          "LEADS": 0,
+          "CONVERTED_LEADS": 0,
+          "TRIALS": 0,
+          "PURCHASES": 0,
+          "REVENUE": 0,
+          "CTR": 0,
+          "CLICK_TO_LEAD_RATE": 0,
+          "LEAD_CONVERSION_RATE": 0,
+          "PURCHASE_RATE": 0,
+          "COST_PER_LEAD": 0,
+          "COST_PER_CONVERSION": 0,
+          "COST_PER_PURCHASE": 0,
+          "ROAS": 0,
+          "BUDGET_UTILIZATION": 0
+        }
+      }
+    },
+    {
+      "table": "MART_MONTHLY_MARKETING",
+      "source_object": "MARKETING_CRM.MART.MART_MONTHLY_MARKETING",
+      "csv": "MART_MONTHLY_MARKETING.csv",
+      "sheet": "MART_MONTHLY_MARKETING",
+      "rows": 180,
+      "columns": [
+        {
+          "name": "MONTH_START",
+          "type": "DATE"
+        },
+        {
+          "name": "CHANNEL",
+          "type": "TEXT"
+        },
+        {
+          "name": "ACTIVE_CAMPAIGNS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "SPEND",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "IMPRESSIONS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CLICKS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CONVERSIONS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "TRIALS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "PURCHASES",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "REVENUE",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "BUDGET_PRORATED",
+          "type": "NUMBER(18,6)"
+        }
+      ],
+      "order_by": [
+        "MONTH_START",
+        "CHANNEL"
+      ],
+      "grain": "one row per activity month x channel (36 x 5)",
+      "basis": "activity basis: MONTH_START; never on one date axis with COHORT_MONTH",
+      "sha256": "f941f6c4cb38547e918fd9bfb31901793780aa5562e9e2d246770be482394a1d",
+      "csv_bytes": 14455,
+      "snowflake_query_id": "01c7bb06-0308-fca2-0011-d13200029486",
+      "checksum_query_id": "01c7bb06-0308-fca1-0011-d13200026e0e",
+      "exported_at_utc": "2026-10-14T19:18:06Z",
+      "table_last_altered_utc": "2026-10-14T18:05:39Z",
+      "table_comment": "Monthly activity mart. Grain: one row per MONTH_START x CHANNEL, all 36 months (2023-01..2025-12) x 5 channels = 180 rows, zeros where nothing happened. ACTIVITY basis: spend by spend date, leads by created date, conversions and revenue by converted date (a conversion counts in the month it happened). Never blend with MART_MONTHLY_COHORT on one date axis, and never divide CONVERSIONS by LEADS here (not a conversion rate). ACTIVE_CAMPAIGNS = campaigns in flight on at least 1 day of the month: additive across channels, not across months. Additive bases only; ratios as SUM / SUM. Built by dbt (models/marts/mart_monthly_marketing.sql, ported from sql/02c_analysis_marts.sql).",
+      "checksums": {
+        "rows": 180,
+        "hash_agg": "4612967747966399221",
+        "sums": {
+          "ACTIVE_CAMPAIGNS": "490",
+          "SPEND": "4523050.02",
+          "IMPRESSIONS": "436844819",
+          "CLICKS": "7102319",
+          "LEADS": "261684",
+          "CONVERSIONS": "39696",
+          "TRIALS": "23005",
+          "PURCHASES": "16691",
+          "REVENUE": "21561839.01",
+          "BUDGET_PRORATED": "5418642.159820"
+        },
+        "null_counts": {
+          "MONTH_START": 0,
+          "CHANNEL": 0,
+          "ACTIVE_CAMPAIGNS": 0,
+          "SPEND": 0,
+          "IMPRESSIONS": 0,
+          "CLICKS": 0,
+          "LEADS": 0,
+          "CONVERSIONS": 0,
+          "TRIALS": 0,
+          "PURCHASES": 0,
+          "REVENUE": 0,
+          "BUDGET_PRORATED": 0
+        }
+      }
+    },
+    {
+      "table": "MART_MONTHLY_COHORT",
+      "source_object": "MARKETING_CRM.MART.MART_MONTHLY_COHORT",
+      "csv": "MART_MONTHLY_COHORT.csv",
+      "sheet": "MART_MONTHLY_COHORT",
+      "rows": 180,
+      "columns": [
+        {
+          "name": "COHORT_MONTH",
+          "type": "DATE"
+        },
+        {
+          "name": "CHANNEL",
+          "type": "TEXT"
+        },
+        {
+          "name": "LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CONVERTED_LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "TRIALS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "PURCHASES",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "REVENUE",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "CONVERTED_SAME_MONTH",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CONVERTED_LATER_MONTH",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "SUM_DAYS_TO_CONVERT",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "MATURE_LEADS",
+          "type": "NUMBER(38,0)"
+        }
+      ],
+      "order_by": [
+        "COHORT_MONTH",
+        "CHANNEL"
+      ],
+      "grain": "one row per lead-cohort month x channel (36 x 5)",
+      "basis": "lead-cohort basis: COHORT_MONTH; the only monthly source of conversion rates",
+      "sha256": "a15dccbdf7b261954fd3a8e5d2db2eda712bc50679fd323901f93acde4ae6d96",
+      "csv_bytes": 10840,
+      "snowflake_query_id": "01c7bb06-0308-fca0-0011-d1320002a21e",
+      "checksum_query_id": "01c7bb06-0308-fca0-0011-d1320002a222",
+      "exported_at_utc": "2026-10-14T19:18:06Z",
+      "table_last_altered_utc": "2026-10-14T18:05:34Z",
+      "table_comment": "Monthly lead-cohort mart. Grain: one row per COHORT_MONTH x CHANNEL, all 36 months x 5 channels = 180 rows, zeros where no leads were created. LEAD-COHORT basis: the leads created in COHORT_MONTH and what they later did (conversions are counted in the month their lead was created, wherever they landed). Never blend with MART_MONTHLY_MARKETING (activity basis) on one date axis. Cohort conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS); mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS); cross-month share = SUM(CONVERTED_LATER_MONTH) / SUM(CONVERTED_LEADS). Additive bases only. Built by dbt (models/marts/mart_monthly_cohort.sql, ported from sql/02c_analysis_marts.sql).",
+      "checksums": {
+        "rows": 180,
+        "hash_agg": "4004764949054026918",
+        "sums": {
+          "LEADS": "261684",
+          "CONVERTED_LEADS": "39696",
+          "TRIALS": "23005",
+          "PURCHASES": "16691",
+          "REVENUE": "21561839.01",
+          "CONVERTED_SAME_MONTH": "26021",
+          "CONVERTED_LATER_MONTH": "13675",
+          "SUM_DAYS_TO_CONVERT": "417029",
+          "MATURE_LEADS": "261684"
+        },
+        "null_counts": {
+          "COHORT_MONTH": 0,
+          "CHANNEL": 0,
+          "LEADS": 0,
+          "CONVERTED_LEADS": 0,
+          "TRIALS": 0,
+          "PURCHASES": 0,
+          "REVENUE": 0,
+          "CONVERTED_SAME_MONTH": 0,
+          "CONVERTED_LATER_MONTH": 0,
+          "SUM_DAYS_TO_CONVERT": 0,
+          "MATURE_LEADS": 0
+        }
+      }
+    },
+    {
+      "table": "MART_CONVERSION_FUNNEL",
+      "source_object": "MARKETING_CRM.MART.MART_CONVERSION_FUNNEL",
+      "csv": "MART_CONVERSION_FUNNEL.csv",
+      "sheet": "MART_CONVERSION_FUNNEL",
+      "rows": 25,
+      "columns": [
+        {
+          "name": "CHANNEL",
+          "type": "TEXT"
+        },
+        {
+          "name": "STAGE_ORDER",
+          "type": "NUMBER(1,0)"
+        },
+        {
+          "name": "STAGE",
+          "type": "TEXT"
+        },
+        {
+          "name": "STAGE_VALUE",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "PREV_STAGE_VALUE",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "TOP_OF_FUNNEL_VALUE",
+          "type": "NUMBER(38,0)"
+        }
+      ],
+      "order_by": [
+        "CHANNEL",
+        "STAGE_ORDER"
+      ],
+      "grain": "one row per channel x funnel stage (5 x 5)",
+      "basis": "full range; aggregate campaign funnel, STAGE_VALUE adds up across channels within a stage only",
+      "sha256": "188f282e69de3f732ba72100a648b1fa27f3f8365339c83ed129521e24d72173",
+      "csv_bytes": 1162,
+      "snowflake_query_id": "01c7bb06-0308-fca1-0011-d13200026e12",
+      "checksum_query_id": "01c7bb06-0308-fca2-0011-d1320002948a",
+      "exported_at_utc": "2026-10-14T19:18:06Z",
+      "table_last_altered_utc": "2026-10-14T18:47:05Z",
+      "table_comment": "Conversion funnel in long format for the dashboard funnel chart. Grain: one row per CHANNEL x STAGE_ORDER, 5 channels x 5 stages (1 Impressions, 2 Clicks, 3 Leads, 4 Converted leads, 5 Purchases) = 25 rows, full range 2023-01-01..2025-12-31, no date dimension. Built from MART_CHANNEL_PERFORMANCE, so each stage adds up to the known total over the 5 channels (impressions 436,844,819; clicks 7,102,319; leads 261,684; converted leads 39,696; purchases 16,691). Chart it with STAGE as the dimension (or a STAGE filter): STAGE_VALUE is additive across channels, never across stages (different units). PREV_STAGE_VALUE and TOP_OF_FUNNEL_VALUE are additive across channels too, so stage conversion = SUM(STAGE_VALUE) / SUM(PREV_STAGE_VALUE) and share of top of funnel = SUM(STAGE_VALUE) / SUM(TOP_OF_FUNNEL_VALUE) are correct at any channel filter. No ratio is stored and there is no 'ALL' channel row (it would double count every SUM). An aggregate campaign funnel, not a per-person journey: converted leads = trials + purchases (a lead converts at most once), and Purchases is the subset of converted leads that converted to a purchase, not a later step for the same person. Synthetic data. Built by dbt (models/marts/mart_conversion_funnel.sql, added in Phase 6; no hand-written SQL twin).",
+      "checksums": {
+        "rows": 25,
+        "hash_agg": "1010766107319002278",
+        "sums": {
+          "STAGE_ORDER": "75",
+          "STAGE_VALUE": "444265209",
+          "PREV_STAGE_VALUE": "444248518",
+          "TOP_OF_FUNNEL_VALUE": "2184224095"
+        },
+        "null_counts": {
+          "CHANNEL": 0,
+          "STAGE_ORDER": 0,
+          "STAGE": 0,
+          "STAGE_VALUE": 0,
+          "PREV_STAGE_VALUE": 5,
+          "TOP_OF_FUNNEL_VALUE": 0
+        }
+      }
+    },
+    {
+      "table": "MART_LEAD_QUALITY",
+      "source_object": "MARKETING_CRM.MART.MART_LEAD_QUALITY",
+      "csv": "MART_LEAD_QUALITY.csv",
+      "sheet": "MART_LEAD_QUALITY",
+      "rows": 50,
+      "columns": [
+        {
+          "name": "CHANNEL",
+          "type": "TEXT"
+        },
+        {
+          "name": "SCORE_BAND",
+          "type": "TEXT"
+        },
+        {
+          "name": "SCORE_BAND_MIN",
+          "type": "NUMBER(3,0)"
+        },
+        {
+          "name": "SCORE_BAND_MAX",
+          "type": "NUMBER(3,0)"
+        },
+        {
+          "name": "LEAD_SCORE_SEGMENT",
+          "type": "TEXT"
+        },
+        {
+          "name": "LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "SUM_LEAD_SCORE",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CONVERTED_LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "TRIALS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "PURCHASES",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "REVENUE",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "SUM_DAYS_TO_CONVERT",
+          "type": "NUMBER(38,0)"
+        }
+      ],
+      "order_by": [
+        "CHANNEL",
+        "SCORE_BAND"
+      ],
+      "grain": "one row per channel x 10-point lead-score band (5 x 10)",
+      "basis": "lead-cohort basis, full range, no date dimension; association only",
+      "sha256": "d389f72b6db31198ca02f659763d6ab0420af3aa92b0589d5379e8c3cb2afadd",
+      "csv_bytes": 3464,
+      "snowflake_query_id": "01c7bb06-0308-fca2-0011-d1320002948e",
+      "checksum_query_id": "01c7bb06-0308-fca1-0011-d13200026e16",
+      "exported_at_utc": "2026-10-14T19:18:07Z",
+      "table_last_altered_utc": "2026-10-14T18:05:34Z",
+      "table_comment": "Lead quality mart. Grain: one row per CHANNEL x SCORE_BAND, 5 channels x 10 bands of 10 score points (01-10 .. 91-100) = 50 rows. Bands align with the segments Low 1-40 / Medium 41-70 / High 71-100 (LEAD_SCORE_SEGMENT), so the table rolls up to segment, band or channel with SUM. Conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS); average score = SUM(SUM_LEAD_SCORE) / SUM(LEADS); mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS). Association only: how the score is produced is undocumented, and it is not assumed to predict conversion. Built by dbt (models/marts/mart_lead_quality.sql, ported from sql/02c_analysis_marts.sql).",
+      "checksums": {
+        "rows": 50,
+        "hash_agg": "-6407495699444632072",
+        "sums": {
+          "SCORE_BAND_MIN": "2300",
+          "SCORE_BAND_MAX": "2750",
+          "LEADS": "261684",
+          "SUM_LEAD_SCORE": "13233637",
+          "CONVERTED_LEADS": "39696",
+          "TRIALS": "23005",
+          "PURCHASES": "16691",
+          "REVENUE": "21561839.01",
+          "SUM_DAYS_TO_CONVERT": "417029"
+        },
+        "null_counts": {
+          "CHANNEL": 0,
+          "SCORE_BAND": 0,
+          "SCORE_BAND_MIN": 0,
+          "SCORE_BAND_MAX": 0,
+          "LEAD_SCORE_SEGMENT": 0,
+          "LEADS": 0,
+          "SUM_LEAD_SCORE": 0,
+          "CONVERTED_LEADS": 0,
+          "TRIALS": 0,
+          "PURCHASES": 0,
+          "REVENUE": 0,
+          "SUM_DAYS_TO_CONVERT": 0
+        }
+      }
+    },
+    {
+      "table": "FCT_CAMPAIGN_DAILY_ACTIVITY",
+      "source_object": "MARKETING_CRM.MART.FCT_CAMPAIGN_DAILY_ACTIVITY",
+      "csv": "FCT_CAMPAIGN_DAILY_ACTIVITY.csv",
+      "sheet": "FCT_CAMPAIGN_DAILY_ACTIVITY",
+      "rows": 13760,
+      "columns": [
+        {
+          "name": "CAMPAIGN_ID",
+          "type": "TEXT"
+        },
+        {
+          "name": "ACTIVITY_DATE",
+          "type": "DATE"
+        },
+        {
+          "name": "ACTIVITY_MONTH",
+          "type": "DATE"
+        },
+        {
+          "name": "CHANNEL",
+          "type": "TEXT"
+        },
+        {
+          "name": "OBJECTIVE",
+          "type": "TEXT"
+        },
+        {
+          "name": "IS_IN_FLIGHT",
+          "type": "NUMBER(1,0)"
+        },
+        {
+          "name": "IMPRESSIONS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CLICKS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "SPEND",
+          "type": "NUMBER(18,2)"
+        },
+        {
+          "name": "BUDGET_PRORATED",
+          "type": "NUMBER(18,6)"
+        },
+        {
+          "name": "LEADS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "CONVERSIONS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "TRIALS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "PURCHASES",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "REVENUE",
+          "type": "NUMBER(18,2)"
+        }
+      ],
+      "order_by": [
+        "CAMPAIGN_ID",
+        "ACTIVITY_DATE"
+      ],
+      "grain": "one row per campaign x day, START_DATE to END_DATE + 21 days",
+      "basis": "activity basis: ACTIVITY_DATE / ACTIVITY_MONTH; never divide CONVERSIONS by LEADS",
+      "sha256": "e35f7a8cc55bde948127f08a3402fa96df2a8b347643b9c2ba2833c445590580",
+      "csv_bytes": 1284062,
+      "snowflake_query_id": "01c7bb06-0308-fca0-0011-d1320002a226",
+      "checksum_query_id": "01c7bb06-0308-fca2-0011-d13200029492",
+      "exported_at_utc": "2026-10-14T19:18:07Z",
+      "table_last_altered_utc": "2026-10-14T18:05:36Z",
+      "table_comment": "Activity fact. Grain: one row per CAMPAIGN_ID x ACTIVITY_DATE on a spine from START_DATE to END_DATE + 21 days (the observed maximum lag), clipped at 2025-12-31 (13,760 rows: 11,240 flight days + 120 x 21 post-flight days). Delivery and budget by spend date, leads by created date, conversions and revenue by converted date: each aggregated to campaign x date first, then joined 1:1 to the spine. IS_IN_FLIGHT = 0 rows carry the 4,716 conversions after a campaign ended, and 0 spend. Activity basis: never divide CONVERSIONS by LEADS here (use MART_MONTHLY_COHORT for conversion rates). Ratios as SUM / SUM. Built by dbt (models/marts/fct_campaign_daily_activity.sql, ported from sql/02c_analysis_marts.sql).",
+      "checksums": {
+        "rows": 13760,
+        "hash_agg": "-6430133930449104346",
+        "sums": {
+          "IS_IN_FLIGHT": "11240",
+          "IMPRESSIONS": "436844819",
+          "CLICKS": "7102319",
+          "SPEND": "4523050.02",
+          "BUDGET_PRORATED": "5418642.159820",
+          "LEADS": "261684",
+          "CONVERSIONS": "39696",
+          "TRIALS": "23005",
+          "PURCHASES": "16691",
+          "REVENUE": "21561839.01"
+        },
+        "null_counts": {
+          "CAMPAIGN_ID": 0,
+          "ACTIVITY_DATE": 0,
+          "ACTIVITY_MONTH": 0,
+          "CHANNEL": 0,
+          "OBJECTIVE": 0,
+          "IS_IN_FLIGHT": 0,
+          "IMPRESSIONS": 0,
+          "CLICKS": 0,
+          "SPEND": 0,
+          "BUDGET_PRORATED": 0,
+          "LEADS": 0,
+          "CONVERSIONS": 0,
+          "TRIALS": 0,
+          "PURCHASES": 0,
+          "REVENUE": 0
+        }
+      }
+    },
+    {
+      "table": "DIM_CAMPAIGN",
+      "source_object": "MARKETING_CRM.MART.DIM_CAMPAIGN",
+      "csv": "DIM_CAMPAIGN.csv",
+      "sheet": "DIM_CAMPAIGN",
+      "rows": 120,
+      "columns": [
+        {
+          "name": "CAMPAIGN_ID",
+          "type": "TEXT"
+        },
+        {
+          "name": "CAMPAIGN_NAME",
+          "type": "TEXT"
+        },
+        {
+          "name": "CHANNEL",
+          "type": "TEXT"
+        },
+        {
+          "name": "OBJECTIVE",
+          "type": "TEXT"
+        },
+        {
+          "name": "START_DATE",
+          "type": "DATE"
+        },
+        {
+          "name": "END_DATE",
+          "type": "DATE"
+        },
+        {
+          "name": "CAMPAIGN_DAYS",
+          "type": "NUMBER(38,0)"
+        },
+        {
+          "name": "BUDGET",
+          "type": "NUMBER(12,2)"
+        },
+        {
+          "name": "START_YEAR",
+          "type": "NUMBER(4,0)"
+        },
+        {
+          "name": "START_MONTH",
+          "type": "DATE"
+        }
+      ],
+      "order_by": [
+        "CAMPAIGN_ID"
+      ],
+      "grain": "one row per campaign",
+      "basis": "campaign attributes (names, channel, objective, window, budget) for filters",
+      "sha256": "2e5e57ad0d5417acfb4ff2e55d9b444643e9ac80cb2aa275823b888841b63a31",
+      "csv_bytes": 11733,
+      "snowflake_query_id": "01c7bb06-0308-fca1-0011-d13200026e1a",
+      "checksum_query_id": "01c7bb06-0308-fca0-0011-d1320002a22a",
+      "exported_at_utc": "2026-10-14T19:18:08Z",
+      "table_last_altered_utc": "2026-10-14T18:05:26Z",
+      "table_comment": "Campaign dimension. Grain: one row per CAMPAIGN_ID (120 rows). Source: STAGING.STG_CAMPAIGNS (clean release). CHANNEL here is the canonical channel dimension. BUDGET is per campaign window: additive across campaigns, not across dates. Built by dbt (models/marts/dim_campaign.sql, ported from sql/02b_core_models.sql).",
+      "checksums": {
+        "rows": 120,
+        "hash_agg": "-1104996342875633986",
+        "sums": {
+          "CAMPAIGN_DAYS": "11240",
+          "BUDGET": "5418642.16",
+          "START_YEAR": "242854"
+        },
+        "null_counts": {
+          "CAMPAIGN_ID": 0,
+          "CAMPAIGN_NAME": 0,
+          "CHANNEL": 0,
+          "OBJECTIVE": 0,
+          "START_DATE": 0,
+          "END_DATE": 0,
+          "CAMPAIGN_DAYS": 0,
+          "BUDGET": 0,
+          "START_YEAR": 0,
+          "START_MONTH": 0
+        }
+      }
+    }
+  ]
+}

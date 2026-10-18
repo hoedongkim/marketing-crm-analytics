@@ -1,0 +1,83 @@
+# Seeds: independent expected values, loaded into MARKETING_CRM.STAGING by `dbt build`.
+# They are test inputs only: no model reads them, and CRM_REPORTER (Data Studio) cannot see
+# STAGING. Two are generated, one is typed in:
+#   expected_campaign_kpi, expected_totals   python3 scripts/independent_check.py (csv + decimal
+#                                            from data/raw/source/*.csv, no Snowflake);
+#                                            `--check` regenerates them and fails on any diff
+#   publisher_channel_reference              typed in by hand from the publisher's dataset page
+
+seeds:
+  - name: expected_campaign_kpi
+    description: >-
+      Independent expected values, one row per campaign (120 rows): the campaign attributes and
+      the 9 funnel bases, each fact aggregated to the campaign on its own, computed with Python
+      csv + decimal from the published CSV files by scripts/independent_check.py (no Snowflake,
+      no SQL under test). Identical to the Phase 2 local baseline of 2026-10-13. Test input of
+      tests/marts/assert_campaign_kpi_equals_independent_seed.sql (the bases) and
+      tests/marts/assert_campaign_attributes_match_independent_seed.sql (channel and objective of
+      the dimension and of every fact row).
+    columns:
+      - name: campaign_id
+        description: "Campaign key."
+        data_tests: [unique, not_null]
+      - name: channel
+        description: "Channel from campaigns.csv."
+      - name: objective
+        description: "Objective from campaigns.csv."
+      - name: budget
+        description: "Budget from campaigns.csv."
+      - name: spend_days
+        description: "Number of daily_spend.csv rows of the campaign."
+      - name: spend
+        description: "Sum of daily_spend.csv spend (exact, 2 dp)."
+      - name: impressions
+        description: "Sum of daily_spend.csv impressions."
+      - name: clicks
+        description: "Sum of daily_spend.csv clicks."
+      - name: leads
+        description: "Number of leads.csv rows of the campaign."
+      - name: converted_leads
+        description: "Number of conversions.csv rows whose lead belongs to the campaign."
+      - name: trials
+        description: "Those conversions of type trial."
+      - name: purchases
+        description: "Those conversions of type purchase."
+      - name: revenue
+        description: "Sum of their revenue (exact, 2 dp)."
+
+  - name: expected_totals
+    description: >-
+      Independent expected values, one row per metric (29 rows): control totals (spend
+      4,523,050.02, revenue 21,561,839.01, ...), the time counts (4,716 conversions after their
+      campaign ended, 13,675 in a later month than their lead, the 13,760-row activity spine,
+      261,684 leads mature at the assumed as-of date), the lead score segment sizes and the
+      calendar (1,096 days, 313 weekend days), computed by
+      scripts/independent_check.py with Python csv + decimal and datetime (the metric list and
+      what each counts: METRIC_NOTES in that script). Test input of the singular tests in
+      tests/marts/ and tests/staging/.
+    columns:
+      - name: metric
+        description: "Metric name, e.g. spend, converted_leads, conversions_after_campaign_end."
+        data_tests: [unique, not_null]
+      - name: value
+        description: "Exact value (NUMBER(38,6)); counts are whole numbers."
+        data_tests: [not_null]
+
+  - name: publisher_channel_reference
+    description: >-
+      The publisher's own reference output, typed in by hand (NOT computed here): spend and
+      attributed revenue by channel as printed in the "What you can build / Finished output from
+      this release" table of the dataset page
+      https://www.analyticsengineering.com/datasets/marketing-campaigns (Marketing Campaigns &
+      Conversions Dataset v1.0.0, read 2026-10-13; the page prints display spend as 955297).
+      It is the outside check of the whole path from the published files to MART:
+      tests/marts/assert_channel_rollup_equals_publisher_reference.sql, and
+      scripts/independent_check.py compares it with the CSV files.
+    columns:
+      - name: channel
+        description: "Channel."
+        data_tests: [unique, not_null]
+      - name: spend
+        description: "Spend of the channel as published."
+      - name: attributed_revenue
+        description: "Last-touch attributed revenue of the channel as published."

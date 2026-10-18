@@ -1,0 +1,23 @@
+# Python is auxiliary in this project: it only uploads the CSVs, checks connections,
+# runs dbt and exports the finished MART tables. All KPI logic lives in Snowflake SQL. Install with `make setup`
+# (Python 3.10-3.13; dbt-snowflake 1.12 does not declare 3.14).
+
+# Snowflake driver for the loader and the connection check. 4.8.0 is the current
+# stable release (2026-09-30). Stay below 5: 5.0 is still a release candidate
+# (Rust core) and cannot be installed alongside other Snowflake libraries yet.
+snowflake-connector-python>=4.8,<5
+
+# Reads the repo-root .env (account, users, key paths) into the scripts.
+python-dotenv>=1.0,<2
+
+# dbt Core v1 (Phase 5). Pin explicitly: `pip install dbt` now installs dbt v2
+# (Fusion, a different Rust distribution that does not use the dbt-snowflake
+# adapter), and dbt-core 2.0 pre-releases exist on PyPI. ~=1.12.5 means >=1.12.5,<1.13.
+dbt-core~=1.12.5
+# Snowflake adapter for dbt Core 1.12 (requires dbt-core <2.0 and connector >=4.2,<5).
+dbt-snowflake~=1.12.2
+
+# Phase 6: writes exports/marketing_crm_dashboard_snapshot.xlsx (typed cells, one sheet per MART
+# table) for the Google Sheets snapshot of the dashboard (scripts/export_marts.py). 3.1.5 is the
+# current release; ~=3.1.5 means >=3.1.5,<3.2.
+openpyxl~=3.1.5

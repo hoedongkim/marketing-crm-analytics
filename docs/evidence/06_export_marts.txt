@@ -1,0 +1,11 @@
+INFO  connected as SVC_CRM_BI / CRM_REPORTER (warehouse MARKETING_WH, database MARKETING_CRM), the Data Studio connector's identity
+PASS  MART_CHANNEL_PERFORMANCE: 5 rows x 27 columns fetched; row count, 26 column sums and NULL counts equal a second query (data 01c7bb06-0308-fca0-0011-d1320002a216, checksums 01c7bb06-0308-fca0-0011-d1320002a21a)
+PASS  MART_CAMPAIGN_PERFORMANCE: 120 rows x 28 columns fetched; row count, 21 column sums and NULL counts equal a second query (data 01c7bb06-0308-fca1-0011-d13200026e0a, checksums 01c7bb06-0308-fca2-0011-d13200029482)
+PASS  MART_MONTHLY_MARKETING: 180 rows x 12 columns fetched; row count, 10 column sums and NULL counts equal a second query (data 01c7bb06-0308-fca2-0011-d13200029486, checksums 01c7bb06-0308-fca1-0011-d13200026e0e)
+PASS  MART_MONTHLY_COHORT: 180 rows x 11 columns fetched; row count, 9 column sums and NULL counts equal a second query (data 01c7bb06-0308-fca0-0011-d1320002a21e, checksums 01c7bb06-0308-fca0-0011-d1320002a222)
+PASS  MART_CONVERSION_FUNNEL: 25 rows x 6 columns fetched; row count, 4 column sums and NULL counts equal a second query (data 01c7bb06-0308-fca1-0011-d13200026e12, checksums 01c7bb06-0308-fca2-0011-d1320002948a)
+PASS  MART_LEAD_QUALITY: 50 rows x 12 columns fetched; row count, 9 column sums and NULL counts equal a second query (data 01c7bb06-0308-fca2-0011-d1320002948e, checksums 01c7bb06-0308-fca1-0011-d13200026e16)
+PASS  FCT_CAMPAIGN_DAILY_ACTIVITY: 13760 rows x 15 columns fetched; row count, 10 column sums and NULL counts equal a second query (data 01c7bb06-0308-fca0-0011-d1320002a226, checksums 01c7bb06-0308-fca2-0011-d13200029492)
+PASS  DIM_CAMPAIGN: 120 rows x 10 columns fetched; row count, 3 column sums and NULL counts equal a second query (data 01c7bb06-0308-fca1-0011-d13200026e1a, checksums 01c7bb06-0308-fca0-0011-d1320002a22a)
+INFO  verifying the new files before they replace the old ones
+PASS  wrote 8 CSVs (14440 rows), marketing_crm_dashboard_snapshot.xlsx (9 sheets) and manifest.json to exports/ (exported 2026-10-14T19:18:06Z)

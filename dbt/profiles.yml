@@ -1,0 +1,35 @@
+# dbt connection profile (committed: it holds no secrets, only env_var() lookups).
+#
+# Every connection setting comes from the environment. dbt 1.12 loads the repository-root .env
+# when it runs from the repository root (see dbt_project.yml), and variables already set in
+# the shell win. The variables are the ones the Python tooling uses (.env.example):
+#   SNOWFLAKE_ACCOUNT                 org-account identifier, without .snowflakecomputing.com
+#   SNOWFLAKE_USER                    SVC_CRM_PIPELINE (TYPE = SERVICE, key pair only)
+#   SNOWFLAKE_PRIVATE_KEY_PATH        ABSOLUTE path to the private key (dbt does not expand ~)
+#   SNOWFLAKE_PRIVATE_KEY_PASSPHRASE  empty for an unencrypted key
+#   SNOWFLAKE_TRANSFORMER_ROLE        CRM_TRANSFORMER: reads RAW, creates views and tables in
+#                                     STAGING and MART; cannot create schemas or functions
+#   SNOWFLAKE_WAREHOUSE, SNOWFLAKE_DATABASE
+#
+# One target, `prod`: it writes the live STAGING and MART schemas that Data Studio reads (there is
+# no development copy; see macros/generate_schema_name.sql for the tradeoff and --select).
+marketing_crm:
+  target: prod
+  outputs:
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE', '') }}"
+      role: "{{ env_var('SNOWFLAKE_TRANSFORMER_ROLE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+      # Fallback only: every model and seed sets its schema (STAGING or MART), and
+      # macros/generate_schema_name.sql uses that name exactly.
+      schema: STAGING
+      threads: 4
+      query_tag: "marketing-crm:dbt"
+      client_session_keep_alive: false
+      connect_retries: 2
+      connect_timeout: 30

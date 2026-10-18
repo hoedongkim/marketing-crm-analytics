@@ -1,0 +1,272 @@
+Running 04_conversion_funnel.sql (19 statements) as SVC_CRM_PIPELINE / CRM_TRANSFORMER
+[ 1] USE ROLE CRM_TRANSFORMER;
+     Statement executed successfully.
+[ 2] USE SECONDARY ROLES NONE;
+     Statement executed successfully.
+[ 3] USE WAREHOUSE MARKETING_WH;
+     Statement executed successfully.
+[ 4] USE SCHEMA MARKETING_CRM.MART;
+     Statement executed successfully.
+[ 5] SELECT CURRENT_USER() AS USER_NAME, CURRENT_ROLE() AS ROLE_NAME, CURRENT_SECONDARY_ROLES() AS SEC...
+     USER_NAME         ROLE_NAME        SECONDARY_ROLES          WAREHOUSE_NAME  SCHEMA_NAME         RUN_AT                STATUS
+     SVC_CRM_PIPELINE  CRM_TRANSFORMER  {"roles":"","value":""}  MARKETING_WH    MARKETING_CRM.MART  2026-10-14 08:58 UTC  PASS  
+[ 6] WITH funnel_events (CHANNEL, STAGE, UNITS) AS (
+     CHANNEL      IMPRESSIONS  CLICKS   LEADS   CONVERTED_LEADS  PURCHASES  CTR       CLICK_TO_LEAD_RATE  LEAD_CONVERSION_RATE  PURCHASE_SHARE  BIGGEST_DROP_STEP      BIGGEST_DROP  EQUALS_CHANNEL_MART  STATUS
+     paid_search  49837405     1740314  65268   10019            4204       0.034920  0.037504            0.153506              0.419603        impressions -> clicks  0.965080      yes                  PASS  
+     affiliate    95314042     2386856  67849   10352            4332       0.025042  0.028426            0.152574              0.418470        impressions -> clicks  0.974958      yes                  PASS  
+     video        55205469     492490   25799   3933             1638       0.008921  0.052385            0.152448              0.416476        impressions -> clicks  0.991079      yes                  PASS  
+     paid_social  89520215     1602785  57619   8648             3646       0.017904  0.035949            0.150089              0.421600        impressions -> clicks  0.982096      yes                  PASS  
+     display      146967688    879874   45149   6744             2871       0.005987  0.051313            0.149372              0.425712        impressions -> clicks  0.994013      yes                  PASS  
+     TOTAL        436844819    7102319  261684  39696            16691      0.016258  0.036845            0.151694              0.420471        impressions -> clicks  0.983742      n/a                  PASS  
+[ 7] WITH stage_rows (CHANNEL, STAGE_NO, STAGE, UNITS) AS (
+     CHANNEL      STAGE_NO  STAGE            UNITS      STEP                          PASS_THROUGH_RATE  RELATIVE_DROP  BIGGEST_DROP  STATUS
+     affiliate    1         impressions      95314042   NULL                          NULL               NULL                         PASS  
+     affiliate    2         clicks           2386856    impressions -> clicks         0.025042           0.974958       yes           PASS  
+     affiliate    3         leads            67849      clicks -> leads               0.028426           0.971574                     PASS  
+     affiliate    4         converted leads  10352      leads -> converted leads      0.152574           0.847426                     PASS  
+     affiliate    5         purchases        4332       converted leads -> purchases  0.418470           0.581530                     PASS  
+     display      1         impressions      146967688  NULL                          NULL               NULL                         PASS  
+     display      2         clicks           879874     impressions -> clicks         0.005987           0.994013       yes           PASS  
+     display      3         leads            45149      clicks -> leads               0.051313           0.948687                     PASS  
+     display      4         converted leads  6744       leads -> converted leads      0.149372           0.850628                     PASS  
+     display      5         purchases        2871       converted leads -> purchases  0.425712           0.574288                     PASS  
+     paid_search  1         impressions      49837405   NULL                          NULL               NULL                         PASS  
+     paid_search  2         clicks           1740314    impressions -> clicks         0.034920           0.965080       yes           PASS  
+     paid_search  3         leads            65268      clicks -> leads               0.037504           0.962496                     PASS  
+     paid_search  4         converted leads  10019      leads -> converted leads      0.153506           0.846494                     PASS  
+     paid_search  5         purchases        4204       converted leads -> purchases  0.419603           0.580397                     PASS  
+     paid_social  1         impressions      89520215   NULL                          NULL               NULL                         PASS  
+     paid_social  2         clicks           1602785    impressions -> clicks         0.017904           0.982096       yes           PASS  
+     paid_social  3         leads            57619      clicks -> leads               0.035949           0.964051                     PASS  
+     paid_social  4         converted leads  8648       leads -> converted leads      0.150089           0.849911                     PASS  
+     paid_social  5         purchases        3646       converted leads -> purchases  0.421600           0.578400                     PASS  
+     video        1         impressions      55205469   NULL                          NULL               NULL                         PASS  
+     video        2         clicks           492490     impressions -> clicks         0.008921           0.991079       yes           PASS  
+     video        3         leads            25799      clicks -> leads               0.052385           0.947615                     PASS  
+     video        4         converted leads  3933       leads -> converted leads      0.152448           0.847552                     PASS  
+     video        5         purchases        1638       converted leads -> purchases  0.416476           0.583524                     PASS  
+     TOTAL        1         impressions      436844819  NULL                          NULL               NULL                         PASS  
+     TOTAL        2         clicks           7102319    impressions -> clicks         0.016258           0.983742       yes           PASS  
+     TOTAL        3         leads            261684     clicks -> leads               0.036845           0.963155                     PASS  
+     TOTAL        4         converted leads  39696      leads -> converted leads      0.151694           0.848306                     PASS  
+     TOTAL        5         purchases        16691      converted leads -> purchases  0.420471           0.579529                     PASS  
+[ 8] WITH lead_outcomes AS (
+     CHANNEL      RANK_BY_RATE  LEADS   CONVERTED_LEADS  LEAD_CONVERSION_RATE  LCR_CI_LOW  LCR_CI_HIGH  EXPECTED_CONVERTED  CHI_SQUARE_CONTRIBUTION  JOINED_ROWS  EQUALS_CHANNEL_MART  STATUS
+     paid_search  1             65268   10019            0.153506              0.150760    0.156291     9900.790755         1.663722                 65268        yes                  PASS  
+     affiliate    2             67849   10352            0.152574              0.149888    0.155299     10292.314028        0.408018                 67849        yes                  PASS  
+     video        3             25799   3933             0.152448              0.148113    0.156886     3913.564085         0.113785                 25799        yes                  PASS  
+     paid_social  4             57619   8648             0.150089              0.147196    0.153029     8740.480213         1.153480                 57619        yes                  PASS  
+     display      5             45149   6744             0.149372              0.146114    0.152690     6848.850919         1.892232                 45149        yes                  PASS  
+     TOTAL        NULL          261684  39696            0.151694              0.150325    0.153074     39696.000000        5.231237                 261684       n/a                  PASS  
+[ 9] WITH observed (CHANNEL, OUTCOME, OBSERVED) AS (
+     ITEM                                    ACTUAL         EXPECTED       STATUS  READING                                 
+     cells (5 channels x 2 outcomes)         10.000000      10.000000      PASS    each lead sits in exactly one cell      
+     leads in the table (N)                  261684.000000  261684.000000  PASS    the 261,684 leads of 2.1                
+     smallest expected cell count            3913.564085    3913.564085    PASS    video x converted; the test needs E >= 5
+     chi-square statistic, SUM((O-E)^2 / E)  5.231237       5.231237       PASS    = TOTAL row of 2.1, last column         
+     degrees of freedom, (5-1) x (2-1)       4.000000       4.000000       PASS    critical value at alpha 0.05: 9.487729  
+     p-value, EXP(-x/2)(1 + x/2) for df 4    0.264383       0.264383       PASS    P(spread this large | equal rates)      
+     Cramer's V, SQRT(statistic / N)         0.004471       0.004471       PASS    association: 0 = none, 1 = complete     
+     reject independence at 0.05? (1 = yes)  0.000000       0.000000       PASS    NO: 5.231237 < 9.487729: within noise   
+[10] WITH lead_outcomes AS (
+     CHANNEL      OBJECTIVE    CAMPAIGNS  LEADS  CONVERTED_LEADS  LEAD_CONVERSION_RATE  LCR_CI_LOW  LCR_CI_HIGH  CHANNEL_RATE  CHI_SQUARE_IN_CHANNEL  DF  P_VALUE   DIFFERS_AT_05  STATUS
+     affiliate    acquisition  8          24573  3791             0.154275              0.149813    0.158845     0.152574      0.958212               2   0.619337  no             PASS  
+     affiliate    awareness    11         28686  4360             0.151991              0.147883    0.156192     0.152574      0.958212               2   0.619337  no             PASS  
+     affiliate    lead_gen     5          14590  2201             0.150857              0.145141    0.156756     0.152574      0.958212               2   0.619337  no             PASS  
+     display      acquisition  3          2842   421              0.148135              0.135550    0.161670     0.149372      0.267347               2   0.874876  no             PASS  
+     display      awareness    4          10956  1622             0.148047              0.141520    0.154820     0.149372      0.267347               2   0.874876  no             PASS  
+     display      lead_gen     17         31351  4701             0.149947              0.146038    0.153942     0.149372      0.267347               2   0.874876  no             PASS  
+     paid_search  acquisition  9          26662  4121             0.154565              0.150275    0.158953     0.153506      0.524872               2   0.769176  no             PASS  
+     paid_search  awareness    7          17922  2725             0.152048              0.146865    0.157379     0.153506      0.524872               2   0.769176  no             PASS  
+     paid_search  lead_gen     8          20684  3173             0.153404              0.148557    0.158379     0.153506      0.524872               2   0.769176  no             PASS  
+     paid_social  acquisition  7          13040  1956             0.150000              0.143974    0.156232     0.150089      0.001199               2   0.999400  no             PASS  
+     paid_social  awareness    10         26356  3956             0.150099              0.145838    0.154462     0.150089      0.001199               2   0.999400  no             PASS  
+     paid_social  lead_gen     7          18223  2736             0.150140              0.145027    0.155400     0.150089      0.001199               2   0.999400  no             PASS  
+     video        acquisition  8          7177   1103             0.153685              0.145527    0.162214     0.152448      0.118209               2   0.942608  no             PASS  
+     video        awareness    12         11677  1775             0.152008              0.145611    0.158635     0.152448      0.118209               2   0.942608  no             PASS  
+     video        lead_gen     4          6945   1055             0.151908              0.143659    0.160542     0.152448      0.118209               2   0.942608  no             PASS  
+[11] WITH by_campaign AS (
+     RANKING     RANK_IN_LIST  CAMPAIGN_ID  CAMPAIGN_NAME         CHANNEL      OBJECTIVE    LEADS  CONVERTED_LEADS  LEAD_CONVERSION_RATE  LCR_CI_LOW  LCR_CI_HIGH  CI_CONTAINS_POOLED_RATE  STATUS
+     highest 10  1             CMP0054      Video 2024 054        video        awareness    459    86               0.187364              0.154315    0.225602     NO                       PASS  
+     highest 10  2             CMP0029      Video 2024 029        video        awareness    1142   201              0.176007              0.155016    0.199170     NO                       PASS  
+     highest 10  3             CMP0030      Affiliate 2024 030    affiliate    acquisition  2205   366              0.165986              0.151040    0.182094     yes                      PASS  
+     highest 10  4             CMP0086      Paid Search 2023 086  paid_search  awareness    1277   211              0.165231              0.145871    0.186599     yes                      PASS  
+     highest 10  5             CMP0058      Display 2023 058      display      lead_gen     1246   203              0.162921              0.143458    0.184457     yes                      PASS  
+     highest 10  6             CMP0115      Affiliate 2025 115    affiliate    lead_gen     1925   313              0.162597              0.146788    0.179750     yes                      PASS  
+     highest 10  7             CMP0061      Paid Search 2023 061  paid_search  lead_gen     4239   688              0.162302              0.151509    0.173707     yes                      PASS  
+     highest 10  8             CMP0002      Paid Social 2023 002  paid_social  awareness    1849   300              0.162250              0.146148    0.179752     yes                      PASS  
+     highest 10  9             CMP0028      Display 2023 028      display      lead_gen     272    44               0.161765              0.122765    0.210185     yes                      PASS  
+     highest 10  10            CMP0026      Paid Search 2025 026  paid_search  acquisition  3653   590              0.161511              0.149934    0.173799     yes                      PASS  
+     lowest 10   1             CMP0084      Video 2023 084        video        awareness    145    14               0.096552              0.058387    0.155541     yes                      PASS  
+     lowest 10   2             CMP0074      Video 2023 074        video        awareness    934    119              0.127409              0.107541    0.150329     NO                       PASS  
+     lowest 10   3             CMP0034      Video 2024 034        video        awareness    1044   140              0.134100              0.114765    0.156117     yes                      PASS  
+     lowest 10   4             CMP0083      Display 2025 083      display      lead_gen     2404   329              0.136855              0.123694    0.151175     NO                       PASS  
+     lowest 10   5             CMP0068      Display 2025 068      display      lead_gen     2854   396              0.138753              0.126555    0.151922     yes                      PASS  
+     lowest 10   6             CMP0007      Paid Social 2024 007  paid_social  acquisition  1699   237              0.139494              0.123831    0.156783     yes                      PASS  
+     lowest 10   7             CMP0108      Display 2023 108      display      awareness    2461   344              0.139781              0.126641    0.154043     yes                      PASS  
+     lowest 10   8             CMP0098      Display 2024 098      display      lead_gen     1619   227              0.140210              0.124148    0.157976     yes                      PASS  
+     lowest 10   9             CMP0032      Paid Social 2024 032  paid_social  acquisition  2300   323              0.140435              0.126834    0.155234     yes                      PASS  
+     lowest 10   10            CMP0042      Paid Social 2023 042  paid_social  lead_gen     1785   251              0.140616              0.125260    0.157516     yes                      PASS  
+[12] WITH by_campaign AS (
+     CHECK_NAME                               ACTUAL       EXPECTED     STATUS
+     campaigns                                120.000000   120.000000   PASS  
+     rates = MART_CAMPAIGN_PERFORMANCE        120.000000   120.000000   PASS  
+     lowest rate (CMP0084, 145 leads)         0.096552     0.096552     PASS  
+     highest rate (CMP0054, 459 leads)        0.187364     0.187364     PASS  
+     fewest leads of a campaign               145.000000   145.000000   PASS  
+     most leads of a campaign                 5104.000000  5104.000000  PASS  
+     smallest expected conversions (>= 5)     21.995689    21.995689    PASS  
+     CIs excluding pooled rate (chance: ~6)   4.000000     4.000000     PASS  
+     chi-square, 120 campaigns x 2 outcomes   98.971941    98.971941    PASS  
+     degrees of freedom, (120 - 1) x (2 - 1)  119.000000   119.000000   PASS  
+     reject at 0.05? (> 145.460740; 1 = yes)  0.000000     0.000000     PASS  
+[13] WITH spend_by_channel AS (
+     CHANNEL      SPEND       LEADS   CONVERTED_LEADS  TRIALS  PURCHASES  CPM      CPC     IMPRESSIONS_PER_LEAD  CLICKS_PER_LEAD  COST_PER_LEAD  COST_PER_CONVERSION  COST_PER_PURCHASE  RANK_CPC_CPL_CPP  EQUALS_CHANNEL_MART  STATUS
+     affiliate    857835.07   67849   10352            6020    4332       9.0001   0.3594  1404.7966             35.1789          12.6433        82.8666              198.0229           1/1/1             yes                  PASS  
+     paid_search  897091.53   65268   10019            5815    4204       18.0004  0.5155  763.5810              26.6641          13.7447        89.5390              213.3900           2/2/2             yes                  PASS  
+     paid_social  984731.88   57619   8648             5002    3646       11.0001  0.6144  1553.6579             27.8170          17.0904        113.8682             270.0855           3/3/3             yes                  PASS  
+     display      955297.00   45149   6744             3873    2871       6.5000   1.0857  3255.1704             19.4882          21.1588        141.6514             332.7402           4/4/4             yes                  PASS  
+     video        828094.54   25799   3933             2295    1638       15.0002  1.6814  2139.8298             19.0895          32.0979        210.5504             505.5522           5/5/5             yes                  PASS  
+     TOTAL        4523050.02  261684  39696            23005   16691      10.3539  0.6368  1669.3601             27.1408          17.2844        113.9422             270.9874           n/a               n/a                  PASS  
+[14] WITH leads_by_day AS (
+     CHECK_NAME                               ACTUAL          EXPECTED        STATUS
+     spend days (rows after the 1:1 join)     11240.000000    11240.000000    PASS  
+     SUM(SPEND) after the join (no fan-out)   4523050.020000  4523050.020000  PASS  
+     SUM(LEADS) after the join                261684.000000   261684.000000   PASS  
+     lowest daily spend                       37.140000       37.140000       PASS  
+     highest daily spend                      1478.360000     1478.360000     PASS  
+     spend days with 0 leads                  7.000000        7.000000        PASS  
+     ... of which DAILY_CPL is NULL (NULLIF)  7.000000        7.000000        PASS  
+     ... their spend                          303.340000      303.340000      PASS  
+     ... distinct campaigns among them        1.000000        1.000000        PASS  
+     ... of them in CMP0084                   7.000000        7.000000        PASS  
+     spend days with a defined daily CPL      11233.000000    11233.000000    PASS  
+     WRONG on purpose: AVG(daily CPL)         20.847900       20.847900       PASS  
+     cost per lead, SUM(SPEND) / SUM(LEADS)   17.284400       17.284400       PASS  
+     costs = MART_CAMPAIGN_PERFORMANCE        120.000000      120.000000      PASS  
+     fewest purchases of a campaign           7.000000        7.000000        PASS  
+     ... purchases of CMP0084                 7.000000        7.000000        PASS  
+     ... campaigns with <= 7 (only CMP0084)   1.000000        1.000000        PASS  
+[15] WITH spend_by_campaign AS (
+     RANKING            RANK_IN_LIST  CAMPAIGN_ID  CAMPAIGN_NAME         CHANNEL      OBJECTIVE    SPEND     LEADS  CONVERTED_LEADS  PURCHASES  COST_PER_LEAD  COST_PER_CONVERSION  COST_PER_PURCHASE  STATUS
+     cheapest 10        1             CMP0040      Affiliate 2023 040    affiliate    awareness    14920.90  2064   321              146        7.2291         46.4826              102.1979           PASS  
+     cheapest 10        2             CMP0070      Affiliate 2024 070    affiliate    awareness    17318.50  2587   381              167        6.6944         45.4554              103.7036           PASS  
+     cheapest 10        3             CMP0080      Affiliate 2024 080    affiliate    awareness    17904.18  2644   394              172        6.7716         45.4421              104.0941           PASS  
+     cheapest 10        4             CMP0095      Affiliate 2025 095    affiliate    acquisition  17881.69  2639   385              166        6.7759         46.4459              107.7210           PASS  
+     cheapest 10        5             CMP0035      Affiliate 2025 035    affiliate    awareness    15913.35  2218   341              142        7.1746         46.6667              112.0658           PASS  
+     cheapest 10        6             CMP0086      Paid Search 2023 086  paid_search  awareness    11691.91  1277   211              101        9.1558         55.4119              115.7615           PASS  
+     cheapest 10        7             CMP0050      Affiliate 2023 050    affiliate    awareness    35219.40  4086   659              299        8.6195         53.4437              117.7906           PASS  
+     cheapest 10        8             CMP0110      Affiliate 2025 110    affiliate    acquisition  30384.26  4123   640              257        7.3695         47.4754              118.2267           PASS  
+     cheapest 10        9             CMP0005      Affiliate 2024 005    affiliate    acquisition  17057.46  2239   344              143        7.6183         49.5856              119.2829           PASS  
+     cheapest 10        10            CMP0045      Affiliate 2024 045    affiliate    awareness    10543.72  1430   214              88         7.3732         49.2697              119.8150           PASS  
+     most expensive 10  1             CMP0084      Video 2023 084        video        awareness    6105.33   145    14               7          42.1057        436.0950             872.1900           PASS  
+     most expensive 10  2             CMP0018      Display 2023 018      display      acquisition  7405.03   334    48               11         22.1707        154.2715             673.1845           PASS  
+     most expensive 10  3             CMP0099      Video 2023 099        video        awareness    9348.40   242    35               15         38.6298        267.0971             623.2267           PASS  
+     most expensive 10  4             CMP0039      Video 2025 039        video        acquisition  24066.86  733    114              39         32.8334        211.1128             617.0990           PASS  
+     most expensive 10  5             CMP0034      Video 2024 034        video        awareness    34180.02  1044   140              57         32.7395        244.1430             599.6495           PASS  
+     most expensive 10  6             CMP0064      Video 2024 064        video        lead_gen     55178.97  1687   247              94         32.7083        223.3966             587.0103           PASS  
+     most expensive 10  7             CMP0049      Video 2023 049        video        acquisition  25032.55  745    110              44         33.6007        227.5686             568.9216           PASS  
+     most expensive 10  8             CMP0074      Video 2023 074        video        awareness    26109.81  934    119              46         27.9548        219.4102             567.6046           PASS  
+     most expensive 10  9             CMP0079      Video 2024 079        video        lead_gen     62230.93  1932   292              110        32.2106        213.1196             565.7357           PASS  
+     most expensive 10  10            CMP0119      Video 2025 119        video        acquisition  16825.46  499    71               30         33.7184        236.9783             560.8487           PASS  
+[16] WITH months AS (
+     MONTH    ACTIVE_CAMPAIGNS  LEADS  ACT_CONVERSIONS  ACT_FROM_EARLIER_COHORTS  WRONG_NAIVE_ACT_RATIO  COH_CONVERTED_LEADS  COH_CONVERTED_LATER_MONTH  COH_CONVERSION_RATE  COH_CI_LOW  COH_CI_HIGH  STATUS
+     2023-01  3                 1325   110              0                         0.083019               212                  102                        0.160000             0.141247    0.180718     PASS  
+     2023-02  5                 2825   325              102                       0.115044               427                  204                        0.151150             0.138416    0.164832     PASS  
+     2023-03  10                6229   798              204                       0.128110               914                  320                        0.146733             0.138164    0.155738     PASS  
+     2023-04  11                5748   902              320                       0.156924               880                  298                        0.153097             0.144020    0.162637     PASS  
+     2023-05  14                5188   811              298                       0.156322               771                  258                        0.148612             0.139193    0.158551     PASS  
+     2023-06  18                7491   963              258                       0.128554               1137                 432                        0.151782             0.143835    0.160086     PASS  
+     2023-07  16                7779   1273             432                       0.163646               1220                 379                        0.156832             0.148921    0.165083     PASS  
+     2023-08  18                9024   1221             379                       0.135306               1377                 535                        0.152593             0.145322    0.160160     PASS  
+     2023-09  18                10771  1590             535                       0.147619               1604                 549                        0.148918             0.142320    0.155767     PASS  
+     2023-10  19                10930  1654             549                       0.151327               1648                 543                        0.150778             0.144192    0.157609     PASS  
+     2023-11  16                10526  1582             543                       0.150295               1575                 536                        0.149629             0.142943    0.156572     PASS  
+     2023-12  17                9713   1550             536                       0.159580               1471                 457                        0.151447             0.144455    0.158713     PASS  
+     2024-01  12                6493   1158             457                       0.178346               975                  274                        0.150162             0.141680    0.159058     PASS  
+     2024-02  11                5638   794              274                       0.140830               882                  362                        0.156438             0.147190    0.166154     PASS  
+     2024-03  16                7576   1063             362                       0.140312               1172                 471                        0.154699             0.146731    0.163017     PASS  
+     2024-04  19                10413  1424             471                       0.136752               1588                 635                        0.152502             0.145725    0.159535     PASS  
+     2024-05  17                8898   1550             635                       0.174196               1332                 417                        0.149697             0.142435    0.157261     PASS  
+     2024-06  13                5954   1035             417                       0.173833               918                  300                        0.154182             0.145233    0.163578     PASS  
+     2024-07  13                5895   861              300                       0.146056               879                  318                        0.149109             0.140245    0.158431     PASS  
+     2024-08  18                10718  1316             318                       0.122784               1607                 609                        0.149935             0.143301    0.156819     PASS  
+     2024-09  20                11825  1780             609                       0.150529               1779                 608                        0.150444             0.144114    0.157001     PASS  
+     2024-10  18                11683  1830             608                       0.156638               1771                 549                        0.151588             0.145199    0.158205     PASS  
+     2024-11  19                10557  1579             549                       0.149569               1588                 558                        0.150422             0.143730    0.157368     PASS  
+     2024-12  18                11721  1758             558                       0.149987               1831                 631                        0.156215             0.149755    0.162901     PASS  
+     2025-01  16                10136  1699             631                       0.167620               1557                 489                        0.153611             0.146723    0.160762     PASS  
+     2025-02  13                6308   1116             489                       0.176918               930                  303                        0.147432             0.138897    0.156395     PASS  
+     2025-03  12                7226   1061             303                       0.146831               1099                 341                        0.152090             0.143995    0.160554     PASS  
+     2025-04  13                6504   969              341                       0.148985               1036                 408                        0.159287             0.150595    0.168381     PASS  
+     2025-05  14                7506   1183             408                       0.157607               1113                 338                        0.148281             0.140422    0.156501     PASS  
+     2025-06  14                6371   971              338                       0.152409               996                  363                        0.156333             0.147623    0.165458     PASS  
+     2025-07  15                7710   1101             363                       0.142802               1156                 418                        0.149935             0.142141    0.158078     PASS  
+     2025-08  14                7339   1190             418                       0.162147               1109                 337                        0.151111             0.143099    0.159487     PASS  
+     2025-09  11                3680   700              337                       0.190217               513                  150                        0.139402             0.128587    0.150969     PASS  
+     2025-10  5                 2826   462              150                       0.163482               445                  133                        0.157466             0.144503    0.171359     PASS  
+     2025-11  3                 1093   256              133                       0.234218               173                  50                         0.158280             0.137843    0.181111     PASS  
+     2025-12  1                 65     61               50                        0.938462               11                   0                          0.169231             0.097212    0.278164     PASS  
+[17] WITH months AS (
+     CHECK_NAME                                ACTUAL         EXPECTED       STATUS
+     months                                    36.000000      36.000000      PASS  
+     months equal to both monthly marts        36.000000      36.000000      PASS  
+     leads, all months                         261684.000000  261684.000000  PASS  
+     conversions, activity basis               39696.000000   39696.000000   PASS  
+     converted leads, cohort basis             39696.000000   39696.000000   PASS  
+     ... in the same month as the lead         26021.000000   26021.000000   PASS  
+     ... in a later month than the lead        13675.000000   13675.000000   PASS  
+     cross-month share (later / all)           0.344493       0.344493       PASS  
+     WRONG on purpose: naive ratio, lowest     0.083019       0.083019       PASS  
+     ... month of the lowest (YYYYMM)          202301.000000  202301.000000  PASS  
+     WRONG on purpose: naive ratio, highest    0.938462       0.938462       PASS  
+     ... month of the highest (YYYYMM)         202512.000000  202512.000000  PASS  
+     cohort conversion rate, lowest            0.139402       0.139402       PASS  
+     ... month of the lowest (YYYYMM)          202509.000000  202509.000000  PASS  
+     cohort conversion rate, highest           0.169231       0.169231       PASS  
+     ... month of the highest (YYYYMM)         202512.000000  202512.000000  PASS  
+     range of the naive ratio (max - min)      0.855443       0.855443       PASS  
+     range of the cohort rate (max - min)      0.029829       0.029829       PASS  
+     months: naive ratio outside cohort range  14.000000      14.000000      PASS  
+     cohort chi-square, 36 months (df 35)      21.684675      21.684675      PASS  
+     reject equal rates? (> 49.801850; 1=yes)  0.000000       0.000000       PASS  
+     CIs excluding pooled rate (chance: ~1.8)  1.000000       1.000000       PASS  
+     ... that month (YYYYMM)                   202509.000000  202509.000000  PASS  
+     months: inherited = LAG(later month)      36.000000      36.000000      PASS  
+     most leads in a month                     11825.000000   11825.000000   PASS  
+     ... that month (YYYYMM)                   202409.000000  202409.000000  PASS  
+[18] WITH conversions AS (
+     SPLIT_BY         GROUP_VALUE  CONVERSIONS  MEAN_DAYS  P25_DAYS  MEDIAN_DAYS  P75_DAYS  P90_DAYS  MAX_DAYS  SAME_DAY  SHARE_WITHIN_7_DAYS  SHARE_WITHIN_14_DAYS  SHARE_WITHIN_21_DAYS  AFTER_CAMPAIGN_END  STATUS
+     all              all          39696        10.5056    5.000     10.000       16.000    19.000    21        1811      0.362228             0.682814              1.000000              4716                PASS  
+     conversion_type  purchase     16691        10.5025    5.000     10.000       16.000    19.000    21        770       0.361752             0.683063              1.000000              1951                PASS  
+     conversion_type  trial        23005        10.5078    5.000     11.000       16.000    19.000    21        1041      0.362573             0.682634              1.000000              2765                PASS  
+     channel          affiliate    10352        10.4954    5.000     10.000       16.000    19.000    21        469       0.362635             0.682767              1.000000              1263                PASS  
+     channel          display      6744         10.5101    5.000     10.000       16.000    19.000    21        290       0.364917             0.680308              1.000000              777                 PASS  
+     channel          paid_search  10019        10.5017    5.000     11.000       16.000    19.000    21        474       0.364807             0.683801              1.000000              1108                PASS  
+     channel          paid_social  8648         10.5774    5.000     11.000       16.000    19.000    21        380       0.353377             0.681776              1.000000              1162                PASS  
+     channel          video        3933         10.3766    5.000     10.000       16.000    19.000    21        198       0.369438             0.687007              1.000000              406                 PASS  
+[19] WITH lag_days AS (
+     DAYS_TO_CONVERT  CONVERSIONS  SHARE     CUMULATIVE_CONVERSIONS  CUMULATIVE_SHARE  STATUS
+     0                1811         0.045622  1811                    0.045622          PASS  
+     1                1796         0.045244  3607                    0.090866          PASS  
+     2                1757         0.044261  5364                    0.135127          PASS  
+     3                1740         0.043833  7104                    0.178960          PASS  
+     4                1849         0.046579  8953                    0.225539          PASS  
+     5                1792         0.045143  10745                   0.270682          PASS  
+     6                1809         0.045571  12554                   0.316254          PASS  
+     7                1825         0.045974  14379                   0.362228          PASS  
+     8                1861         0.046881  16240                   0.409109          PASS  
+     9                1855         0.046730  18095                   0.455839          PASS  
+     10               1781         0.044866  19876                   0.500705          PASS  
+     11               1800         0.045345  21676                   0.546050          PASS  
+     12               1798         0.045294  23474                   0.591344          PASS  
+     13               1796         0.045244  25270                   0.636588          PASS  
+     14               1835         0.046226  27105                   0.682814          PASS  
+     15               1792         0.045143  28897                   0.727957          PASS  
+     16               1812         0.045647  30709                   0.773604          PASS  
+     17               1745         0.043959  32454                   0.817563          PASS  
+     18               1827         0.046025  34281                   0.863588          PASS  
+     19               1840         0.046352  36121                   0.909941          PASS  
+     20               1751         0.044110  37872                   0.954051          PASS  
+     21               1824         0.045949  39696                   1.000000          PASS  
+OK    04_conversion_funnel.sql: all 19 statements executed, no check row says FAIL

@@ -1,0 +1,53 @@
+# Downstream consumers of the marts, so the lineage graph (dbt docs) runs from RAW to them.
+exposures:
+  - name: data_studio_marketing_dashboard
+    label: Data Studio marketing dashboard (Phase 6)
+    type: dashboard
+    maturity: low
+    description: >-
+      The four-page Google Data Studio report (Marketing Overview, Conversion Funnel,
+      Lead Quality & CRM, Marketing Efficiency & ROAS), built by hand from docs/dashboard_spec.md
+      (in progress).
+      It reads seven MART tables, one reusable data source each (spec decision D1), live through
+      the Snowflake connector as SVC_CRM_BI / CRM_REPORTER, and after the trial a frozen Google
+      Sheets snapshot of the same tables (exports/, docs/sheets_snapshot.md). It only visualises:
+      every KPI is computed in these models, and the only calculated fields allowed are ratios of
+      sums (docs/kpi_definitions.md).
+    owner:
+      name: Hoedong Kim
+    depends_on:
+      - ref('mart_campaign_performance')
+      - ref('fct_campaign_daily_activity')
+      - ref('mart_monthly_marketing')
+      - ref('mart_monthly_cohort')
+      - ref('mart_channel_performance')
+      - ref('mart_lead_quality')
+      - ref('mart_conversion_funnel')
+
+  - name: phase4_sql_analyses
+    label: Phase 4 SQL analyses (sql/03-06)
+    type: analysis
+    maturity: medium
+    description: >-
+      The four read-only, self-checking analysis files, one per dashboard page:
+      sql/03_marketing_overview.sql, sql/04_conversion_funnel.sql, sql/05_lead_analysis.sql and
+      sql/06_marketing_efficiency.sql (`make analyses`). They answer the seven business
+      questions and compare every printed number with an independently computed value.
+      04_conversion_funnel.sql also reads the clean staging views to show the grain trap.
+    owner:
+      name: Hoedong Kim
+    depends_on:
+      - ref('stg_campaigns')
+      - ref('stg_daily_spend')
+      - ref('stg_leads')
+      - ref('stg_conversions')
+      - ref('dim_date')
+      - ref('dim_campaign')
+      - ref('fct_daily_spend')
+      - ref('fct_lead_conversions')
+      - ref('mart_campaign_performance')
+      - ref('fct_campaign_daily_activity')
+      - ref('mart_monthly_marketing')
+      - ref('mart_monthly_cohort')
+      - ref('mart_channel_performance')
+      - ref('mart_lead_quality')

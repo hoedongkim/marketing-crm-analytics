@@ -1,0 +1,190 @@
+Running 05_lead_analysis.sql (19 statements) as SVC_CRM_PIPELINE / CRM_TRANSFORMER
+[ 1] USE ROLE CRM_TRANSFORMER;
+     Statement executed successfully.
+[ 2] USE SECONDARY ROLES NONE;
+     Statement executed successfully.
+[ 3] USE WAREHOUSE MARKETING_WH;
+     Statement executed successfully.
+[ 4] USE SCHEMA MARKETING_CRM.MART;
+     Statement executed successfully.
+[ 5] SELECT CURRENT_USER() AS USER_NAME, CURRENT_ROLE() AS ROLE_NAME, CURRENT_SECONDARY_ROLES() AS SEC...
+     USER_NAME         ROLE_NAME        SECONDARY_ROLES          WAREHOUSE_NAME  SCHEMA_NAME         RUN_AT                STATUS
+     SVC_CRM_PIPELINE  CRM_TRANSFORMER  {"roles":"","value":""}  MARKETING_WH    MARKETING_CRM.MART  2026-10-14 08:58 UTC  PASS  
+[ 6] WITH segmented AS (
+     SEGMENT    SCORE_RANGE  LEADS   LEAD_SHARE  CONVERTED_LEADS  TRIALS  PURCHASES  CONVERSION_RATE  CR_CI_LOW  CR_CI_HIGH  CONVERSION_LIFT  PURCHASE_RATE  PR_CI_LOW  PR_CI_HIGH  REVENUE      REVENUE_PER_LEAD  REVENUE_PER_PURCHASE  STATUS
+     Low        1-40         104245  0.398362    9505             5540    3965       0.091179         0.089447   0.092942    0.6011           0.038035       0.036891   0.039214    5075916.10   48.6922           1280.1806             PASS  
+     Medium     41-70        78862   0.301363    12758            7412    5346       0.161776         0.159223   0.164363    1.0665           0.067789       0.066056   0.069565    6908346.48   87.6004           1292.2459             PASS  
+     High       71-100       78577   0.300274    17433            10053   7380       0.221859         0.218967   0.224778    1.4625           0.093921       0.091901   0.095980    9577576.43   121.8878          1297.7746             PASS  
+     All leads  1-100        261684  1.000000    39696            23005   16691      0.151694         0.150325   0.153074    1.0000           0.063783       0.062853   0.064726    21561839.01  82.3965           1291.8243             PASS  
+[ 7] WITH by_segment AS (
+     TEST                 N       DF  X2         CRITICAL_5PCT  LOG10_P_VALUE  P_VALUE   CRAMERS_V  DECISION                  CONTRIBUTION_BY_SEGMENT               STATUS
+     segment x converted  261684  2   6035.0180  5.991          -1310.4875     0.000000  0.151863   reject independence (5%)  High 3006.1; Low 2966.6; Medium 62.3  PASS  
+     segment x purchased  261684  2   2373.6750  5.991          -515.4370      0.000000  0.095241   reject independence (5%)  High 1195.2; Low 1157.3; Medium 21.2  PASS  
+[ 8] WITH tiled AS (
+     CUT                       GRP  SCORE_RANGE  SHARES_SCORE_WITH_NEXT  LEADS  AVG_SCORE  CONVERTED_LEADS  CONVERSION_RATE  CI_LOW    CI_HIGH   STEP_VS_PREVIOUS  STEPS_UP_IN_CUT  LIFT    STATUS
+     quartile (NTILE 4)        1    1-26         True                    65421  12.9992    5003             0.076474         0.074462  0.078535  NULL              3 of 3           0.5041  PASS  
+     quartile (NTILE 4)        2    26-51        True                    65421  38.1710    8270             0.126412         0.123887  0.128980  0.049938          3 of 3           0.8333  PASS  
+     quartile (NTILE 4)        3    51-76        True                    65421  63.0759    11584            0.177069         0.174162  0.180013  0.050657          3 of 3           1.1673  PASS  
+     quartile (NTILE 4)        4    76-100       NULL                    65421  88.0382    14839            0.226823         0.223630  0.230048  0.049755          3 of 3           1.4953  PASS  
+     decile (NTILE 10)         1    1-10         True                    26169  5.4789     1636             0.062517         0.059647  0.065515  NULL              9 of 9           0.4121  PASS  
+     decile (NTILE 10)         2    10-21        True                    26169  15.4912    2088             0.079789         0.076567  0.083134  0.017272          9 of 9           0.5260  PASS  
+     decile (NTILE 10)         3    21-31        True                    26169  25.6044    2661             0.101685         0.098082  0.105406  0.021896          9 of 9           0.6703  PASS  
+     decile (NTILE 10)         4    31-41        True                    26169  35.6817    3185             0.121709         0.117803  0.125726  0.020024          9 of 9           0.8023  PASS  
+     decile (NTILE 10)         5    41-51        True                    26168  45.6719    3704             0.141547         0.137376  0.145823  0.019838          9 of 9           0.9331  PASS  
+     decile (NTILE 10)         6    51-61        True                    26168  55.6077    4197             0.160387         0.155990  0.164883  0.018840          9 of 9           1.0573  PASS  
+     decile (NTILE 10)         7    61-71        True                    26168  65.5759    4803             0.183545         0.178901  0.188281  0.023158          9 of 9           1.2100  PASS  
+     decile (NTILE 10)         8    71-81        True                    26168  75.5200    5312             0.202996         0.198166  0.207913  0.019451          9 of 9           1.3382  PASS  
+     decile (NTILE 10)         9    81-91        True                    26168  85.5489    5832             0.222868         0.217866  0.227950  0.019872          9 of 9           1.4692  PASS  
+     decile (NTILE 10)         10   91-100       NULL                    26168  95.5345    6278             0.239911         0.234776  0.245123  0.017044          9 of 9           1.5815  PASS  
+     band (MART_LEAD_QUALITY)  1    1-10         False                   26193  5.4830     1642             0.062689         0.059817  0.065689  NULL              9 of 9           0.4133  PASS  
+     band (MART_LEAD_QUALITY)  2    11-20        False                   26058  15.4779    2072             0.079515         0.076292  0.082862  0.016826          9 of 9           0.5242  PASS  
+     band (MART_LEAD_QUALITY)  3    21-30        False                   25748  25.4824    2624             0.101911         0.098275  0.105666  0.022396          9 of 9           0.6718  PASS  
+     band (MART_LEAD_QUALITY)  4    31-40        False                   26246  35.5038    3167             0.120666         0.116781  0.124662  0.018755          9 of 9           0.7955  PASS  
+     band (MART_LEAD_QUALITY)  5    41-50        False                   26293  45.5333    3724             0.141635         0.137472  0.145902  0.020969          9 of 9           0.9337  PASS  
+     band (MART_LEAD_QUALITY)  6    51-60        False                   26173  55.4918    4195             0.160280         0.155885  0.164774  0.018645          9 of 9           1.0566  PASS  
+     band (MART_LEAD_QUALITY)  7    61-70        False                   26396  65.5088    4839             0.183323         0.178702  0.188037  0.023044          9 of 9           1.2085  PASS  
+     band (MART_LEAD_QUALITY)  8    71-80        False                   26184  75.4955    5316             0.203025         0.198196  0.207940  0.019702          9 of 9           1.3384  PASS  
+     band (MART_LEAD_QUALITY)  9    81-90        False                   26068  85.5061    5795             0.222303         0.217297  0.227391  0.019278          9 of 9           1.4655  PASS  
+     band (MART_LEAD_QUALITY)  10   91-100       NULL                    26325  95.5075    6322             0.240152         0.235030  0.245350  0.017849          9 of 9           1.5831  PASS  
+[ 9] WITH per_score AS (
+     CHECK_NAME                         ACTUAL       EXPECTED     STATUS
+     score values                       100.000000   100.000000   PASS  
+     leads per score, min               2508.000000  2508.000000  PASS  
+     leads per score, max               2728.000000  2728.000000  PASS  
+     score-to-score steps               99.000000    99.000000    PASS  
+     steps up                           57.000000    57.000000    PASS  
+     steps down                         42.000000    42.000000    PASS  
+     largest drop (rate step)           -0.026702    -0.026702    PASS  
+     largest drop at score              48.000000    48.000000    PASS  
+     largest rise (rate step)           0.024679     0.024679     PASS  
+     largest rise at score              97.000000    97.000000    PASS  
+     conversion rate at score 1         0.055244     0.055244     PASS  
+     conversion rate at score 100       0.253581     0.253581     PASS  
+     REGR_SLOPE x 10 (rate per 10 pts)  0.020034     0.020034     PASS  
+     REGR_R2 (100 score rates)          0.985549     0.985549     PASS  
+     CORR(score, converted), all leads  0.161215     0.161215     PASS  
+[10] WITH leads AS (
+     CHANNEL       LEADS   AVG_SCORE  P25_SCORE  MEDIAN_SCORE  P75_SCORE  SHARE_LOW  SHARE_MEDIUM  SHARE_HIGH  CONVERSION_RATE  CR_CI_LOW  CR_CI_HIGH  CONVERSION_LIFT  MIX_EXPECTED_RATE  OBSERVED_TO_EXPECTED  STATUS
+     affiliate     67849   50.5620    26.000     50.000        75.000     0.398842   0.301832      0.299326    0.152574         0.149888   0.155299    1.0058           0.151604           1.0064                PASS  
+     display       45149   50.5366    25.000     51.000        76.000     0.398680   0.301889      0.299431    0.149372         0.146114   0.152690    0.9847           0.151621           0.9852                PASS  
+     paid_search   65268   50.6614    26.000     51.000        76.000     0.395967   0.302476      0.301557    0.153506         0.150760   0.156291    1.0119           0.151941           1.0103                PASS  
+     paid_social   57619   50.4742    25.000     51.000        75.000     0.401413   0.297818      0.300769    0.150089         0.147196   0.153029    0.9894           0.151509           0.9906                PASS  
+     video         25799   50.6429    26.000     51.000        76.000     0.395791   0.304314      0.299895    0.152448         0.148113   0.156886    1.0050           0.151853           1.0039                PASS  
+     All channels  261684  50.5711    26.000     51.000        76.000     0.398362   0.301363      0.300274    0.151694         0.150325   0.153074    1.0000           0.151694           1.0000                PASS  
+[11] WITH leads AS (
+     SEGMENT    AFFILIATE  DISPLAY   PAID_SEARCH  PAID_SOCIAL  VIDEO     ALL_CHANNELS  CHANNEL_SPREAD  STATUS
+     Low        0.093345   0.090778  0.091743     0.089066     0.089511  0.091179      0.004279        PASS  
+     Medium     0.159041   0.159134  0.164928     0.162646     0.163673  0.161776      0.005887        PASS  
+     High       0.224974   0.217546  0.223148     0.219100     0.224118  0.221859      0.007428        PASS  
+     All leads  0.152574   0.149372  0.153506     0.150089     0.152448  0.151694      0.004134        PASS  
+[12] WITH by_channel_segment AS (
+     TEST                             N       DF  X2      CRITICAL_5PCT  LOG10_P_VALUE  P_VALUE   CRAMERS_V  DECISION                    STATUS
+     channel x segment                261684  8   6.9982  15.507         -0.2702        0.536825  0.003657   no evidence of association  PASS  
+     channel x converted | Low        104245  4   3.2550  9.488          -0.2873        0.516096  0.005588   no evidence of association  PASS  
+     channel x converted | Medium     78862   4   3.5813  9.488          -0.3320        0.465625  0.006739   no evidence of association  PASS  
+     channel x converted | High       78577   4   3.7808  9.488          -0.3600        0.436476  0.006937   no evidence of association  PASS  
+     channel x converted | all leads  261684  4   5.2312  9.488          -0.5778        0.264383  0.004471   no evidence of association  PASS  
+[13] WITH converted AS (
+     SPLIT_BY         GROUP_VALUE  CONVERSIONS  MIN_LAG  P25    MEDIAN  P75     P90     MAX_LAG  AVG_LAG  SHARE_WITHIN_7_DAYS  LAG_MISMATCHES  STATUS
+     all              all          39696        0        5.000  10.000  16.000  19.000  21       10.5056  0.362228             0               PASS  
+     conversion_type  purchase     16691        0        5.000  10.000  16.000  19.000  21       10.5025  0.361752             0               PASS  
+     conversion_type  trial        23005        0        5.000  11.000  16.000  19.000  21       10.5078  0.362573             0               PASS  
+     channel          affiliate    10352        0        5.000  10.000  16.000  19.000  21       10.4954  0.362635             0               PASS  
+     channel          display      6744         0        5.000  10.000  16.000  19.000  21       10.5101  0.364917             0               PASS  
+     channel          paid_search  10019        0        5.000  11.000  16.000  19.000  21       10.5017  0.364807             0               PASS  
+     channel          paid_social  8648         0        5.000  11.000  16.000  19.000  21       10.5774  0.353377             0               PASS  
+     channel          video        3933         0        5.000  10.000  16.000  19.000  21       10.3766  0.369438             0               PASS  
+     score_segment    Low          9505         0        5.000  11.000  16.000  19.000  21       10.6084  0.356128             0               PASS  
+     score_segment    Medium       12758        0        5.000  10.000  16.000  19.000  21       10.4609  0.367064             0               PASS  
+     score_segment    High         17433        0        5.000  10.000  16.000  19.000  21       10.4822  0.362015             0               PASS  
+[14] WITH days AS (
+     LAG_DAYS  CONVERSIONS  SHARE_OF_CONVERSIONS  CUM_CONVERSIONS  CUM_SHARE_OF_CONVERSIONS  UNIFORM_CUM_SHARE  CUM_CONVERSION_RATE  STATUS
+     0         1811         0.045622              1811             0.045622                  0.045455           0.006921             PASS  
+     1         1796         0.045244              3607             0.090866                  0.090909           0.013784             PASS  
+     2         1757         0.044261              5364             0.135127                  0.136364           0.020498             PASS  
+     3         1740         0.043833              7104             0.178960                  0.181818           0.027147             PASS  
+     4         1849         0.046579              8953             0.225539                  0.227273           0.034213             PASS  
+     5         1792         0.045143              10745            0.270682                  0.272727           0.041061             PASS  
+     6         1809         0.045571              12554            0.316254                  0.318182           0.047974             PASS  
+     7         1825         0.045974              14379            0.362228                  0.363636           0.054948             PASS  
+     8         1861         0.046881              16240            0.409109                  0.409091           0.062060             PASS  
+     9         1855         0.046730              18095            0.455839                  0.454545           0.069148             PASS  
+     10        1781         0.044866              19876            0.500705                  0.500000           0.075954             PASS  
+     11        1800         0.045345              21676            0.546050                  0.545455           0.082833             PASS  
+     12        1798         0.045294              23474            0.591344                  0.590909           0.089704             PASS  
+     13        1796         0.045244              25270            0.636588                  0.636364           0.096567             PASS  
+     14        1835         0.046226              27105            0.682814                  0.681818           0.103579             PASS  
+     15        1792         0.045143              28897            0.727957                  0.727273           0.110427             PASS  
+     16        1812         0.045647              30709            0.773604                  0.772727           0.117351             PASS  
+     17        1745         0.043959              32454            0.817563                  0.818182           0.124020             PASS  
+     18        1827         0.046025              34281            0.863588                  0.863636           0.131002             PASS  
+     19        1840         0.046352              36121            0.909941                  0.909091           0.138033             PASS  
+     20        1751         0.044110              37872            0.954051                  0.954545           0.144724             PASS  
+     21        1824         0.045949              39696            1.000000                  1.000000           0.151694             PASS  
+[15] WITH converted AS (
+     CONVERSION_TYPE  CONVERSIONS  AFTER_CAMPAIGN_END  AFTER_END_SHARE  REVENUE      AFTER_END_REVENUE  AFTER_END_REVENUE_SHARE  DAYS_1_7  DAYS_8_14  DAYS_15_21  MAX_DAYS_AFTER_END  FLAG_MISMATCHES  STATUS
+     purchase         16691        1951                0.116889         21561839.01  2532266.74         0.117442                 1071      636        244         21                  0                PASS  
+     trial            23005        2765                0.120191         0.00         0.00               NULL                     1512      932        321         21                  0                PASS  
+     all              39696        4716                0.118803         21561839.01  2532266.74         0.117442                 2583      1568       565         21                  0                PASS  
+[16] WITH lags AS (
+     CHECK_NAME                              ACTUAL         EXPECTED       STATUS
+     max lag, days                           21.000000      21.000000      PASS  
+     conversions outside lag days 0-21       0.000000       0.000000       PASS  
+     first day with >= 50% of conversions    10.000000      10.000000      PASS  
+     first day with >= 90% of conversions    19.000000      19.000000      PASS  
+     share converted within 7 days           0.362228       0.362228       PASS  
+     share converted within 14 days          0.682814       0.682814       PASS  
+     X2 lag vs uniform 0-21 (df 21)          13.982300      13.982300      PASS  
+     X2 above critical 32.671 (1 = yes)      0.000000       0.000000       PASS  
+     F lag by conversion type (df 1, 39694)  0.006800       0.006800       PASS  
+     F lag by channel (df 4, 39691)          0.694400       0.694400       PASS  
+     F lag by score segment (df 2, 39693)    1.689900       1.689900       PASS  
+     splits with F above 5% critical value   0.000000       0.000000       PASS  
+     leads checked for maturity              261684.000000  261684.000000  PASS  
+     leads not mature at as-of 2025-12-31    0.000000       0.000000       PASS  
+     last conversion, days after 2025-12-21  0.000000       0.000000       PASS  
+     leads with window past last conversion  65.000000      65.000000      PASS  
+     of those 65, leads not converted        54.000000      54.000000      PASS  
+[17] WITH by_campaign AS (
+     ROW_NUM  HIGH_SHARE_RANK  CAMPAIGN_ID  CHANNEL      LEADS  HIGH_LEADS  HIGH_SHARE  HS_CI_LOW  HS_CI_HIGH  PCT_RANK  RANK_IN_CHANNEL  CONVERSION_RATE  CONVERSION_RATE_RANK  STATUS
+     1        1                CMP0018      display      334    113         0.338323    0.289676   0.390647    0.0000    1                0.143713         108                   PASS  
+     2        2                CMP0044      video        344    114         0.331395    0.283755   0.382759    0.0084    1                0.154070         51                    PASS  
+     3        3                CMP0089      video        1374   455         0.331150    0.306766   0.356475    0.0168    2                0.160844         14                    PASS  
+     4        4                CMP0045      affiliate    1430   463         0.323776    0.300024   0.348472    0.0252    1                0.149650         74                    PASS  
+     5        5                CMP0046      paid_search  1184   382         0.322635    0.296618   0.349800    0.0336    1                0.160473         18                    PASS  
+     6        6                CMP0019      video        684    220         0.321637    0.287712   0.357555    0.0420    3                0.153509         56                    PASS  
+     7        7                CMP0006      paid_search  3235   1040        0.321484    0.305609   0.337782    0.0504    2                0.157651         28                    PASS  
+     8        8                CMP0035      affiliate    2218   713         0.321461    0.302347   0.341192    0.0588    2                0.153742         53                    PASS  
+     9        9                CMP0016      paid_search  1560   500         0.320513    0.297820   0.344087    0.0672    3                0.155769         38                    PASS  
+     10       10               CMP0009      video        1720   550         0.319767    0.298149   0.342189    0.0756    4                0.151163         63                    PASS  
+     116      116              CMP0054      video        459    127         0.276688    0.237744   0.319340    0.9664    20               0.187364         1                     PASS  
+     117      117              CMP0074      video        934    257         0.275161    0.247484   0.304679    0.9748    21               0.127409         119                   PASS  
+     118      118              CMP0014      video        1325   357         0.269434    0.246237   0.293964    0.9832    22               0.160755         15                    PASS  
+     119      119              CMP0004      video        803    204         0.254047    0.225158   0.285279    0.9916    23               0.154421         49                    PASS  
+     120      120              CMP0039      video        733    186         0.253752    0.223589   0.286482    1.0000    24               0.155525         40                    PASS  
+[18] WITH leads AS (
+     HIGH_SHARE_QUARTILE  CAMPAIGNS  LEADS  LEADS_PER_CAMPAIGN  MIN_HIGH_SHARE  MAX_HIGH_SHARE  POOLED_HIGH_SHARE  CONVERTED_LEADS  POOLED_CONVERSION_RATE  MIX_EXPECTED_RATE  OBSERVED_TO_EXPECTED  STATUS
+     1                    30         52652  1755.07             0.308683        0.338323        0.315942           8056             0.153005                0.153125           0.9992                PASS  
+     2                    30         66672  2222.40             0.300703        0.308571        0.305031           10014            0.150198                0.152111           0.9874                PASS  
+     3                    30         78802  2626.73             0.293103        0.300638        0.296655           11943            0.151557                0.151438           1.0008                PASS  
+     4                    30         63558  2118.60             0.253752        0.292425        0.286793           9683             0.152349                0.150390           1.0130                PASS  
+[19] WITH leads AS (
+     CHECK_NAME                           ACTUAL       EXPECTED     STATUS
+     campaigns ranked                     120.000000   120.000000   PASS  
+     campaigns tied on High share         0.000000     0.000000     PASS  
+     lowest High share                    0.253752     0.253752     PASS  
+     highest High share                   0.338323     0.338323     PASS  
+     High share, all leads                0.300274     0.300274     PASS  
+     Wilson CI above the all-lead share   4.000000     4.000000     PASS  
+     Wilson CI below the all-lead share   5.000000     5.000000     PASS  
+     X2 campaign x High (df 119)          153.386900   153.386900   PASS  
+     X2 above critical 145.461 (1 = yes)  1.000000     1.000000     PASS  
+     CORR(High share, conversion rate)    -0.071858    -0.071858    PASS  
+     CORR(High share, mix-expected rate)  0.842855     0.842855     PASS  
+     STDDEV_SAMP, mix-expected rates      0.001642     0.001642     PASS  
+     STDDEV_SAMP, conversion rates        0.009471     0.009471     PASS  
+     CORR implied by the score mix alone  0.146086     0.146086     PASS  
+     avg leads, top-10 campaigns          1408.300000  1408.300000  PASS  
+     avg leads, bottom-5 campaigns        850.800000   850.800000   PASS  
+     median leads, all campaigns          1947.500000  1947.500000  PASS  
+OK    05_lead_analysis.sql: all 19 statements executed, no check row says FAIL

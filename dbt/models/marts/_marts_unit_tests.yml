@@ -1,0 +1,160 @@
+# dbt unit tests of the mart logic: small fixed inputs, exact expected outputs. Each one covers a
+# rule the real data cannot falsify on its own (a boundary, a zero denominator, a day just past
+# the spine). Inputs from staging views or from the ephemeral int_lead_conversions use
+# format: sql (an ephemeral model has no relation to read column types from, and the staging
+# views carry an ARRAY column that a dict fixture cannot cast); in that format only the columns
+# the model reads are listed.
+
+unit_tests:
+  - name: fct_lead_conversions_score_segment_boundaries_and_flags
+    model: fct_lead_conversions
+    description: >-
+      LEAD_SCORE_SEGMENT bands are Low 1-40, Medium 41-70, High 71-100 with the boundaries
+      40/41 and 70/71 on the right side; a NULL or out-of-range score gets no band (NULL), never
+      a guess. A converted lead gets IS_CONVERTED 1, its revenue and its lag, and is flagged when
+      it converted after its campaign ended; an unconverted lead has REVENUE 0.00 (so it sums)
+      and a NULL lag (so AVG covers converted leads only). IS_MATURE pins the maturity boundary
+      at the documented assumption (as-of 2025-12-31, 21 days): a lead created on 2025-12-10 is
+      mature (1), one created on 2025-12-11 is not (0); the real data never reaches the 0 side.
+    given:
+      - input: ref('int_lead_conversions')
+        format: sql
+        rows: |
+          select 'L01' as lead_id, 'CMP0001' as campaign_id, 'video' as channel, 'awareness' as objective,
+                 '2024-03-31'::date as campaign_end_date, '2024-03-01'::date as created_date, 'video' as lead_source,
+                 1::number(3,0) as lead_score, false as has_conversion, null::varchar as conversion_id,
+                 null::date as converted_date, null::varchar as conversion_type, null::number(12,2) as revenue
+          union all select 'L40', 'CMP0001', 'video', 'awareness', '2024-03-31'::date, '2024-03-01'::date, 'video', 40,  false, null, null, null, null
+          union all select 'L41', 'CMP0001', 'video', 'awareness', '2024-03-31'::date, '2024-03-01'::date, 'video', 41,  false, null, null, null, null
+          union all select 'L70', 'CMP0001', 'video', 'awareness', '2024-03-31'::date, '2024-03-01'::date, 'video', 70,  false, null, null, null, null
+          union all select 'L71', 'CMP0001', 'video', 'awareness', '2024-03-31'::date, '2024-03-10'::date, 'video', 71,  true, 'CV1', '2024-04-05'::date, 'purchase', 99.90
+          union all select 'LA0', 'CMP0001', 'video', 'awareness', '2024-03-31'::date, '2024-03-01'::date, 'video', 100, true, 'CV2', '2024-03-02'::date, 'trial', 0.00
+          union all select 'LNU', 'CMP0001', 'video', 'awareness', '2024-03-31'::date, '2024-03-01'::date, 'video', null, false, null, null, null, null
+          union all select 'LZZ', 'CMP0001', 'video', 'awareness', '2024-03-31'::date, '2024-03-01'::date, 'video', 0,   false, null, null, null, null
+          union all select 'LM1', 'CMP0002', 'video', 'awareness', '2025-12-31'::date, '2025-12-10'::date, 'video', 50,  false, null, null, null, null
+          union all select 'LM0', 'CMP0002', 'video', 'awareness', '2025-12-31'::date, '2025-12-11'::date, 'video', 50,  false, null, null, null, null
+    expect:
+      rows:
+        - {lead_id: L01, lead_score_segment: Low,    is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00,  days_to_convert: null, converted_after_campaign_end: 0, is_mature: 1}
+        - {lead_id: L40, lead_score_segment: Low,    is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00,  days_to_convert: null, converted_after_campaign_end: 0, is_mature: 1}
+        - {lead_id: L41, lead_score_segment: Medium, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00,  days_to_convert: null, converted_after_campaign_end: 0, is_mature: 1}
+        - {lead_id: L70, lead_score_segment: Medium, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00,  days_to_convert: null, converted_after_campaign_end: 0, is_mature: 1}
+        - {lead_id: L71, lead_score_segment: High,   is_converted: 1, is_trial: 0, is_purchase: 1, revenue: 99.90, days_to_convert: 26,   converted_after_campaign_end: 1, is_mature: 1}
+        - {lead_id: LA0, lead_score_segment: High,   is_converted: 1, is_trial: 1, is_purchase: 0, revenue: 0.00,  days_to_convert: 1,    converted_after_campaign_end: 0, is_mature: 1}
+        - {lead_id: LNU, lead_score_segment: null,   is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00,  days_to_convert: null, converted_after_campaign_end: 0, is_mature: 1}
+        - {lead_id: LZZ, lead_score_segment: null,   is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00,  days_to_convert: null, converted_after_campaign_end: 0, is_mature: 1}
+        - {lead_id: LM1, lead_score_segment: Medium, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00,  days_to_convert: null, converted_after_campaign_end: 0, is_mature: 1}
+        - {lead_id: LM0, lead_score_segment: Medium, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00,  days_to_convert: null, converted_after_campaign_end: 0, is_mature: 0}
+
+  - name: mart_campaign_performance_zero_denominators_give_null
+    model: mart_campaign_performance
+    description: >-
+      Every ratio is NULLIF-guarded: a campaign without leads keeps its spend and gets LEADS 0
+      (COALESCE) and NULL cost per lead, conversion rates and cost per conversion or purchase,
+      never a division error or a fake 0; ROAS is 0 (revenue 0 over real spend). The other
+      campaign checks the aggregate-first pattern: two spend days and four leads with two
+      conversions give the sums and ratios of sums, each rounded once.
+    given:
+      - input: ref('dim_campaign')
+        rows:
+          - {campaign_id: CMPA, campaign_name: Video 2024 001, channel: video, objective: awareness, start_date: "2024-03-01", end_date: "2024-03-02", campaign_days: 2, budget: 1000.00, start_year: 2024, start_month: "2024-03-01"}
+          - {campaign_id: CMPB, campaign_name: Video 2024 002, channel: video, objective: awareness, start_date: "2024-03-01", end_date: "2024-03-01", campaign_days: 1, budget: 500.00,  start_year: 2024, start_month: "2024-03-01"}
+      - input: ref('stg_daily_spend')
+        format: sql
+        rows: |
+          select 'CMPA' as campaign_id, 1000::number(38,0) as impressions, 50::number(38,0) as clicks, 100.00::number(12,2) as spend
+          union all select 'CMPA', 3000, 50, 150.00
+          union all select 'CMPB', 2000, 40, 80.00
+      - input: ref('stg_leads')
+        format: sql
+        rows: |
+          select 'L1' as lead_id, 'CMPA' as campaign_id
+          union all select 'L2', 'CMPA'
+          union all select 'L3', 'CMPA'
+          union all select 'L4', 'CMPA'
+      - input: ref('stg_conversions')
+        format: sql
+        rows: |
+          select 'L1' as lead_id, 'purchase' as conversion_type, 300.00::number(12,2) as revenue
+          union all select 'L2', 'trial', 0.00
+    expect:
+      rows:
+        - {campaign_id: CMPA, spend_days: 2, spend: 250.00, leads: 4, converted_leads: 2, trials: 1, purchases: 1, revenue: 300.00,
+           ctr: 0.025000, click_to_lead_rate: 0.040000, lead_conversion_rate: 0.500000, purchase_rate: 0.250000,
+           cost_per_lead: 62.5000, cost_per_conversion: 125.0000, cost_per_purchase: 250.0000, roas: 1.200000, budget_utilization: 0.250000}
+        - {campaign_id: CMPB, spend_days: 1, spend: 80.00, leads: 0, converted_leads: 0, trials: 0, purchases: 0, revenue: 0.00,
+           ctr: 0.020000, click_to_lead_rate: 0.000000, lead_conversion_rate: null, purchase_rate: null,
+           cost_per_lead: null, cost_per_conversion: null, cost_per_purchase: null, roas: 0.000000, budget_utilization: 0.160000}
+
+  - name: fct_campaign_daily_activity_spine_ends_at_end_date_plus_21
+    model: fct_campaign_daily_activity
+    description: >-
+      The spine runs from START_DATE to END_DATE + 21 days (var post_window_days), clipped at
+      the coverage end 2025-12-31 (var coverage_end): END_DATE + 21 is on the spine with
+      IS_IN_FLIGHT 0, END_DATE + 22 is not, and no day after 2025-12-31 appears even when
+      DIM_DATE had one. A conversion on a post-flight day is booked there (by converted date,
+      under the campaign of its lead); delivery stays on the flight days.
+    given:
+      - input: ref('dim_campaign')
+        rows:
+          - {campaign_id: CMPA, channel: video,   objective: awareness, start_date: "2024-03-01", end_date: "2024-03-02"}
+          - {campaign_id: CMPB, channel: display, objective: lead_gen,  start_date: "2025-12-20", end_date: "2025-12-20"}
+      - input: ref('dim_date')
+        rows:
+          - {date_day: "2024-03-01", month_start: "2024-03-01"}
+          - {date_day: "2024-03-02", month_start: "2024-03-01"}
+          - {date_day: "2024-03-23", month_start: "2024-03-01"}
+          - {date_day: "2024-03-24", month_start: "2024-03-01"}
+          - {date_day: "2025-12-20", month_start: "2025-12-01"}
+          - {date_day: "2025-12-31", month_start: "2025-12-01"}
+          - {date_day: "2026-01-01", month_start: "2026-01-01"}
+      - input: ref('fct_daily_spend')
+        rows:
+          - {campaign_id: CMPA, spend_date: "2024-03-01", impressions: 100, clicks: 10, spend: 50.00, budget_prorated: 60.000000}
+          - {campaign_id: CMPA, spend_date: "2024-03-02", impressions: 200, clicks: 20, spend: 70.00, budget_prorated: 60.000000}
+          - {campaign_id: CMPB, spend_date: "2025-12-20", impressions: 300, clicks: 30, spend: 90.00, budget_prorated: 100.000000}
+      - input: ref('fct_lead_conversions')
+        rows:
+          - {campaign_id: CMPA, created_date: "2024-03-01", converted_date: "2024-03-23", is_converted: 1, is_trial: 0, is_purchase: 1, revenue: 500.00}
+          - {campaign_id: CMPA, created_date: "2024-03-02", converted_date: "2024-03-24", is_converted: 1, is_trial: 1, is_purchase: 0, revenue: 0.00}
+          - {campaign_id: CMPB, created_date: "2025-12-20", converted_date: null,         is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00}
+    expect:
+      rows:
+        - {campaign_id: CMPA, activity_date: "2024-03-01", activity_month: "2024-03-01", is_in_flight: 1, spend: 50.00, budget_prorated: 60.000000,  leads: 1, conversions: 0, purchases: 0, revenue: 0.00}
+        - {campaign_id: CMPA, activity_date: "2024-03-02", activity_month: "2024-03-01", is_in_flight: 1, spend: 70.00, budget_prorated: 60.000000,  leads: 1, conversions: 0, purchases: 0, revenue: 0.00}
+        - {campaign_id: CMPA, activity_date: "2024-03-23", activity_month: "2024-03-01", is_in_flight: 0, spend: 0.00,  budget_prorated: 0.000000,   leads: 0, conversions: 1, purchases: 1, revenue: 500.00}
+        - {campaign_id: CMPB, activity_date: "2025-12-20", activity_month: "2025-12-01", is_in_flight: 1, spend: 90.00, budget_prorated: 100.000000, leads: 1, conversions: 0, purchases: 0, revenue: 0.00}
+        - {campaign_id: CMPB, activity_date: "2025-12-31", activity_month: "2025-12-01", is_in_flight: 0, spend: 0.00,  budget_prorated: 0.000000,   leads: 0, conversions: 0, purchases: 0, revenue: 0.00}
+
+  - name: mart_channel_performance_wilson_interval
+    model: mart_channel_performance
+    description: >-
+      The Wilson 95% interval of LEAD_CONVERSION_RATE (z = 1.959964): 2 converted of 10 leads
+      gives p = 0.2 and the bounds 0.056682 .. 0.509838 (computed independently with Python
+      decimal at 60 digits: 0.0566821509..., 0.5098375308...). A channel without leads gets NULL
+      rate and NULL bounds (NULLIF on n), not an error.
+    given:
+      - input: ref('dim_campaign')
+        rows:
+          - {campaign_id: CMPA, channel: video,   budget: 1000.00}
+          - {campaign_id: CMPB, channel: display, budget: 500.00}
+      - input: ref('fct_daily_spend')
+        rows:
+          - {channel: video,   impressions: 1000, clicks: 100, spend: 100.00}
+          - {channel: display, impressions: 1000, clicks: 10,  spend: 50.00}
+      - input: ref('fct_lead_conversions')
+        rows:
+          - {channel: video, is_converted: 1, is_trial: 0, is_purchase: 1, revenue: 120.00}
+          - {channel: video, is_converted: 1, is_trial: 1, is_purchase: 0, revenue: 0.00}
+          - {channel: video, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00}
+          - {channel: video, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00}
+          - {channel: video, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00}
+          - {channel: video, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00}
+          - {channel: video, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00}
+          - {channel: video, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00}
+          - {channel: video, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00}
+          - {channel: video, is_converted: 0, is_trial: 0, is_purchase: 0, revenue: 0.00}
+    expect:
+      rows:
+        - {channel: video,   leads: 10, converted_leads: 2, lead_conversion_rate: 0.200000, lcr_ci_low: 0.056682, lcr_ci_high: 0.509838, roas: 1.200000}
+        - {channel: display, leads: 0,  converted_leads: 0, lead_conversion_rate: null,     lcr_ci_low: null,     lcr_ci_high: null,     roas: 0.000000}

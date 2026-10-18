@@ -1,0 +1,7 @@
+# dbt packages. `dbt deps --project-dir dbt` resolves them and writes package-lock.yml (committed),
+# so every checkout installs the same versions; `dbt deps --upgrade` moves the lock.
+packages:
+  # Generic tests used in the YAML files: unique_combination_of_columns, expression_is_true,
+  # accepted_range. Pinned to one release.
+  - package: dbt-labs/dbt_utils
+    version: 1.4.1

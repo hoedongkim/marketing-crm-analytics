@@ -1,0 +1,95 @@
+# dbt Core v1 project for the Marketing CRM & Conversion Funnel Analytics pipeline (Phase 5).
+#
+# Run every dbt command from the REPOSITORY ROOT, so dbt 1.12 loads the root .env (it loads the
+# first .env found from the current working directory upward, not one next to dbt_project.yml):
+#     .venv/bin/dbt build --project-dir dbt --profiles-dir dbt
+# `make dbt-build` wraps it. This is dbt Core v1 (dbt-core ~=1.12.5 + dbt-snowflake ~=1.12.2):
+# never `pip install dbt`, which installs the separate v2 (Fusion) engine.
+#
+# Layers (the same object names and schemas as the Phase 3-4 SQL build, which dbt replaces in
+# place, so the analyses in sql/03-06 and the Data Studio sources of Phase 6 read the same names):
+#   models/staging       8 views in MARKETING_CRM.STAGING (STG_*, STG_CHALLENGE_*)
+#   models/intermediate  ephemeral: compiled into the marts as CTEs, creates no object
+#   models/marts         11 permanent tables in MARKETING_CRM.MART (10 ported from the SQL
+#                        build, plus mart_conversion_funnel, added in Phase 6)
+#   seeds                3 small tables of independent expected values, in STAGING (test inputs,
+#                        never read by a model)
+
+name: marketing_crm
+version: "1.0.0"
+profile: marketing_crm
+require-dbt-version: [">=1.12.0", "<2.0.0"]
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+flags:
+  # A generate_schema_name that returns null is a parse error (without this flag dbt 1.12 only
+  # emits a deprecation warning).
+  require_valid_schema_from_generate_schema_name: true
+  send_anonymous_usage_stats: false
+
+vars:
+  # The documented assumptions of the Phase 3-4 models, in one place (values unchanged). The tests
+  # that check model output do not read them back: scripts/independent_check.py, the unit tests and
+  # the singular tests pin the same values on their own, so changing one here makes those tests
+  # fail until they agree. (tests/staging/assert_campaign_windows.sql reads post_window_days on
+  # purpose: it checks that the data still fits the assumption.)
+  coverage_start: "2023-01-01"   # documented dataset coverage = the DIM_DATE spine
+  coverage_end: "2025-12-31"
+  as_of_date: "2025-12-31"       # FCT_LEAD_CONVERSIONS.AS_OF_DATE (an assumption)
+  maturity_days: 21              # IS_MATURE: the observed maximum lead-to-conversion lag
+  post_window_days: 21           # FCT_CAMPAIGN_DAILY_ACTIVITY spine: END_DATE + 21 days
+
+models:
+  marketing_crm:
+    # Every table, view and column keeps a Snowflake COMMENT (the SQL contract tests and the
+    # Data Studio field descriptions rely on them).
+    +persist_docs:
+      relation: true
+      columns: true
+    staging:
+      +schema: STAGING
+      +materialized: view
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +schema: MART
+      +materialized: table
+      # Permanent tables, as in the SQL build (dbt-snowflake defaults to transient).
+      +transient: false
+
+seeds:
+  marketing_crm:
+    +schema: STAGING
+    +quote_columns: false
+    +persist_docs:
+      relation: true
+      columns: true
+    expected_campaign_kpi:
+      +column_types:
+        campaign_id: varchar
+        channel: varchar
+        objective: varchar
+        budget: number(12,2)
+        spend_days: number(38,0)
+        spend: number(18,2)
+        impressions: number(38,0)
+        clicks: number(38,0)
+        leads: number(38,0)
+        converted_leads: number(38,0)
+        trials: number(38,0)
+        purchases: number(38,0)
+        revenue: number(18,2)
+    expected_totals:
+      +column_types:
+        metric: varchar
+        value: number(38,6)
+    publisher_channel_reference:
+      +column_types:
+        channel: varchar
+        spend: number(18,2)
+        attributed_revenue: number(18,2)

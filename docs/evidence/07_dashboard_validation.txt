@@ -1,0 +1,423 @@
+Running 07_dashboard_validation.sql (27 statements) as SVC_CRM_PIPELINE / CRM_TRANSFORMER
+[ 1] USE ROLE CRM_TRANSFORMER;
+     Statement executed successfully.
+[ 2] USE SECONDARY ROLES NONE;
+     Statement executed successfully.
+[ 3] USE WAREHOUSE MARKETING_WH;
+     Statement executed successfully.
+[ 4] USE SCHEMA MARKETING_CRM.MART;
+     Statement executed successfully.
+[ 5] SELECT CURRENT_USER() AS USER_NAME, CURRENT_ROLE() AS ROLE_NAME, CURRENT_SECONDARY_ROLES() AS SEC...
+     USER_NAME         ROLE_NAME        SECONDARY_ROLES          WAREHOUSE_NAME  SCHEMA_NAME         RUN_AT                STATUS
+     SVC_CRM_PIPELINE  CRM_TRANSFORMER  {"roles":"","value":""}  MARKETING_WH    MARKETING_CRM.MART  2026-10-14 20:13 UTC  PASS  
+[ 6] WITH expected (TABLE_SCHEMA, TABLE_NAME, SOURCE_CODE, EXPECTED_ROWS, EXPECTED_DATE_COLUMNS, DATE_...
+     OBJECT_NAME                          SOURCE_CODE  TABLE_TYPE  ROW_COUNT  EXPECTED_ROWS  DATE_COLUMNS                       DATE_FIELD_AFTER_SPEC                  STATUS
+     MART.FCT_CAMPAIGN_DAILY_ACTIVITY     DAILY        BASE TABLE  13760      13760          ACTIVITY_DATE, ACTIVITY_MONTH      ACTIVITY_DATE; ACTIVITY_MONTH -> Text  PASS  
+     MART.MART_CAMPAIGN_PERFORMANCE       CAMP         BASE TABLE  120        120            END_DATE, START_DATE, START_MONTH  none (all three -> Text, D3)           PASS  
+     MART.MART_CHANNEL_PERFORMANCE        CH           BASE TABLE  5          5              (none)                             none                                   PASS  
+     MART.MART_CONVERSION_FUNNEL          FUN          BASE TABLE  25         25             (none)                             none                                   PASS  
+     MART.MART_LEAD_QUALITY               LQ           BASE TABLE  50         50             (none)                             none                                   PASS  
+     MART.MART_MONTHLY_COHORT             COH          BASE TABLE  180        180            COHORT_MONTH                       COHORT_MONTH                           PASS  
+     MART.MART_MONTHLY_MARKETING          MM           BASE TABLE  180        180            MONTH_START                        MONTH_START                            PASS  
+     STAGING.EXPECTED_CAMPAIGN_KPI        seed         BASE TABLE  120        120                                                                                      PASS  
+     STAGING.EXPECTED_TOTALS              seed         BASE TABLE  29         29                                                                                       PASS  
+     STAGING.PUBLISHER_CHANNEL_REFERENCE  seed         BASE TABLE  5          5                                                                                        PASS  
+[ 7] WITH per_source (CHECK_ID, SOURCE_CODE, ALL_CHANNELS, VIDEO) AS (
+     CHECK_ID  SOURCE_CODE      ALL_CHANNELS  VIDEO  REF_ALL  REF_VIDEO  STATUS
+     a         MM               261684        25799  261684   25799      PASS  
+     b         COH              261684        25799  261684   25799      PASS  
+     c         CAMP             261684        25799  261684   25799      PASS  
+     d         LQ               261684        25799  261684   25799      PASS  
+     e         DAILY            261684        25799  261684   25799      PASS  
+     f         FUN (row Leads)  261684        25799  261684   25799      PASS  
+     g         CH               261684        25799  261684   25799      PASS  
+[ 8] WITH states (STATE, STATE_NO, CHANNEL_FILTER, DATE_FROM, DATE_TO) AS (
+     ID     STATE    COMPONENT              FIELD                                 VALUE             SHOWN         COMPACT  COMPACT_2DP  REFERENCE         REF_SOURCE                         NEAR_HALF  STATUS
+     P1-01  default  Total campaigns        DAILY: COUNT_DISTINCT(CAMPAIGN_ID)    120.000000        120                                 120.000000        SEED EXPECTED_TOTALS                          PASS  
+     P1-01  video    Total campaigns        DAILY: COUNT_DISTINCT(CAMPAIGN_ID)    24.000000         24                                  24.000000         SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P1-01  2024     Total campaigns        DAILY: COUNT_DISTINCT(CAMPAIGN_ID)    60.000000         60                                  60.000000         E03 [12] CAMPAIGNS_ACTIVE 2024                PASS  
+     P1-02  default  Total marketing spend  MM: SUM(SPEND)                        4523050.020000    4,523,050.02  4.5M     4.52M        4523050.020000    SEED EXPECTED_TOTALS                          PASS  
+     P1-02  video    Total marketing spend  MM: SUM(SPEND)                        828094.540000     828,094.54    828.1K   828.09K      828094.540000     PUB video spend                               PASS  
+     P1-02  2024     Total marketing spend  MM: SUM(SPEND)                        1971198.340000    1,971,198.34  2.0M     1.97M        1971198.340000    E03 [12] year 2024                            PASS  
+     P1-03  default  Total impressions      MM: SUM(IMPRESSIONS)                  436844819.000000  436,844,819   436.8M   436.84M      436844819.000000  SEED EXPECTED_TOTALS                          PASS  
+     P1-03  video    Total impressions      MM: SUM(IMPRESSIONS)                  55205469.000000   55,205,469    55.2M    55.21M       55205469.000000   SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P1-03  2024     Total impressions      MM: SUM(IMPRESSIONS)                  175148406.000000  175,148,406   175.1M   175.15M      175148406.000000  E03 [7] sum of the 2024 months                PASS  
+     P1-04  default  Total clicks           MM: SUM(CLICKS)                       7102319.000000    7,102,319     7.1M     7.10M        7102319.000000    SEED EXPECTED_TOTALS                          PASS  
+     P1-04  video    Total clicks           MM: SUM(CLICKS)                       492490.000000     492,490       492.5K   492.49K      492490.000000     SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P1-04  2024     Total clicks           MM: SUM(CLICKS)                       3092049.000000    3,092,049     3.1M     3.09M        3092049.000000    E03 [7] sum of the 2024 months                PASS  
+     P1-05  default  Total leads            MM: SUM(LEADS)                        261684.000000     261,684       261.7K   261.68K      261684.000000     SEED EXPECTED_TOTALS                          PASS  
+     P1-05  video    Total leads            MM: SUM(LEADS)                        25799.000000      25,799        25.8K    25.80K       25799.000000      SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P1-05  2024     Total leads            MM: SUM(LEADS)                        107371.000000     107,371       107.4K   107.37K      107371.000000     E03 [12] year 2024                            PASS  
+     P1-06  default  Conversions (booked)   MM: SUM(CONVERSIONS)                  39696.000000      39,696        39.7K    39.70K       39696.000000      SEED EXPECTED_TOTALS                          PASS  
+     P1-06  video    Conversions (booked)   MM: SUM(CONVERSIONS)                  3933.000000       3,933         3.9K     3.93K        3933.000000       SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P1-06  2024     Conversions (booked)   MM: SUM(CONVERSIONS)                  16148.000000      16,148        16.1K    16.15K       16148.000000      E03 [12] year 2024                            PASS  
+     P1-07  default  Conversion rate        COH: SUM(CONVERTED_LEADS)/SUM(LEADS)  0.151694          15.17%                              0.151694          SEED EXPECTED_TOTALS                          PASS  
+     P1-07  video    Conversion rate        COH: SUM(CONVERTED_LEADS)/SUM(LEADS)  0.152448          15.24%                              0.152448          SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P1-07  2024     Conversion rate        COH: SUM(CONVERTED_LEADS)/SUM(LEADS)  0.152015          15.20%                              0.152015          E04 [16] sum of the 2024 cohorts              PASS  
+[ 9] WITH wins (WIN, DATE_FROM, DATE_TO) AS (
+     ID     CHANNELS      CARD                            VALUE_2025    VALUE_2024    CHANGE  CHANGE_PCT_4DP  ABS_CHANGE   IF_PREVIOUS_PERIOD  NEAR_HALF  VALUES_CHECKED  STATUS
+     P1-K1  all channels  Active campaigns                35            60            -41.7%  -41.6667        -25          -41.7%                         3               PASS  
+     P1-K1  video         Active campaigns                8             12            -33.3%  -33.3333        -4                                          2               PASS  
+     P1-K2  all channels  Spend                           1,093,589.27  1,971,198.34  -44.5%  -44.5216        -877,609.07  -40.8%                         3               PASS  
+     P1-K2  video         Spend                           129,218.74    503,790.97    -74.4%  -74.3507        -374,572.23                                 2               PASS  
+     P1-K3  all channels  Leads                           66,764        107,371       -37.8%  -37.8193        -40,607      -33.8%                         3               PASS  
+     P1-K3  video         Leads                           3,889         15,733        -75.3%  -75.2813        -11,844                                     2               PASS  
+     P1-K4  all channels  Conversions (booked)            10,769        16,148        -33.3%  -33.3106        -5,379       -28.2%                         3               PASS  
+     P1-K4  video         Conversions (booked)            638           2,435         -73.8%  -73.7988        -1,797                                      2               PASS  
+     P1-K5  all channels  Conversion rate (lead cohorts)  15.18%        15.20%        -0.1%   -0.1096         -0.02%       -0.2%                          3               PASS  
+     P1-K5  video         Conversion rate (lead cohorts)  15.61%        15.43%        1.1%    1.1378          0.18%                                       2               PASS  
+[10] WITH e03_months (MONTH_START, ACTIVE_CAMPAIGNS, SPEND, IMPRESSIONS, CLICKS, LEADS, CONVERSIONS, P...
+     MONTH    YEAR_2024  ACTIVE_CAMPAIGNS  SPEND      CONVERSIONS  PURCHASES  REVENUE    VID_ACTIVE_CAMPAIGNS  VID_SPEND  VID_CONVERSIONS  VID_PURCHASES  VID_REVENUE  ALL_EQUALS_E03  VID_EQUALS_STG  STATUS
+     2023-01             3                 23686.55   110          48         52800.58   0                     0.00       0                0              0.00         yes             yes             PASS  
+     2023-02             5                 49461.61   325          138        170806.55  0                     0.00       0                0              0.00         yes             yes             PASS  
+     2023-03             10                104283.65  798          319        393351.94  1                     1551.95    3                0              0.00         yes             yes             PASS  
+     2023-04             11                104393.90  902          390        474970.42  4                     13171.06   24               11             15183.05     yes             yes             PASS  
+     2023-05             14                97734.10   811          340        435288.12  4                     26655.50   109              46             58856.50     yes             yes             PASS  
+     2023-06             18                123064.68  963          416        569578.22  5                     24440.92   128              53             64276.48     yes             yes             PASS  
+     2023-07             16                116810.98  1273         541        699206.04  4                     21509.00   92               41             48429.53     yes             yes             PASS  
+     2023-08             18                134065.09  1221         523        672633.67  4                     27672.18   137              62             82225.08     yes             yes             PASS  
+     2023-09             18                155294.61  1590         677        884815.77  2                     20516.76   103              51             65123.49     yes             yes             PASS  
+     2023-10             19                171832.62  1654         716        939852.38  2                     17416.27   86               36             52725.79     yes             yes             PASS  
+     2023-11             16                191171.25  1582         697        904954.17  1                     19677.45   84               28             34874.18     yes             yes             PASS  
+     2023-12             17                186463.37  1550         661        877224.49  2                     22473.74   94               41             52767.01     yes             yes             PASS  
+     2024-01  yes        12                122943.61  1158         485        618809.35  2                     28331.90   131              59             75373.87     yes             yes             PASS  
+     2024-02  yes        11                100601.92  794          350        441376.15  2                     27575.48   142              66             84260.67     yes             yes             PASS  
+     2024-03  yes        16                130497.60  1063         446        568388.08  4                     23677.10   102              38             42647.47     yes             yes             PASS  
+     2024-04  yes        19                196892.88  1424         635        795905.02  6                     66043.77   256              114            142321.51    yes             yes             PASS  
+     2024-05  yes        17                177398.24  1550         629        813289.19  6                     82295.40   429              173            210850.26    yes             yes             PASS  
+     2024-06  yes        13                129762.16  1035         445        581296.94  6                     64809.13   319              135            184872.97    yes             yes             PASS  
+     2024-07  yes        13                115762.43  861          365        468529.67  5                     45714.73   237              102            121504.52    yes             yes             PASS  
+     2024-08  yes        18                185052.08  1316         537        687143.69  4                     26172.98   191              69             91080.40     yes             yes             PASS  
+     2024-09  yes        20                205363.34  1780         738        950923.18  4                     22009.93   70               29             37924.86     yes             yes             PASS  
+     2024-10  yes        18                219378.73  1830         749        961348.25  4                     49435.22   207              83             108143.00    yes             yes             PASS  
+     2024-11  yes        19                181790.58  1579         655        857423.40  4                     43557.20   215              89             114694.38    yes             yes             PASS  
+     2024-12  yes        18                205754.77  1758         712        933214.90  3                     24168.13   136              63             87080.29     yes             yes             PASS  
+     2025-01             16                189821.49  1699         723        926132.23  5                     21066.93   98               35             39210.99     yes             yes             PASS  
+     2025-02             13                97550.77   1116         480        619062.19  3                     17932.07   88               40             54344.38     yes             yes             PASS  
+     2025-03             12                103654.48  1061         449        598344.60  3                     18539.37   89               31             36178.01     yes             yes             PASS  
+     2025-04             13                95842.28   969          406        544558.36  3                     18482.20   97               37             45895.52     yes             yes             PASS  
+     2025-05             14                109131.26  1183         489        629458.15  3                     14108.94   74               28             34224.93     yes             yes             PASS  
+     2025-06             14                94604.52   971          380        515898.62  3                     8468.91    41               20             31782.92     yes             yes             PASS  
+     2025-07             15                132922.32  1101         462        601132.60  3                     16037.88   64               22             25015.67     yes             yes             PASS  
+     2025-08             14                138359.57  1190         476        596182.42  3                     12856.61   62               26             33646.24     yes             yes             PASS  
+     2025-09             11                65610.05   700          301        381379.89  2                     1725.83    25               10             12040.25     yes             yes             PASS  
+     2025-10             5                 48774.54   462          182        228041.53  0                     0.00       0                0              0.00         yes             yes             PASS  
+     2025-11             3                 16510.95   256          109        137433.25  0                     0.00       0                0              0.00         yes             yes             PASS  
+     2025-12             1                 807.04     61           22         31085.00   0                     0.00       0                0              0.00         yes             yes             PASS  
+[11] WITH e03_years (YEAR, CAMPAIGNS_STARTED, CAMPAIGNS_ACTIVE, SPEND, LEADS, CONVERSIONS, REVENUE, CO...
+     CHECK_NAME                                ACTUAL       EXPECTED     SOURCE                      STATUS
+     default: months plotted                   36.00        36.00        [C] 2023-01..2025-12        PASS  
+     default: SUM(SPEND)                       4523050.02   4523050.02   SEED EXPECTED_TOTALS        PASS  
+     default: SUM(CONVERSIONS)                 39696.00     39696.00     SEED EXPECTED_TOTALS        PASS  
+     default: SUM(PURCHASES)                   16691.00     16691.00     SEED EXPECTED_TOTALS        PASS  
+     default: SUM(REVENUE)                     21561839.01  21561839.01  SEED EXPECTED_TOTALS        PASS  
+     default: peak spend month (YYYYMM)        202410.00    202410.00    E03 [7]                     PASS  
+     default: peak conversions month (YYYYMM)  202410.00    202410.00    E03 [7]                     PASS  
+     default: most campaigns in flight         20.00        20.00        E03 [7]                     PASS  
+     video: months plotted                     36.00        36.00        [C] zero rows kept          PASS  
+     video: months with SPEND > 0              31.00        31.00        [STG] video spend months    PASS  
+     video: SUM(SPEND)                         828094.54    828094.54    PUB video                   PASS  
+     video: SUM(CONVERSIONS)                   3933.00      3933.00      SEED EXPECTED_CAMPAIGN_KPI  PASS  
+     video: SUM(PURCHASES)                     1638.00      1638.00      SEED EXPECTED_CAMPAIGN_KPI  PASS  
+     video: SUM(REVENUE)                       2087554.22   2087554.22   PUB video                   PASS  
+     2024: months plotted                      12.00        12.00        [C] 2024-01..2024-12        PASS  
+     2024: SUM(SPEND)                          1971198.34   1971198.34   E03 [12]                    PASS  
+     2024: SUM(CONVERSIONS)                    16148.00     16148.00     E03 [12]                    PASS  
+     2024: SUM(PURCHASES)                      6746.00      6746.00      E03 [7] sum of 2024         PASS  
+     2024: SUM(REVENUE)                        8677647.82   8677647.82   E03 [12]                    PASS  
+[12] WITH e03_year_channel (YEAR, CHANNEL, SPEND, LEADS) AS (
+     CHANNEL      BAR_ORDER  LEADS  SEED_LEADS  BAR_ORDER_2024  LEADS_2024  E03_LEADS_2024  STATUS
+     affiliate    1          67849  67849       2               28727       28727           PASS  
+     paid_search  2          65268  65268       1               29566       29566           PASS  
+     paid_social  3          57619  57619       3               21435       21435           PASS  
+     display      4          45149  45149       5               11910       11910           PASS  
+     video        5          25799  25799       4               15733       15733           PASS  
+[13] WITH states (STATE, STATE_NO, CHANNEL_FILTER) AS (
+     TABLE_ID  STATE    ROW_NO   CAMPAIGN_ID  CAMPAIGN_NAME         CHANNEL      OBJECTIVE    SPEND       LEADS   CONVERTED_LEADS  PURCHASES  REVENUE      BUDGET      CPL    LCR_PCT  ROAS   CPP     UTIL_PCT  EQUALS_SEED  STATUS
+     P1-11     default  1        CMP0093      Display 2024 093      display      awareness    72153.85    3273    478              198        250142.87    78979.48    22.05  14.60    3.47   364.41  91.36     yes          PASS  
+     P1-11     default  2        CMP0021      Paid Search 2024 021  paid_search  awareness    71337.50    4727    691              291        380892.89    76193.25    15.09  14.62    5.34   245.15  93.63     yes          PASS  
+     P1-11     default  3        CMP0102      Paid Social 2025 102  paid_social  awareness    67070.47    3836    571              231        270077.02    75494.94    17.48  14.89    4.03   290.35  88.84     yes          PASS  
+     P1-11     default  4        CMP0107      Paid Social 2024 107  paid_social  awareness    66794.72    4138    611              238        316085.27    74343.86    16.14  14.77    4.73   280.65  89.85     yes          PASS  
+     P1-11     default  5        CMP0041      Paid Search 2024 041  paid_search  acquisition  66691.10    1960    307              134        176741.68    74625.44    34.03  15.66    2.65   497.69  89.37     yes          PASS  
+     P1-11     default  6        CMP0024      Video 2024 024        video        acquisition  66524.17    2111    319              146        179567.16    77960.53    31.51  15.11    2.70   455.65  85.33     yes          PASS  
+     P1-11     default  7        CMP0073      Display 2023 073      display      awareness    64824.15    3112    487              232        289502.55    79487.06    20.83  15.65    4.47   279.41  81.55     yes          PASS  
+     P1-11     default  8        CMP0117      Paid Social 2023 117  paid_social  awareness    64353.11    3912    568              242        315925.45    78212.52    16.45  14.52    4.91   265.92  82.28     yes          PASS  
+     P1-11     default  9        CMP0008      Display 2023 008      display      lead_gen     62684.63    2969    462              189        251896.65    76141.89    21.11  15.56    4.02   331.66  82.33     yes          PASS  
+     P1-11     default  10       CMP0060      Affiliate 2024 060    affiliate    acquisition  62309.32    5104    768              326        417738.92    79884.92    12.21  15.05    6.70   191.13  78.00     yes          PASS  
+     P1-11     default  summary  NULL         120 campaigns         NULL         NULL         4523050.02  261684  39696            16691      21561839.01  5418642.16  17.28  15.17    4.77   270.99  83.47     yes          PASS  
+     P1-11     video    1        CMP0024      Video 2024 024        video        acquisition  66524.17    2111    319              146        179567.16    77960.53    31.51  15.11    2.70   455.65  85.33     yes          PASS  
+     P1-11     video    2        CMP0079      Video 2024 079        video        lead_gen     62230.93    1932    292              110        137737.16    75572.78    32.21  15.11    2.21   565.74  82.35     yes          PASS  
+     P1-11     video    3        CMP0064      Video 2024 064        video        lead_gen     55178.97    1687    247              94         128190.29    74222.90    32.71  14.64    2.32   587.01  74.34     yes          PASS  
+     P1-11     video    4        CMP0009      Video 2024 009        video        lead_gen     54786.64    1720    260              102        120655.46    63858.28    31.85  15.12    2.20   537.12  85.79     yes          PASS  
+     P1-11     video    5        CMP0114      Video 2024 114        video        awareness    54531.03    1723    264              104        143825.54    59545.21    31.65  15.32    2.64   524.34  91.58     yes          PASS  
+     P1-11     video    6        CMP0104      Video 2023 104        video        awareness    53604.75    1703    249              101        133477.72    58750.28    31.48  14.62    2.49   530.74  91.24     yes          PASS  
+     P1-11     video    7        CMP0109      Video 2024 109        video        awareness    50775.13    1599    240              110        135789.95    69532.05    31.75  15.01    2.67   461.59  73.02     yes          PASS  
+     P1-11     video    8        CMP0094      Video 2023 094        video        lead_gen     49539.43    1606    256              117        146756.00    66477.07    30.85  15.94    2.96   423.41  74.52     yes          PASS  
+     P1-11     video    9        CMP0014      Video 2025 014        video        awareness    43162.47    1325    213              80         100888.56    48616.15    32.58  16.08    2.34   539.53  88.78     yes          PASS  
+     P1-11     video    10       CMP0089      Video 2023 089        video        acquisition  43045.82    1374    221              98         123929.88    48147.87    31.33  16.08    2.88   439.24  89.40     yes          PASS  
+     P1-11     video    summary  NULL         24 campaigns          NULL         NULL         828094.54   25799   3933             1638       2087554.22   994869.02   32.10  15.24    2.52   505.55  83.24     yes          PASS  
+     P2-14     default  1        CMP0054      Video 2024 054        video        awareness    14158.05    459     86               37         49365.00     16931.72    30.85  18.74    3.49   382.65  83.62     yes          PASS  
+     P2-14     default  2        CMP0029      Video 2024 029        video        awareness    36046.43    1142    201              82         102693.84    41244.99    31.56  17.60    2.85   439.59  87.40     yes          PASS  
+     P2-14     default  3        CMP0030      Affiliate 2024 030    affiliate    acquisition  51492.57    2205    366              142        168745.08    56128.75    23.35  16.60    3.28   362.62  91.74     yes          PASS  
+     P2-14     default  4        CMP0086      Paid Search 2023 086  paid_search  awareness    11691.91    1277    211              101        126855.40    13698.33    9.16   16.52    10.85  115.76  85.35     yes          PASS  
+     P2-14     default  5        CMP0058      Display 2023 058      display      lead_gen     25905.51    1246    203              88         118383.74    29871.43    20.79  16.29    4.57   294.38  86.72     yes          PASS  
+     P2-14     default  6        CMP0115      Affiliate 2025 115    affiliate    lead_gen     52989.89    1925    313              140        183931.07    53698.12    27.53  16.26    3.47   378.50  98.68     yes          PASS  
+     P2-14     default  7        CMP0061      Paid Search 2023 061  paid_search  lead_gen     48907.03    4239    688              283        369829.93    50880.95    11.54  16.23    7.56   172.82  96.12     yes          PASS  
+     P2-14     default  8        CMP0002      Paid Social 2023 002  paid_social  awareness    47041.22    1849    300              140        191521.25    49422.28    25.44  16.22    4.07   336.01  95.18     yes          PASS  
+     P2-14     default  9        CMP0028      Display 2023 028      display      lead_gen     6701.48     272     44               22         32574.62     8612.99     24.64  16.18    4.86   304.61  77.81     yes          PASS  
+     P2-14     default  10       CMP0026      Paid Search 2025 026  paid_search  acquisition  41140.87    3653    590              228        299599.91    49802.17    11.26  16.15    7.28   180.44  82.61     yes          PASS  
+     P2-14     default  116      CMP0068      Display 2025 068      display      lead_gen     57515.62    2854    396              168        229511.53    68674.80    20.15  13.88    3.99   342.35  83.75     yes          PASS  
+     P2-14     default  117      CMP0083      Display 2025 083      display      lead_gen     48391.76    2404    329              148        187352.30    61419.31    20.13  13.69    3.87   326.97  78.79     yes          PASS  
+     P2-14     default  118      CMP0034      Video 2024 034        video        awareness    34180.02    1044    140              57         67619.25     39122.92    32.74  13.41    1.98   599.65  87.37     yes          PASS  
+     P2-14     default  119      CMP0074      Video 2023 074        video        awareness    26109.81    934     119              46         56859.44     30992.79    27.95  12.74    2.18   567.60  84.24     yes          PASS  
+     P2-14     default  120      CMP0084      Video 2023 084        video        awareness    6105.33     145     14               7          11132.24     8102.32     42.11  9.66     1.82   872.19  75.35     yes          PASS  
+     P2-14     default  summary  NULL         120 campaigns         NULL         NULL         4523050.02  261684  39696            16691      21561839.01  5418642.16  17.28  15.17    4.77   270.99  83.47     yes          PASS  
+     P2-14     video    1        CMP0054      Video 2024 054        video        awareness    14158.05    459     86               37         49365.00     16931.72    30.85  18.74    3.49   382.65  83.62     yes          PASS  
+     P2-14     video    2        CMP0029      Video 2024 029        video        awareness    36046.43    1142    201              82         102693.84    41244.99    31.56  17.60    2.85   439.59  87.40     yes          PASS  
+     P2-14     video    3        CMP0069      Video 2024 069        video        awareness    23146.07    677     109              42         56263.84     31275.60    34.19  16.10    2.43   551.10  74.01     yes          PASS  
+     P2-14     video    4        CMP0089      Video 2023 089        video        acquisition  43045.82    1374    221              98         123929.88    48147.87    31.33  16.08    2.88   439.24  89.40     yes          PASS  
+     P2-14     video    5        CMP0014      Video 2025 014        video        awareness    43162.47    1325    213              80         100888.56    48616.15    32.58  16.08    2.34   539.53  88.78     yes          PASS  
+     P2-14     video    6        CMP0059      Video 2025 059        video        acquisition  19164.26    568     91               38         52871.36     22521.39    33.74  16.02    2.76   504.32  85.09     yes          PASS  
+     P2-14     video    7        CMP0094      Video 2023 094        video        lead_gen     49539.43    1606    256              117        146756.00    66477.07    30.85  15.94    2.96   423.41  74.52     yes          PASS  
+     P2-14     video    8        CMP0039      Video 2025 039        video        acquisition  24066.86    733     114              39         51293.31     30625.16    32.83  15.55    2.13   617.10  78.59     yes          PASS  
+     P2-14     video    9        CMP0004      Video 2024 004        video        acquisition  27494.98    803     124              64         80962.12     29625.96    34.24  15.44    2.94   429.61  92.81     yes          PASS  
+     P2-14     video    10       CMP0044      Video 2025 044        video        acquisition  11538.17    344     53               22         27269.70     14555.92    33.54  15.41    2.36   524.46  79.27     yes          PASS  
+     P2-14     video    20       CMP0099      Video 2023 099        video        awareness    9348.40     242     35               15         21200.08     12962.09    38.63  14.46    2.27   623.23  72.12     yes          PASS  
+     P2-14     video    21       CMP0119      Video 2025 119        video        acquisition  16825.46    499     71               30         36568.85     18913.00    33.72  14.23    2.17   560.85  88.96     yes          PASS  
+     P2-14     video    22       CMP0034      Video 2024 034        video        awareness    34180.02    1044    140              57         67619.25     39122.92    32.74  13.41    1.98   599.65  87.37     yes          PASS  
+     P2-14     video    23       CMP0074      Video 2023 074        video        awareness    26109.81    934     119              46         56859.44     30992.79    27.95  12.74    2.18   567.60  84.24     yes          PASS  
+     P2-14     video    24       CMP0084      Video 2023 084        video        awareness    6105.33     145     14               7          11132.24     8102.32     42.11  9.66     1.82   872.19  75.35     yes          PASS  
+     P2-14     video    summary  NULL         24 campaigns          NULL         NULL         828094.54   25799   3933             1638       2087554.22   994869.02   32.10  15.24    2.52   505.55  83.24     yes          PASS  
+     P4-11     default  1        CMP0080      Affiliate 2024 080    affiliate    awareness    17904.18    2644    394              172        232990.96    20903.18    6.77   14.90    13.01  104.09  85.65     yes          PASS  
+     P4-11     default  2        CMP0070      Affiliate 2024 070    affiliate    awareness    17318.50    2587    381              167        218374.17    18386.12    6.69   14.73    12.61  103.70  94.19     yes          PASS  
+     P4-11     default  3        CMP0040      Affiliate 2023 040    affiliate    awareness    14920.90    2064    321              146        183150.82    15821.08    7.23   15.55    12.27  102.20  94.31     yes          PASS  
+     P4-11     default  4        CMP0035      Affiliate 2025 035    affiliate    awareness    15913.35    2218    341              142        191083.78    22324.72    7.17   15.37    12.01  112.07  71.28     yes          PASS  
+     P4-11     default  5        CMP0045      Affiliate 2024 045    affiliate    awareness    10543.72    1430    214              88         120094.29    11542.55    7.37   14.97    11.39  119.82  91.35     yes          PASS  
+     P4-11     default  6        CMP0095      Affiliate 2025 095    affiliate    acquisition  17881.69    2639    385              166        203419.10    23477.18    6.78   14.59    11.38  107.72  76.17     yes          PASS  
+     P4-11     default  7        CMP0005      Affiliate 2024 005    affiliate    acquisition  17057.46    2239    344              143        189914.53    18614.72    7.62   15.36    11.13  119.28  91.63     yes          PASS  
+     P4-11     default  8        CMP0050      Affiliate 2023 050    affiliate    awareness    35219.40    4086    659              299        388919.88    37882.58    8.62   16.13    11.04  117.79  92.97     yes          PASS  
+     P4-11     default  9        CMP0110      Affiliate 2025 110    affiliate    acquisition  30384.26    4123    640              257        330555.85    37632.26    7.37   15.52    10.88  118.23  80.74     yes          PASS  
+     P4-11     default  10       CMP0086      Paid Search 2023 086  paid_search  awareness    11691.91    1277    211              101        126855.40    13698.33    9.16   16.52    10.85  115.76  85.35     yes          PASS  
+     P4-11     default  116      CMP0018      Display 2023 018      display      acquisition  7405.03     334     48               11         16103.51     9256.84     22.17  14.37    2.17   673.18  80.00     yes          PASS  
+     P4-11     default  117      CMP0119      Video 2025 119        video        acquisition  16825.46    499     71               30         36568.85     18913.00    33.72  14.23    2.17   560.85  88.96     yes          PASS  
+     P4-11     default  118      CMP0039      Video 2025 039        video        acquisition  24066.86    733     114              39         51293.31     30625.16    32.83  15.55    2.13   617.10  78.59     yes          PASS  
+     P4-11     default  119      CMP0034      Video 2024 034        video        awareness    34180.02    1044    140              57         67619.25     39122.92    32.74  13.41    1.98   599.65  87.37     yes          PASS  
+     P4-11     default  120      CMP0084      Video 2023 084        video        awareness    6105.33     145     14               7          11132.24     8102.32     42.11  9.66     1.82   872.19  75.35     yes          PASS  
+     P4-11     default  summary  NULL         120 campaigns         NULL         NULL         4523050.02  261684  39696            16691      21561839.01  5418642.16  17.28  15.17    4.77   270.99  83.47     yes          PASS  
+     P4-11     video    1        CMP0054      Video 2024 054        video        awareness    14158.05    459     86               37         49365.00     16931.72    30.85  18.74    3.49   382.65  83.62     yes          PASS  
+     P4-11     video    2        CMP0094      Video 2023 094        video        lead_gen     49539.43    1606    256              117        146756.00    66477.07    30.85  15.94    2.96   423.41  74.52     yes          PASS  
+     P4-11     video    3        CMP0004      Video 2024 004        video        acquisition  27494.98    803     124              64         80962.12     29625.96    34.24  15.44    2.94   429.61  92.81     yes          PASS  
+     P4-11     video    4        CMP0089      Video 2023 089        video        acquisition  43045.82    1374    221              98         123929.88    48147.87    31.33  16.08    2.88   439.24  89.40     yes          PASS  
+     P4-11     video    5        CMP0019      Video 2023 019        video        awareness    21498.81    684     105              53         61371.59     27023.53    31.43  15.35    2.85   405.64  79.56     yes          PASS  
+     P4-11     video    6        CMP0029      Video 2024 029        video        awareness    36046.43    1142    201              82         102693.84    41244.99    31.56  17.60    2.85   439.59  87.40     yes          PASS  
+     P4-11     video    7        CMP0059      Video 2025 059        video        acquisition  19164.26    568     91               38         52871.36     22521.39    33.74  16.02    2.76   504.32  85.09     yes          PASS  
+     P4-11     video    8        CMP0024      Video 2024 024        video        acquisition  66524.17    2111    319              146        179567.16    77960.53    31.51  15.11    2.70   455.65  85.33     yes          PASS  
+     P4-11     video    9        CMP0109      Video 2024 109        video        awareness    50775.13    1599    240              110        135789.95    69532.05    31.75  15.01    2.67   461.59  73.02     yes          PASS  
+     P4-11     video    10       CMP0114      Video 2024 114        video        awareness    54531.03    1723    264              104        143825.54    59545.21    31.65  15.32    2.64   524.34  91.58     yes          PASS  
+     P4-11     video    20       CMP0074      Video 2023 074        video        awareness    26109.81    934     119              46         56859.44     30992.79    27.95  12.74    2.18   567.60  84.24     yes          PASS  
+     P4-11     video    21       CMP0119      Video 2025 119        video        acquisition  16825.46    499     71               30         36568.85     18913.00    33.72  14.23    2.17   560.85  88.96     yes          PASS  
+     P4-11     video    22       CMP0039      Video 2025 039        video        acquisition  24066.86    733     114              39         51293.31     30625.16    32.83  15.55    2.13   617.10  78.59     yes          PASS  
+     P4-11     video    23       CMP0034      Video 2024 034        video        awareness    34180.02    1044    140              57         67619.25     39122.92    32.74  13.41    1.98   599.65  87.37     yes          PASS  
+     P4-11     video    24       CMP0084      Video 2023 084        video        awareness    6105.33     145     14               7          11132.24     8102.32     42.11  9.66     1.82   872.19  75.35     yes          PASS  
+     P4-11     video    summary  NULL         24 campaigns          NULL         NULL         828094.54   25799   3933             1638       2087554.22   994869.02   32.10  15.24    2.52   505.55  83.24     yes          PASS  
+     P4-12     default  1        CMP0040      Affiliate 2023 040    affiliate    awareness    14920.90    2064    321              146        183150.82    15821.08    7.23   15.55    12.27  102.20  94.31     yes          PASS  
+     P4-12     default  2        CMP0070      Affiliate 2024 070    affiliate    awareness    17318.50    2587    381              167        218374.17    18386.12    6.69   14.73    12.61  103.70  94.19     yes          PASS  
+     P4-12     default  3        CMP0080      Affiliate 2024 080    affiliate    awareness    17904.18    2644    394              172        232990.96    20903.18    6.77   14.90    13.01  104.09  85.65     yes          PASS  
+     P4-12     default  4        CMP0095      Affiliate 2025 095    affiliate    acquisition  17881.69    2639    385              166        203419.10    23477.18    6.78   14.59    11.38  107.72  76.17     yes          PASS  
+     P4-12     default  5        CMP0035      Affiliate 2025 035    affiliate    awareness    15913.35    2218    341              142        191083.78    22324.72    7.17   15.37    12.01  112.07  71.28     yes          PASS  
+     P4-12     default  6        CMP0086      Paid Search 2023 086  paid_search  awareness    11691.91    1277    211              101        126855.40    13698.33    9.16   16.52    10.85  115.76  85.35     yes          PASS  
+     P4-12     default  7        CMP0050      Affiliate 2023 050    affiliate    awareness    35219.40    4086    659              299        388919.88    37882.58    8.62   16.13    11.04  117.79  92.97     yes          PASS  
+     P4-12     default  8        CMP0110      Affiliate 2025 110    affiliate    acquisition  30384.26    4123    640              257        330555.85    37632.26    7.37   15.52    10.88  118.23  80.74     yes          PASS  
+     P4-12     default  9        CMP0005      Affiliate 2024 005    affiliate    acquisition  17057.46    2239    344              143        189914.53    18614.72    7.62   15.36    11.13  119.28  91.63     yes          PASS  
+     P4-12     default  10       CMP0045      Affiliate 2024 045    affiliate    awareness    10543.72    1430    214              88         120094.29    11542.55    7.37   14.97    11.39  119.82  91.35     yes          PASS  
+     P4-12     video    1        CMP0054      Video 2024 054        video        awareness    14158.05    459     86               37         49365.00     16931.72    30.85  18.74    3.49   382.65  83.62     yes          PASS  
+     P4-12     video    2        CMP0019      Video 2023 019        video        awareness    21498.81    684     105              53         61371.59     27023.53    31.43  15.35    2.85   405.64  79.56     yes          PASS  
+     P4-12     video    3        CMP0094      Video 2023 094        video        lead_gen     49539.43    1606    256              117        146756.00    66477.07    30.85  15.94    2.96   423.41  74.52     yes          PASS  
+     P4-12     video    4        CMP0004      Video 2024 004        video        acquisition  27494.98    803     124              64         80962.12     29625.96    34.24  15.44    2.94   429.61  92.81     yes          PASS  
+     P4-12     video    5        CMP0089      Video 2023 089        video        acquisition  43045.82    1374    221              98         123929.88    48147.87    31.33  16.08    2.88   439.24  89.40     yes          PASS  
+     P4-12     video    6        CMP0029      Video 2024 029        video        awareness    36046.43    1142    201              82         102693.84    41244.99    31.56  17.60    2.85   439.59  87.40     yes          PASS  
+     P4-12     video    7        CMP0024      Video 2024 024        video        acquisition  66524.17    2111    319              146        179567.16    77960.53    31.51  15.11    2.70   455.65  85.33     yes          PASS  
+     P4-12     video    8        CMP0109      Video 2024 109        video        awareness    50775.13    1599    240              110        135789.95    69532.05    31.75  15.01    2.67   461.59  73.02     yes          PASS  
+     P4-12     video    9        CMP0059      Video 2025 059        video        acquisition  19164.26    568     91               38         52871.36     22521.39    33.74  16.02    2.76   504.32  85.09     yes          PASS  
+     P4-12     video    10       CMP0114      Video 2024 114        video        awareness    54531.03    1723    264              104        143825.54    59545.21    31.65  15.32    2.64   524.34  91.58     yes          PASS  
+[14] WITH e03_years (YEAR, CAMPAIGNS_STARTED, CAMPAIGNS_ACTIVE, SPEND, LEADS, CONVERSIONS, REVENUE, CO...
+     CHECK_NAME                               ACTUAL       EXPECTED    SOURCE                      STATUS
+     default: campaigns in the charts         120.000000   120.000000  SEED EXPECTED_CAMPAIGN_KPI  PASS  
+     video: campaigns in the charts           24.000000    24.000000   SEED EXPECTED_CAMPAIGN_KPI  PASS  
+     tied sort keys among the rows shown      0.000000     0.000000    requirement                 PASS  
+     P4-11 by util. asc: row 1 (CMP no.)      100.000000   100.000000  SEED min SPEND/BUDGET       PASS  
+     ... its budget utilisation               0.698798     0.698798    SEED min SPEND/BUDGET       PASS  
+     P4-11 by util. desc: row 1 (CMP no.)     115.000000   115.000000  SEED max SPEND/BUDGET       PASS  
+     ... its budget utilisation               0.986811     0.986811    SEED max SPEND/BUDGET       PASS  
+     D3 missed: 2024 shows campaigns STARTED  50.000000    50.000000   E03 [12] CAMPAIGNS_STARTED  PASS  
+     ... campaigns that RAN in 2024 (P1-01)   NULL         60.000000   E03 [12] CAMPAIGNS_ACTIVE   INFO  
+     summary: ROAS as ratio of sums (right)   4.767102     4.767102    SEED ratio of sums          PASS  
+     summary trap: SUM(stored ROAS)           626.436624   NULL        wrong if shown              INFO  
+     summary trap: AVG(stored ROAS)           5.220305     NULL        wrong if shown              INFO  
+     summary trap: SUM(stored COST_PER_LEAD)  2371.573800  NULL        wrong if shown              INFO  
+     summary trap: AVG(stored LCR)            0.151805     NULL        wrong if shown              INFO  
+[15] WITH states (STATE, STATE_NO, CHANNEL_FILTER) AS (
+     ID     STATE    COMPONENT                   FIELD                                VALUE       SHOWN   REFERENCE   REF_SOURCE                         NEAR_HALF  STATUS
+     P2-01  default  CTR (clicks / impressions)  CH: SUM(CLICKS)/SUM(IMPRESSIONS)     0.016258    1.63%   0.016258    SEED EXPECTED_TOTALS                          PASS  
+     P2-01  video    CTR (clicks / impressions)  CH: SUM(CLICKS)/SUM(IMPRESSIONS)     0.008921    0.89%   0.008921    SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P2-02  default  Click-to-lead rate          CH: SUM(LEADS)/SUM(CLICKS)           0.036845    3.68%   0.036845    SEED EXPECTED_TOTALS                          PASS  
+     P2-02  video    Click-to-lead rate          CH: SUM(LEADS)/SUM(CLICKS)           0.052385    5.24%   0.052385    SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P2-03  default  Lead conversion rate        CH: SUM(CONVERTED_LEADS)/SUM(LEADS)  0.151694    15.17%  0.151694    SEED EXPECTED_TOTALS                          PASS  
+     P2-03  video    Lead conversion rate        CH: SUM(CONVERTED_LEADS)/SUM(LEADS)  0.152448    15.24%  0.152448    SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P2-04  default  Cost per lead               CH: SUM(SPEND)/SUM(LEADS)            17.284397   17.28   17.284397   SEED EXPECTED_TOTALS                          PASS  
+     P2-04  video    Cost per lead               CH: SUM(SPEND)/SUM(LEADS)            32.097932   32.10   32.097932   SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P2-05  default  Cost per conversion         CH: SUM(SPEND)/SUM(CONVERTED_LEADS)  113.942211  113.94  113.942211  SEED EXPECTED_TOTALS                          PASS  
+     P2-05  video    Cost per conversion         CH: SUM(SPEND)/SUM(CONVERTED_LEADS)  210.550353  210.55  210.550353  SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+[16] WITH f AS (
+     STAGE_ORDER  STAGE            VALUE      PCT_OF_PREVIOUS  PCT_OF_IMPRESSIONS  PCT_OF_IMPRESSIONS_4DP  FUNNEL_PCT_OF_MAX  VID_VALUE  VID_PCT_OF_PREVIOUS  VID_PCT_OF_IMPR_4DP  EQUALS_SEED  STATUS
+     1            Impressions      436844819  NULL             100.00              100.0000                100.00             55205469   NULL                 100.0000             yes          PASS  
+     2            Clicks           7102319    1.63             1.63                1.6258                  1.63               492490     0.89                 0.8921               yes          PASS  
+     3            Leads            261684     3.68             0.06                0.0599                  0.06               25799      5.24                 0.0467               yes          PASS  
+     4            Converted leads  39696      15.17            0.01                0.0091                  0.01               3933       15.24                0.0071               yes          PASS  
+     5            Purchases        16691      42.05            0.00                0.0038                  0.00               1638       41.65                0.0030               yes          PASS  
+[17] WITH e04_ci (CHANNEL, LCR_CI_LOW, LCR_CI_HIGH) AS (
+     CHANNEL      ROW_NO  IMPRESSIONS  CLICKS   CTR_PCT  LEADS  CTL_PCT  CONVERTED_LEADS  LCR_PCT  CI_LOW_PCT  CI_HIGH_PCT  CPL    COST_PER_CONVERSION  EQUALS_REFERENCES  STATUS
+     paid_search  1       49837405     1740314  3.49     65268  3.75     10019            15.35    15.08       15.63        13.74  89.54                yes                PASS  
+     affiliate    2       95314042     2386856  2.50     67849  2.84     10352            15.26    14.99       15.53        12.64  82.87                yes                PASS  
+     video        3       55205469     492490   0.89     25799  5.24     3933             15.24    14.81       15.69        32.10  210.55               yes                PASS  
+     paid_social  4       89520215     1602785  1.79     57619  3.59     8648             15.01    14.72       15.30        17.09  113.87               yes                PASS  
+     display      5       146967688    879874   0.60     45149  5.13     6744             14.94    14.61       15.27        21.16  141.65               yes                PASS  
+[18] WITH e04_cohort (COHORT_MONTH, LEADS, CONVERTED_LEADS, CONVERTED_LATER_MONTH, CONVERSION_RATE) AS (
+     COHORT_MONTH  YEAR  LEADS  CONVERTED_LEADS  LCR_PCT  VID_LEADS  VID_CONVERTED_LEADS  VID_LCR_PCT  ALL_EQUALS_E04  VID_EQUALS_STG  STATUS
+     2023-01       2023  1325   212              16.00    0          0                    NULL         yes             yes             PASS  
+     2023-02       2023  2825   427              15.12    0          0                    NULL         yes             yes             PASS  
+     2023-03       2023  6229   914              14.67    37         6                    16.22        yes             yes             PASS  
+     2023-04       2023  5748   880              15.31    417        46                   11.03        yes             yes             PASS  
+     2023-05       2023  5188   771              14.86    867        131                  15.11        yes             yes             PASS  
+     2023-06       2023  7491   1137             15.18    771        111                  14.40        yes             yes             PASS  
+     2023-07       2023  7779   1220             15.68    675        100                  14.81        yes             yes             PASS  
+     2023-08       2023  9024   1377             15.26    912        147                  16.12        yes             yes             PASS  
+     2023-09       2023  10771  1604             14.89    601        88                   14.64        yes             yes             PASS  
+     2023-10       2023  10930  1648             15.08    580        77                   13.28        yes             yes             PASS  
+     2023-11       2023  10526  1575             14.96    612        88                   14.38        yes             yes             PASS  
+     2023-12       2023  9713   1471             15.14    705        104                  14.75        yes             yes             PASS  
+     2024-01       2024  6493   975              15.02    911        143                  15.70        yes             yes             PASS  
+     2024-02       2024  5638   882              15.64    871        146                  16.76        yes             yes             PASS  
+     2024-03       2024  7576   1172             15.47    704        101                  14.35        yes             yes             PASS  
+     2024-04       2024  10413  1588             15.25    2172       347                  15.98        yes             yes             PASS  
+     2024-05       2024  8898   1332             14.97    2619       409                  15.62        yes             yes             PASS  
+     2024-06       2024  5954   918              15.42    1970       299                  15.18        yes             yes             PASS  
+     2024-07       2024  5895   879              14.91    1394       202                  14.49        yes             yes             PASS  
+     2024-08       2024  10718  1607             14.99    844        144                  17.06        yes             yes             PASS  
+     2024-09       2024  11825  1779             15.04    686        91                   13.27        yes             yes             PASS  
+     2024-10       2024  11683  1771             15.16    1518       249                  16.40        yes             yes             PASS  
+     2024-11       2024  10557  1588             15.04    1322       193                  14.60        yes             yes             PASS  
+     2024-12       2024  11721  1831             15.62    722        104                  14.40        yes             yes             PASS  
+     2025-01       2025  10136  1557             15.36    612        99                   16.18        yes             yes             PASS  
+     2025-02       2025  6308   930              14.74    551        87                   15.79        yes             yes             PASS  
+     2025-03       2025  7226   1099             15.21    568        90                   15.85        yes             yes             PASS  
+     2025-04       2025  6504   1036             15.93    555        87                   15.68        yes             yes             PASS  
+     2025-05       2025  7506   1113             14.83    435        65                   14.94        yes             yes             PASS  
+     2025-06       2025  6371   996              15.63    255        40                   15.69        yes             yes             PASS  
+     2025-07       2025  7710   1156             14.99    480        75                   15.63        yes             yes             PASS  
+     2025-08       2025  7339   1109             15.11    386        57                   14.77        yes             yes             PASS  
+     2025-09       2025  3680   513              13.94    47         7                    14.89        yes             yes             PASS  
+     2025-10       2025  2826   445              15.75    0          0                    NULL         yes             yes             PASS  
+     2025-11       2025  1093   173              15.83    0          0                    NULL         yes             yes             PASS  
+     2025-12       2025  65     11               16.92    0          0                    NULL         yes             yes             PASS  
+[19] WITH states (STATE, STATE_NO, CHANNEL_FILTER, DATE_FROM, DATE_TO) AS (
+     ID     STATE    COMPONENT               FIELD                                  VALUE        SHOWN   REFERENCE    REF_SOURCE                        NEAR_HALF  STATUS
+     P2-10  default  Mean days to convert    COH: Mean days to convert              10.505567    10.51   10.505600    E04 [18] all                                 PASS  
+     P2-10  video    Mean days to convert    COH: Mean days to convert              10.376557    10.38   10.376600    E04 [18] video                               PASS  
+     P2-10  2024     Mean days to convert    COH: Mean days to convert              10.512008    10.51   10.512008    STG leads created in 2024                    PASS  
+     P2-10  2025     Mean days to convert    COH: Mean days to convert              10.510752    10.51   10.510752    STG leads created in 2025                    PASS  
+     P2-11  default  Converted in later mth  COH: Cross-month share                 0.344493     34.45%  0.344493     SEED EXPECTED_TOTALS                         PASS  
+     P2-11  video    Converted in later mth  COH: Cross-month share                 0.340453     34.05%  0.340453     STG video conversions                        PASS  
+     P2-11  2024     Converted in later mth  COH: Cross-month share                 0.351182     35.12%  0.351182     E04 [16] sum of the 2024 cohorts             PASS  
+     P2-11  2025     Converted in later mth  COH: Cross-month share                 0.328467     32.85%  0.328467     E04 [16] sum of the 2025 cohorts             PASS  
+     P2-12  default  Conversions after end   DAILY: SUM(CONVERSIONS), After flight  4716.000000  4,716   4716.000000  SEED EXPECTED_TOTALS                         PASS  
+     P2-12  video    Conversions after end   DAILY: SUM(CONVERSIONS), After flight  406.000000   406     406.000000   E04 [18] video                               PASS  
+     P2-12  2024     Conversions after end   DAILY: SUM(CONVERSIONS), After flight  2065.000000  2,065   2065.000000  STG converted in 2024, after end             PASS  
+     P2-12  2025     Conversions after end   DAILY: SUM(CONVERSIONS), After flight  1392.000000  1,392   1392.000000  STG converted in 2025, after end             PASS  
+[20] WITH states (STATE, STATE_NO, CHANNEL_FILTER) AS (
+     ID     STATE    COMPONENT             FIELD                                VALUE          SHOWN    COMPACT  REFERENCE      REF_SOURCE                         NEAR_HALF  STATUS
+     P3-01  default  Total leads           LQ: SUM(LEADS)                       261684.000000  261,684  261.7K   261684.000000  SEED EXPECTED_TOTALS                          PASS  
+     P3-01  video    Total leads           LQ: SUM(LEADS)                       25799.000000   25,799   25.8K    25799.000000   SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P3-02  default  Average lead score    LQ: SUM(SUM_LEAD_SCORE)/SUM(LEADS)   50.571059      50.57             50.571059      SEED EXPECTED_TOTALS                          PASS  
+     P3-02  video    Average lead score    LQ: SUM(SUM_LEAD_SCORE)/SUM(LEADS)   50.642932      50.64             50.642900      E05 [10] video                                PASS  
+     P3-03  default  Lead conversion rate  LQ: SUM(CONVERTED_LEADS)/SUM(LEADS)  0.151694       15.17%            0.151694       SEED EXPECTED_TOTALS                          PASS  
+     P3-03  video    Lead conversion rate  LQ: SUM(CONVERTED_LEADS)/SUM(LEADS)  0.152448       15.24%            0.152448       SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P3-04  default  Purchase rate         LQ: SUM(PURCHASES)/SUM(LEADS)        0.063783       6.38%             0.063783       SEED EXPECTED_TOTALS                          PASS  
+     P3-04  video    Purchase rate         LQ: SUM(PURCHASES)/SUM(LEADS)        0.063491       6.35%             0.063491       SEED EXPECTED_CAMPAIGN_KPI, video             PASS  
+     P3-05  default  Mean days to convert  LQ: Mean days to convert             10.505567      10.51             10.505600      E04 [18] all                                  PASS  
+     P3-05  video    Mean days to convert  LQ: Mean days to convert             10.376557      10.38             10.376600      E04 [18] video                                PASS  
+[21] WITH e05_segments (SEGMENT, LEAD_SHARE, CONVERSION_RATE, PURCHASE_RATE) AS (
+     SEGMENT  SORT_KEY  LEADS   SHARE_OF_LEADS_PCT  CONVERTED_LEADS  LCR_PCT  PURCHASE_RATE_PCT  AVG_SCORE  MEAN_DAYS  VID_LCR_PCT  EQUALS_REFERENCES  STATUS
+     Low      1         104245  39.84               9505             9.12     3.80               20.48      10.61      8.95         yes                PASS  
+     Medium   41        78862   30.14               12758            16.18    6.78               55.52      10.46      16.37        yes                PASS  
+     High     71        78577   30.03               17433            22.19    9.39               85.52      10.48      22.41        yes                PASS  
+     summary  999       261684  100.00              39696            15.17    6.38               50.57      10.51      15.24        yes                PASS  
+[22] WITH e05_bands (SCORE_BAND, LEADS, AVG_SCORE, CONVERTED_LEADS, CONVERSION_RATE) AS (
+     SCORE_BAND  LEADS  CONVERTED_LEADS  LCR_PCT  AVG_SCORE  VID_LEADS  VID_CONVERTED_LEADS  VID_LCR_PCT  ALL_EQUALS_E05  VID_EQUALS_STG  STATUS
+     01-10       26193  1642             6.27     5.48       2625       163                  6.21         yes             yes             PASS  
+     11-20       26058  2072             7.95     15.48      2457       208                  8.47         yes             yes             PASS  
+     21-30       25748  2624             10.19    25.48      2593       270                  10.41        yes             yes             PASS  
+     31-40       26246  3167             12.07    35.50      2536       273                  10.76        yes             yes             PASS  
+     41-50       26293  3724             14.16    45.53      2534       361                  14.25        yes             yes             PASS  
+     51-60       26173  4195             16.03    55.49      2657       433                  16.30        yes             yes             PASS  
+     61-70       26396  4839             18.33    65.51      2660       491                  18.46        yes             yes             PASS  
+     71-80       26184  5316             20.30    75.50      2631       538                  20.45        yes             yes             PASS  
+     81-90       26068  5795             22.23    85.51      2539       567                  22.33        yes             yes             PASS  
+     91-100      26325  6322             24.02    95.51      2567       629                  24.50        yes             yes             PASS  
+[23] WITH e05_channel (CHANNEL, LEADS, AVG_SCORE, CONVERSION_RATE, SHARE_LOW, SHARE_MEDIUM, SHARE_HIGH...
+     CHANNEL      LEADS   AVG_SCORE  LCR_PCT  PURCHASE_RATE_PCT  MEAN_DAYS  LOW_PCT  MEDIUM_PCT  HIGH_PCT  EQUALS_REFERENCES  STATUS
+     affiliate    67849   50.56      15.26    6.38               10.50      39.88    30.18       29.93     yes                PASS  
+     paid_search  65268   50.66      15.35    6.44               10.50      39.60    30.25       30.16     yes                PASS  
+     paid_social  57619   50.47      15.01    6.33               10.58      40.14    29.78       30.08     yes                PASS  
+     display      45149   50.54      14.94    6.36               10.51      39.87    30.19       29.94     yes                PASS  
+     video        25799   50.64      15.24    6.35               10.38      39.58    30.43       29.99     yes                PASS  
+     summary      261684  50.57      15.17    6.38               10.51      39.84    30.14       30.03     yes                PASS  
+[24] WITH states (STATE, STATE_NO, CHANNEL_FILTER) AS (
+     ID     STATE    COMPONENT            FIELD                                VALUE            SHOWN          COMPACT  COMPACT_2DP  REFERENCE        REF_SOURCE              NEAR_HALF  STATUS
+     P4-01  default  Total spend          CH: SUM(SPEND)                       4523050.020000   4,523,050.02   4.5M     4.52M        4523050.020000   SEED EXPECTED_TOTALS               PASS  
+     P4-01  video    Total spend          CH: SUM(SPEND)                       828094.540000    828,094.54     828.1K   828.09K      828094.540000    PUB video                          PASS  
+     P4-02  default  Attributed revenue   CH: SUM(REVENUE)                     21561839.010000  21,561,839.01  21.6M    21.56M       21561839.010000  SEED EXPECTED_TOTALS               PASS  
+     P4-02  video    Attributed revenue   CH: SUM(REVENUE)                     2087554.220000   2,087,554.22   2.1M     2.09M        2087554.220000   PUB video                          PASS  
+     P4-03  default  ROAS (attributed)    CH: SUM(REVENUE)/SUM(SPEND)          4.767102         4.77                                 4.767102         SEED EXPECTED_TOTALS               PASS  
+     P4-03  video    ROAS (attributed)    CH: SUM(REVENUE)/SUM(SPEND)          2.520913         2.52                                 2.520913         PUB video                          PASS  
+     P4-04  default  Cost per lead        CH: SUM(SPEND)/SUM(LEADS)            17.284397        17.28                                17.284397        SEED EXPECTED_TOTALS               PASS  
+     P4-04  video    Cost per lead        CH: SUM(SPEND)/SUM(LEADS)            32.097932        32.10                                32.097932        PUB spend / SEED video             PASS  
+     P4-05  default  Cost per conversion  CH: SUM(SPEND)/SUM(CONVERTED_LEADS)  113.942211       113.94                               113.942211       SEED EXPECTED_TOTALS               PASS  
+     P4-05  video    Cost per conversion  CH: SUM(SPEND)/SUM(CONVERTED_LEADS)  210.550353       210.55                               210.550353       PUB spend / SEED video             PASS  
+     P4-06  default  Budget utilisation   CH: SUM(SPEND)/SUM(BUDGET)           0.834720         83.47%                               0.834720         SEED EXPECTED_TOTALS               PASS  
+     P4-06  video    Budget utilisation   CH: SUM(SPEND)/SUM(BUDGET)           0.832365         83.24%                               0.832365         PUB spend / SEED video             PASS  
+[25] WITH dash AS (
+     CHANNEL      BUDGET      SPEND       REVENUE      ROAS  CPL    COST_PER_CONVERSION  COST_PER_PURCHASE  UTIL_PCT  SPEND_SHARE_PCT  REVENUE_SHARE_PCT  EQUALS_REFERENCES  STATUS
+     affiliate    1025491.41  857835.07   5610700.73   6.54  12.64  82.87                198.02             83.65     18.97            26.02              yes                PASS  
+     paid_search  1079299.66  897091.53   5439329.35   6.06  13.74  89.54                213.39             83.12     19.83            25.23              yes                PASS  
+     paid_social  1180823.70  984731.88   4690137.28   4.76  17.09  113.87               270.09             83.39     21.77            21.75              yes                PASS  
+     display      1138158.37  955297.00   3734117.43   3.91  21.16  141.65               332.74             83.93     21.12            17.32              yes                PASS  
+     video        994869.02   828094.54   2087554.22   2.52  32.10  210.55               505.55             83.24     18.31            9.68               yes                PASS  
+     summary      5418642.16  4523050.02  21561839.01  4.77  17.28  113.94               270.99             83.47     100.00           100.00             yes                PASS  
+[26] WITH items (ITEM_NO, COMPONENT, FIELD, KIND, DP) AS (
+     COMPONENT             FIELD                                  CAMPAIGN_ID  VALUE          SHOWN       REFERENCE      REF_SOURCE                          NEAR_HALF  STATUS
+     SPEND                 CAMP: SUM(SPEND)                       CMP0080      17904.180000   17,904.18   17904.180000   SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     LEADS                 CAMP: SUM(LEADS)                       CMP0080      2644.000000    2,644       2644.000000    SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     CONVERTED_LEADS       CAMP: SUM(CONVERTED_LEADS)             CMP0080      394.000000     394         394.000000     SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     PURCHASES             CAMP: SUM(PURCHASES)                   CMP0080      172.000000     172         172.000000     SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     REVENUE               CAMP: SUM(REVENUE)                     CMP0080      232990.960000  232,990.96  232990.960000  SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     BUDGET                CAMP: SUM(BUDGET)                      CMP0080      20903.180000   20,903.18   20903.180000   SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     Cost per lead         CAMP: SUM(SPEND)/SUM(LEADS)            CMP0080      6.771626       6.77        6.771626       SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     Lead conversion rate  CAMP: SUM(CONVERTED_LEADS)/SUM(LEADS)  CMP0080      0.149017       14.90%      0.149017       SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     ROAS (attributed)     CAMP: SUM(REVENUE)/SUM(SPEND)          CMP0080      13.013216      13.01       13.013216      SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     Cost per purchase     CAMP: SUM(SPEND)/SUM(PURCHASES)        CMP0080      104.094070     104.09      104.094070     SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+     Budget utilisation    CAMP: SUM(SPEND)/SUM(BUDGET)           CMP0080      0.856529       85.65%      0.856529       SEED EXPECTED_CAMPAIGN_KPI CMP0080             PASS  
+[27] WITH cells (FAMILY, ITEM, V, SCALE) AS (
+     FAMILY                             CELLS  EXPECTED_CELLS  NEAR_MIDPOINT  MIDPOINT_CELLS                         STATUS
+     CH channel: money ratios (2 dp)    20     20              0                                                     PASS  
+     CH channel: percents               20     20              0                                                     PASS  
+     CH channel: stored percents        20     20              0                                                     PASS  
+     LQ channel: percents               20     20              0                                                     PASS  
+     LQ channel: score, days (2 dp)     10     10              0                                                     PASS  
+     campaign: CPL, ROAS, CPP (2 dp)    360    360             3              CMP0024 CPP; CMP0045 CPP; CMP0092 CPP  NOTE  
+     campaign: LCR, utilisation (%)     240    240             1              CMP0003 LCR                            NOTE  
+     cohort month: LCR (%)              72     72              1              2025-07 video                          NOTE  
+     funnel: percents                   13     13              0                                                     PASS  
+     score: segment and band (%)        32     32              0                                                     PASS  
+     score: segment score, days (2 dp)  6      6               0                                                     PASS  
+OK    07_dashboard_validation.sql: all 27 statements executed, no check row says FAIL

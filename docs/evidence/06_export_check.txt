@@ -1,0 +1,40 @@
+Checking exports/ against manifest.json
+PASS  manifest tables: 8 tables, the EXPORT_TABLES list
+PASS  manifest provenance: dataset v1.0.0, dbt project marketing_crm
+PASS  MART_CHANNEL_PERFORMANCE csv: SHA-256 a39d10bcb92c..., 27 columns, 5 rows strictly ordered by CHANNEL, every field at its column type, 26 column sums and NULL counts = manifest
+PASS  MART_CAMPAIGN_PERFORMANCE csv: SHA-256 5d16bdd19015..., 28 columns, 120 rows strictly ordered by CAMPAIGN_ID, every field at its column type, 21 column sums and NULL counts = manifest
+PASS  MART_MONTHLY_MARKETING csv: SHA-256 f941f6c4cb38..., 12 columns, 180 rows strictly ordered by MONTH_START, CHANNEL, every field at its column type, 10 column sums and NULL counts = manifest
+PASS  MART_MONTHLY_COHORT csv: SHA-256 a15dccbdf7b2..., 11 columns, 180 rows strictly ordered by COHORT_MONTH, CHANNEL, every field at its column type, 9 column sums and NULL counts = manifest
+PASS  MART_CONVERSION_FUNNEL csv: SHA-256 188f282e69de..., 6 columns, 25 rows strictly ordered by CHANNEL, STAGE_ORDER, every field at its column type, 4 column sums and NULL counts = manifest
+PASS  MART_LEAD_QUALITY csv: SHA-256 d389f72b6db3..., 12 columns, 50 rows strictly ordered by CHANNEL, SCORE_BAND, every field at its column type, 9 column sums and NULL counts = manifest
+PASS  FCT_CAMPAIGN_DAILY_ACTIVITY csv: SHA-256 e35f7a8cc55b..., 15 columns, 13760 rows strictly ordered by CAMPAIGN_ID, ACTIVITY_DATE, every field at its column type, 10 column sums and NULL counts = manifest
+PASS  DIM_CAMPAIGN csv: SHA-256 2e5e57ad0d54..., 10 columns, 120 rows strictly ordered by CAMPAIGN_ID, every field at its column type, 3 column sums and NULL counts = manifest
+PASS  workbook sha256: 299bec212a34... = manifest
+PASS  workbook sheets: README first, then 8 table sheets
+PASS  workbook README: attribution and export time present
+PASS  MART_CHANNEL_PERFORMANCE sheet: 135 cells = the CSV (numeric / date / text cells, number formats at the column scale); header bold and frozen; no stray cells; attribution note on A1
+PASS  MART_CAMPAIGN_PERFORMANCE sheet: 3360 cells = the CSV (numeric / date / text cells, number formats at the column scale); header bold and frozen; no stray cells; attribution note on A1
+PASS  MART_MONTHLY_MARKETING sheet: 2160 cells = the CSV (numeric / date / text cells, number formats at the column scale); header bold and frozen; no stray cells; attribution note on A1
+PASS  MART_MONTHLY_COHORT sheet: 1980 cells = the CSV (numeric / date / text cells, number formats at the column scale); header bold and frozen; no stray cells; attribution note on A1
+PASS  MART_CONVERSION_FUNNEL sheet: 150 cells = the CSV (numeric / date / text cells, number formats at the column scale); header bold and frozen; no stray cells; attribution note on A1
+PASS  MART_LEAD_QUALITY sheet: 600 cells = the CSV (numeric / date / text cells, number formats at the column scale); header bold and frozen; no stray cells; attribution note on A1
+PASS  FCT_CAMPAIGN_DAILY_ACTIVITY sheet: 206400 cells = the CSV (numeric / date / text cells, number formats at the column scale); header bold and frozen; no stray cells; attribution note on A1
+PASS  DIM_CAMPAIGN sheet: 1200 cells = the CSV (numeric / date / text cells, number formats at the column scale); header bold and frozen; no stray cells; attribution note on A1
+INFO  connected as SVC_CRM_BI / CRM_REPORTER (warehouse MARKETING_WH, database MARKETING_CRM), the Data Studio connector's identity
+PASS  MART_CHANNEL_PERFORMANCE live columns: 27 columns, names and types as exported
+PASS  MART_CHANNEL_PERFORMANCE live checksums: 5 rows, HASH_AGG -8733952273888884832, 26 column sums and NULL counts = manifest = CSV (query 01c7ce67-0109-00d6-0011-d1320005033a)
+PASS  MART_CAMPAIGN_PERFORMANCE live columns: 28 columns, names and types as exported
+PASS  MART_CAMPAIGN_PERFORMANCE live checksums: 120 rows, HASH_AGG 6171642545708145185, 21 column sums and NULL counts = manifest = CSV (query 01c7ce67-0109-00db-0011-d1320005832e)
+PASS  MART_MONTHLY_MARKETING live columns: 12 columns, names and types as exported
+PASS  MART_MONTHLY_MARKETING live checksums: 180 rows, HASH_AGG 4612967747966399221, 10 column sums and NULL counts = manifest = CSV (query 01c7ce67-0109-00e3-0011-d1320004f3e6)
+PASS  MART_MONTHLY_COHORT live columns: 11 columns, names and types as exported
+PASS  MART_MONTHLY_COHORT live checksums: 180 rows, HASH_AGG 4004764949054026918, 9 column sums and NULL counts = manifest = CSV (query 01c7ce67-0109-00e4-0011-d13200062b56)
+PASS  MART_CONVERSION_FUNNEL live columns: 6 columns, names and types as exported
+PASS  MART_CONVERSION_FUNNEL live checksums: 25 rows, HASH_AGG 1010766107319002278, 4 column sums and NULL counts = manifest = CSV (query 01c7ce67-0109-00de-0011-d132000593c6)
+PASS  MART_LEAD_QUALITY live columns: 12 columns, names and types as exported
+PASS  MART_LEAD_QUALITY live checksums: 50 rows, HASH_AGG -6407495699444632072, 9 column sums and NULL counts = manifest = CSV (query 01c7ce67-0109-00d4-0011-d1320005537e)
+PASS  FCT_CAMPAIGN_DAILY_ACTIVITY live columns: 15 columns, names and types as exported
+PASS  FCT_CAMPAIGN_DAILY_ACTIVITY live checksums: 13760 rows, HASH_AGG -6430133930449104346, 10 column sums and NULL counts = manifest = CSV (query 01c7ce67-0109-00de-0011-d132000593ca)
+PASS  DIM_CAMPAIGN live columns: 10 columns, names and types as exported
+PASS  DIM_CAMPAIGN live checksums: 120 rows, HASH_AGG -1104996342875633986, 3 column sums and NULL counts = manifest = CSV (query 01c7ce67-0109-00e2-0011-d1320005738e)
+OK    export check: 8 tables, files and live tables match manifest.json (exported 2026-10-14T19:18:06Z), 0 warning(s)

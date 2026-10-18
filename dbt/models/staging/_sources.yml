@@ -1,0 +1,56 @@
+sources:
+  - name: raw
+    description: >-
+      The RAW landing zone, loaded by `make load` / `make load-challenge` (role CRM_LOADER).
+      Every business column is TEXT, byte-identical to the published CSV file (a blank cell is
+      the empty string, nothing is trimmed), plus three lineage columns. The four CHALLENGE_*
+      tables hold the publisher's dirty cleaning-challenge extracts; they are never unioned with
+      the clean release. Only the staging models read RAW.
+    # No `database:` key: a source defaults to target.database, the profile's
+    # SNOWFLAKE_DATABASE, so the models never read RAW from one database while building in another.
+    schema: RAW
+    config:
+      # Freshness. The dataset is a static, versioned release (v1.0.0), loaded once on
+      # 2026-10-13 and reloaded only on purpose, so "fresh" cannot mean "loaded today". The
+      # thresholds only catch a RAW layer that was never loaded or is unexpectedly old:
+      # warn after 30 days (the length of the Snowflake trial), error after 365 days.
+      # _LOADED_AT is the load start time that the loader writes on every row.
+      loaded_at_field: _LOADED_AT
+      freshness:
+        warn_after: {count: 30, period: day}
+        error_after: {count: 365, period: day}
+    tables:
+      - name: campaigns
+        description: "Clean release, campaigns.csv: one row per campaign (120 rows). All TEXT."
+        columns:
+          - name: campaign_id
+            description: "Stable campaign key, e.g. CMP0001 (PK in the source)."
+            data_tests: [unique, not_null]
+          - name: _loaded_at
+            description: "Start time of the load: the freshness field."
+      - name: daily_spend
+        description: "Clean release, daily_spend.csv: one row per campaign per active date (11,240 rows). All TEXT."
+        columns:
+          - name: spend_id
+            description: "Stable delivery key, e.g. DSP0000001 (PK in the source)."
+            data_tests: [unique, not_null]
+      - name: leads
+        description: "Clean release, leads.csv: one row per lead (261,684 rows). All TEXT; CREATED_AT holds a date."
+        columns:
+          - name: lead_id
+            description: "Stable lead key, e.g. L00000001 (PK in the source)."
+            data_tests: [unique, not_null]
+      - name: conversions
+        description: "Clean release, conversions.csv: one row per converted lead (39,696 rows). All TEXT; CONVERTED_AT holds a date."
+        columns:
+          - name: conversion_id
+            description: "Stable conversion key, e.g. CV0000001 (PK in the source)."
+            data_tests: [unique, not_null]
+      - name: challenge_campaigns
+        description: "Cleaning-challenge extract of campaigns.csv: 121 rows (1 exact duplicate) with injected defects. Reconciliation only."
+      - name: challenge_daily_spend
+        description: "Cleaning-challenge extract of daily_spend.csv: 2,001 rows (1 exact duplicate) with injected defects. Reconciliation only."
+      - name: challenge_leads
+        description: "Cleaning-challenge extract of leads.csv: 2,001 rows (1 exact duplicate) with injected defects. Reconciliation only."
+      - name: challenge_conversions
+        description: "Cleaning-challenge extract of conversions.csv: 2,001 rows (1 exact duplicate) with injected defects. Reconciliation only."

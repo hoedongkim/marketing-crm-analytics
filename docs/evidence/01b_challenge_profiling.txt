@@ -1,0 +1,294 @@
+Running 01b_challenge_profiling.sql (33 statements) as SVC_CRM_PIPELINE / CRM_TRANSFORMER
+[ 1] USE ROLE CRM_TRANSFORMER;
+     Statement executed successfully.
+[ 2] USE SECONDARY ROLES NONE;
+     Statement executed successfully.
+[ 3] USE WAREHOUSE MARKETING_WH;
+     Statement executed successfully.
+[ 4] USE SCHEMA MARKETING_CRM.RAW;
+     Statement executed successfully.
+[ 5] SELECT '0' AS BLOCK, CURRENT_USER() AS USER_NAME, CURRENT_ROLE() AS ROLE_NAME,
+     BLOCK  USER_NAME         ROLE_NAME        SECONDARY_ROLES          WAREHOUSE_NAME  SCHEMA_NAME        REGION         SNOWFLAKE_VERSION  RUN_AT                STATUS
+     0      SVC_CRM_PIPELINE  CRM_TRANSFORMER  {"roles":"","value":""}  MARKETING_WH    MARKETING_CRM.RAW  AWS_US_EAST_2  10.36.101          2026-10-14 01:36 UTC  PASS  
+[ 6] SELECT '1a' AS BLOCK, TABLE_NAME, ROW_COUNT, DISTINCT_KEYS, ROW_COUNT - DISTINCT_KEYS AS SURPLUS_...
+     BLOCK  TABLE_NAME             ROW_COUNT  DISTINCT_KEYS  SURPLUS_ROWS  MIN_KEY     MAX_KEY     SOURCE_FILE                   FIRST_ROW  LAST_ROW  LOADED_AT                         EXPECTED_ROWS  EXPECTED_KEYS  STATUS
+     1a     CHALLENGE_CAMPAIGNS    121        120            1             CMP0001     CMP0120     challenge/campaigns.csv.gz    1          121       2026-10-13 14:19:46.156196-07:00  121            120            PASS  
+     1a     CHALLENGE_DAILY_SPEND  2001       2000           1             DSP0000001  DSP0002000  challenge/daily_spend.csv.gz  1          2001      2026-10-13 14:19:47.238236-07:00  2001           2000           PASS  
+     1a     CHALLENGE_LEADS        2001       2000           1             L00000001   L00002000   challenge/leads.csv.gz        1          2001      2026-10-13 14:19:48.386444-07:00  2001           2000           PASS  
+     1a     CHALLENGE_CONVERSIONS  2001       2000           1             CV0000001   CV0002000   challenge/conversions.csv.gz  1          2001      2026-10-13 14:19:49.401172-07:00  2001           2000           PASS  
+[ 7] SELECT '1b' AS BLOCK, TABLE_NAME, CHALLENGE_KEYS, KEYS_NOT_IN_CLEAN, CLEAN_ROWS, CLEAN_KEYS_OFF_P...
+     BLOCK  TABLE_NAME             CHALLENGE_KEYS  KEYS_NOT_IN_CLEAN  CLEAN_ROWS  CLEAN_KEYS_OFF_PATTERN  CLEAN_KEYS_UP_TO_MAX  CLEAN_KEYS_MISSING_UP_TO_MAX  MIN_KEY_CHALLENGE  MIN_KEY_CLEAN  EXPECTED_CLEAN_ROWS  STATUS
+     1b     CHALLENGE_CAMPAIGNS    120             0                  120         0                       120                   0                             CMP0001            CMP0001        120                  PASS  
+     1b     CHALLENGE_DAILY_SPEND  2000            0                  11240       0                       2000                  0                             DSP0000001         DSP0000001     11240                PASS  
+     1b     CHALLENGE_LEADS        2000            0                  261684      0                       2000                  0                             L00000001          L00000001      261684               PASS  
+     1b     CHALLENGE_CONVERSIONS  2000            0                  39696       0                       2000                  0                             CV0000001          CV0000001      39696                PASS  
+[ 8] SELECT '1c' AS BLOCK, CHECK_NAME, ACTUAL, EXPECTED, IFF(ACTUAL = EXPECTED, 'PASS', 'FAIL') AS STATUS
+     BLOCK  CHECK_NAME                                ACTUAL  EXPECTED  STATUS
+     1c     spend rows: campaign not in extract       0       0         PASS  
+     1c     leads: campaign not in extract            0       0         PASS  
+     1c     conversions: lead not in extract          1687    1687      PASS  
+     1c     conversions: lead not in clean leads      0       0         PASS  
+     1c     extract leads with an extract conversion  313     313       PASS  
+     1c     clean conversions of extract leads        313     313       PASS  
+     1c     campaigns with spend rows in extract      23      23        PASS  
+     1c     campaigns with leads in extract           2       2         PASS  
+[ 9] WITH ds  AS (SELECT CAMPAIGN_ID, COUNT(DISTINCT SPEND_ID) AS N FROM RAW.CHALLENGE_DAILY_SPEND GRO...
+     BLOCK  TABLE_NAME             CAMPAIGNS_PRESENT  COMPLETE_CAMPAIGNS  COMPLETE_RANGE    PARTIAL_CAMPAIGNS  MORE_THAN_CLEAN  EXPECTED_COMPLETE  EXPECTED_PARTIAL  STATUS
+     1d     CHALLENGE_DAILY_SPEND  23                 22                  CMP0001..CMP0022  CMP0023 27/97      0                22                 CMP0023 27/97     PASS  
+     1d     CHALLENGE_LEADS        2                  1                   CMP0001..CMP0001  CMP0002 626/1849   0                1                  CMP0002 626/1849  PASS  
+     1d     CHALLENGE_CONVERSIONS  8                  7                   CMP0001..CMP0007  CMP0008 32/462     0                7                  CMP0008 32/462    PASS  
+[10] SELECT '1e' AS BLOCK, TABLE_NAME, N_COLUMNS, BUSINESS_COLUMNS, BUSINESS_COLUMNS_TEXT, LINEAGE_COL...
+     BLOCK  TABLE_NAME             N_COLUMNS  BUSINESS_COLUMNS  BUSINESS_COLUMNS_TEXT  LINEAGE_COLUMNS_OK  EXPECTED_BUSINESS_COLUMNS  STATUS
+     1e     CHALLENGE_CAMPAIGNS    10         7                 7                      3                   7                          PASS  
+     1e     CHALLENGE_DAILY_SPEND  9          6                 6                      3                   6                          PASS  
+     1e     CHALLENGE_LEADS        8          5                 5                      3                   5                          PASS  
+     1e     CHALLENGE_CONVERSIONS  8          5                 5                      3                   5                          PASS  
+[11] WITH cells AS (
+     BLOCK  TABLE_NAME             COLUMN_NAME      INTENDED_TYPE  N_CELLS  N_CONFORMING  N_BLANK  N_NULL  N_NONCONFORMING  EXPECTED_BLANK  EXPECTED_NONCONFORMING  STATUS
+     1f     CHALLENGE_CAMPAIGNS    BUDGET           decimal(12,2)  121      121           0        0       0                0               0                       PASS  
+     1f     CHALLENGE_CAMPAIGNS    CAMPAIGN_ID      id             121      121           0        0       0                0               0                       PASS  
+     1f     CHALLENGE_CAMPAIGNS    CAMPAIGN_NAME    name           121      119           1        0       1                1               1                       PASS  
+     1f     CHALLENGE_CAMPAIGNS    CHANNEL          code           121      121           0        0       0                0               0                       PASS  
+     1f     CHALLENGE_CAMPAIGNS    END_DATE         date           121      121           0        0       0                0               0                       PASS  
+     1f     CHALLENGE_CAMPAIGNS    OBJECTIVE        code           121      121           0        0       0                0               0                       PASS  
+     1f     CHALLENGE_CAMPAIGNS    START_DATE       date           121      120           0        0       1                0               1                       PASS  
+     1f     CHALLENGE_DAILY_SPEND  CAMPAIGN_ID      id             2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_DAILY_SPEND  CLICKS           integer        2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_DAILY_SPEND  IMPRESSIONS      integer        2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_DAILY_SPEND  SPEND            decimal(12,2)  2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_DAILY_SPEND  SPEND_DATE       date           2001     1999          1        0       1                1               1                       PASS  
+     1f     CHALLENGE_DAILY_SPEND  SPEND_ID         id             2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_LEADS        CAMPAIGN_ID      id             2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_LEADS        CREATED_AT       date           2001     1999          1        0       1                1               1                       PASS  
+     1f     CHALLENGE_LEADS        LEAD_ID          id             2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_LEADS        LEAD_SCORE       integer        2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_LEADS        LEAD_SOURCE      code           2001     2000          0        0       1                0               1                       PASS  
+     1f     CHALLENGE_CONVERSIONS  CONVERSION_ID    id             2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_CONVERSIONS  CONVERSION_TYPE  code           2001     2000          0        0       1                0               1                       PASS  
+     1f     CHALLENGE_CONVERSIONS  CONVERTED_AT     date           2001     1999          1        0       1                1               1                       PASS  
+     1f     CHALLENGE_CONVERSIONS  LEAD_ID          id             2001     2001          0        0       0                0               0                       PASS  
+     1f     CHALLENGE_CONVERSIONS  REVENUE          decimal(12,2)  2001     2001          0        0       0                0               0                       PASS  
+[12] WITH exact_groups AS (
+     BLOCK  TABLE_NAME             ROW_COUNT  DISTINCT_KEYS  KEYS_WITH_COPIES  EXACT_DUP_GROUPS  SURPLUS_EXACT_COPIES  KEYS_COPIES_DIFFER  KEYS_DIFFER_NORMALIZED  EXPECTED_SURPLUS  STATUS
+     2a     CHALLENGE_CAMPAIGNS    121        120            1                 1                 1                     0                   0                       1                 PASS  
+     2a     CHALLENGE_DAILY_SPEND  2001       2000           1                 1                 1                     0                   0                       1                 PASS  
+     2a     CHALLENGE_LEADS        2001       2000           1                 1                 1                     0                   0                       1                 PASS  
+     2a     CHALLENGE_CONVERSIONS  2001       2000           1                 1                 1                     0                   0                       1                 PASS  
+[13] SELECT '2b' AS BLOCK, TABLE_NAME, KEY_VALUE, COPY_NO, N_COPIES, _SOURCE_ROW_NUMBER AS SOURCE_ROW,
+     BLOCK  TABLE_NAME             KEY_VALUE   COPY_NO  N_COPIES  SOURCE_ROW  FILE_LINE  ROW_HASH             STATUS
+     2b     CHALLENGE_CAMPAIGNS    CMP0001     1        2         1           2          2711756940702702019  NULL  
+     2b     CHALLENGE_CAMPAIGNS    CMP0001     2        2         121         122        2711756940702702019  PASS  
+     2b     CHALLENGE_DAILY_SPEND  DSP0000001  1        2         1           2          3580751877375752850  NULL  
+     2b     CHALLENGE_DAILY_SPEND  DSP0000001  2        2         2001        2002       3580751877375752850  PASS  
+     2b     CHALLENGE_LEADS        L00000001   1        2         1           2          6111143959419391672  NULL  
+     2b     CHALLENGE_LEADS        L00000001   2        2         2001        2002       6111143959419391672  PASS  
+     2b     CHALLENGE_CONVERSIONS  CV0000001   1        2         1           2          3072795663298561074  NULL  
+     2b     CHALLENGE_CONVERSIONS  CV0000001   2        2         2001        2002       3072795663298561074  PASS  
+[14] WITH spend AS (
+     BLOCK  CHECK_NAME                             N_EVALUATED  REPEATED_KEYS  EXPECTED  STATUS
+     2c     daily_spend (campaign_id, spend_date)  1999         0              0         PASS  
+     2c     conversions lead_id (1:1)              2000         0              0         PASS  
+     2c     campaigns campaign_name (non-blank)    119          0              0         PASS  
+[15] WITH cells AS (
+     BLOCK  TABLE_NAME             COLUMN_NAME      N_CELLS  N_EDGE_SPACES  N_DOUBLE_SPACES  N_NON_PRINTABLE  N_NOT_LOWERCASE  N_NOT_INITCAP  N_DEFECT_CELLS  EXPECTED_DEFECT_CELLS  STATUS
+     3a     CHALLENGE_CAMPAIGNS    BUDGET           121      0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_CAMPAIGNS    CAMPAIGN_ID      121      0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_CAMPAIGNS    CAMPAIGN_NAME    121      1              0                0                0                1              1               1                      PASS  
+     3a     CHALLENGE_CAMPAIGNS    CHANNEL          121      0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_CAMPAIGNS    END_DATE         121      0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_CAMPAIGNS    OBJECTIVE        121      0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_CAMPAIGNS    START_DATE       121      0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_DAILY_SPEND  CAMPAIGN_ID      2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_DAILY_SPEND  CLICKS           2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_DAILY_SPEND  IMPRESSIONS      2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_DAILY_SPEND  SPEND            2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_DAILY_SPEND  SPEND_DATE       2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_DAILY_SPEND  SPEND_ID         2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_LEADS        CAMPAIGN_ID      2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_LEADS        CREATED_AT       2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_LEADS        LEAD_ID          2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_LEADS        LEAD_SCORE       2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_LEADS        LEAD_SOURCE      2001     1              0                0                1                0              1               1                      PASS  
+     3a     CHALLENGE_CONVERSIONS  CONVERSION_ID    2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_CONVERSIONS  CONVERSION_TYPE  2001     1              0                0                1                0              1               1                      PASS  
+     3a     CHALLENGE_CONVERSIONS  CONVERTED_AT     2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_CONVERSIONS  LEAD_ID          2001     0              0                0                0                0              0               0                      PASS  
+     3a     CHALLENGE_CONVERSIONS  REVENUE          2001     0              0                0                0                0              0               0                      PASS  
+[16] SELECT '3b' AS BLOCK, COLUMN_REF, RAW_VALUE_BRACKETED, N_ROWS, NORMALIZED_VALUE, IS_CANONICAL
+     BLOCK  COLUMN_REF                    RAW_VALUE_BRACKETED         N_ROWS  NORMALIZED_VALUE          IS_CANONICAL
+     3b     campaigns.channel             [affiliate]                 24      affiliate                 True        
+     3b     campaigns.channel             [display]                   24      display                   True        
+     3b     campaigns.channel             [paid_search]               25      paid_search               True        
+     3b     campaigns.channel             [paid_social]               24      paid_social               True        
+     3b     campaigns.channel             [video]                     24      video                     True        
+     3b     campaigns.objective           [acquisition]               35      acquisition               True        
+     3b     campaigns.objective           [awareness]                 45      awareness                 True        
+     3b     campaigns.objective           [lead_gen]                  41      lead_gen                  True        
+     3b     leads.lead_source             [ PAID_SEARCH ]             1       paid_search               False       
+     3b     leads.lead_source             [paid_search]               1374    paid_search               True        
+     3b     leads.lead_source             [paid_social]               626     paid_social               True        
+     3b     conversions.conversion_type   [ TRIAL ]                   1       trial                     False       
+     3b     conversions.conversion_type   [purchase]                  868     purchase                  True        
+     3b     conversions.conversion_type   [trial]                     1132    trial                     True        
+     3b     campaigns.campaign_name stem  [ DISPLAY <YYYY> <NNN> ]    1       Display <YYYY> <NNN>      False       
+     3b     campaigns.campaign_name stem  [Affiliate <YYYY> <NNN>]    23      Affiliate <YYYY> <NNN>    True        
+     3b     campaigns.campaign_name stem  [Display <YYYY> <NNN>]      23      Display <YYYY> <NNN>      True        
+     3b     campaigns.campaign_name stem  [Paid Search <YYYY> <NNN>]  25      Paid Search <YYYY> <NNN>  True        
+     3b     campaigns.campaign_name stem  [Paid Social <YYYY> <NNN>]  24      Paid Social <YYYY> <NNN>  True        
+     3b     campaigns.campaign_name stem  [Video <YYYY> <NNN>]        24      Video <YYYY> <NNN>        True        
+     3b     campaigns.campaign_name stem  []                          1                                 False       
+[17] WITH camp AS (SELECT * FROM RAW.CHALLENGE_CAMPAIGNS
+     BLOCK  COLUMN_REF                   NORMALIZED_VALUE  N_ROWS  IS_ACCEPTED  EXPECTED_ROWS  STATUS
+     3c     campaigns.channel            affiliate         24      True         24             PASS  
+     3c     campaigns.channel            display           24      True         24             PASS  
+     3c     campaigns.channel            paid_search       24      True         24             PASS  
+     3c     campaigns.channel            paid_social       24      True         24             PASS  
+     3c     campaigns.channel            video             24      True         24             PASS  
+     3c     campaigns.objective          acquisition       35      True         35             PASS  
+     3c     campaigns.objective          awareness         44      True         44             PASS  
+     3c     campaigns.objective          lead_gen          41      True         41             PASS  
+     3c     leads.lead_source            paid_search       1374    True         1374           PASS  
+     3c     leads.lead_source            paid_social       626     True         626            PASS  
+     3c     conversions.conversion_type  purchase          868     True         868            PASS  
+     3c     conversions.conversion_type  trial             1132    True         1132           PASS  
+[18] WITH text_cells AS (
+     BLOCK  TABLE_NAME             KEY_VALUE  COLUMN_NAME      RAW_VALUE_BRACKETED   NORMALIZED_VALUE  SOURCE_ROW  FILE_LINE  STATUS
+     3d     CHALLENGE_CAMPAIGNS    CMP0008    CAMPAIGN_NAME    [ DISPLAY 2023 008 ]  Display 2023 008  8           9          PASS  
+     3d     CHALLENGE_LEADS        L00000008  LEAD_SOURCE      [ PAID_SEARCH ]       paid_search       8           9          PASS  
+     3d     CHALLENGE_CONVERSIONS  CV0000008  CONVERSION_TYPE  [ TRIAL ]             trial             8           9          PASS  
+[19] SELECT '3e' AS BLOCK, VERSION, LEAD_SOURCE, TOTAL_LEADS, AVG_LEAD_SCORE, EXPECTED_LEADS, EXPECTED...
+     BLOCK  VERSION  LEAD_SOURCE      TOTAL_LEADS  AVG_LEAD_SCORE  EXPECTED_LEADS  EXPECTED_AVG  STATUS
+     3e     raw      [ PAID_SEARCH ]  1            73.00           1               73.00         PASS  
+     3e     raw      [paid_search]    1374         49.68           1374            49.68         PASS  
+     3e     raw      [paid_social]    626          48.31           626             48.31         PASS  
+     3e     cleaned  paid_search      1374         49.72           1374            49.72         PASS  
+     3e     cleaned  paid_social      626          48.31           626             48.31         PASS  
+[20] WITH dates AS (
+     BLOCK  TABLE_NAME             COLUMN_NAME   N_CELLS  N_ISO  N_ISO_INVALID  N_SLASH_YEAR_FIRST  N_SLASH_YEAR_LAST  N_BLANK  N_NULL  N_OTHER  MIN_ISO_DATE  MAX_ISO_DATE  EXPECTED_ISO  EXPECTED_SLASH  EXPECTED_BLANK  STATUS
+     4a     CHALLENGE_CAMPAIGNS    START_DATE    121      120    0              1                   0                  0        0       0        2023-01-04    2025-08-28    120           1               0               PASS  
+     4a     CHALLENGE_CAMPAIGNS    END_DATE      121      121    0              0                   0                  0        0       0        2023-03-14    2025-12-02    121           0               0               PASS  
+     4a     CHALLENGE_DAILY_SPEND  SPEND_DATE    2001     1999   0              1                   0                  1        0       0        2023-05-15    2025-08-28    1999          1               1               PASS  
+     4a     CHALLENGE_LEADS        CREATED_AT    2001     1999   0              1                   0                  1        0       0        2023-06-17    2023-10-15    1999          1               1               PASS  
+     4a     CHALLENGE_CONVERSIONS  CONVERTED_AT  2001     1999   0              1                   0                  1        0       0        2023-06-20    2025-04-23    1999          1               1               PASS  
+[21] WITH dates AS (
+     BLOCK  TABLE_NAME             KEY_VALUE   COLUMN_NAME   RAW_VALUE_BRACKETED  SHAPE             SOURCE_ROW  FILE_LINE
+     4b     CHALLENGE_CAMPAIGNS    CMP0018     START_DATE    [2023/05/15]         slash_year_first  18          19       
+     4b     CHALLENGE_DAILY_SPEND  DSP0000018  SPEND_DATE    [2023/07/04]         slash_year_first  18          19       
+     4b     CHALLENGE_LEADS        L00000018   CREATED_AT    [2023/06/17]         slash_year_first  18          19       
+     4b     CHALLENGE_CONVERSIONS  CV0000018   CONVERTED_AT  [2023/07/05]         slash_year_first  18          19       
+[22] WITH camp AS (
+     BLOCK  ID  INVARIANT                             N_EVALUATED  N_HOLDS  MIN_VALUE  MAX_VALUE  EXPECTATION    EXPECTED_EVALUATED  EXPECTED_RANGE  STATUS
+     4c     I1  start_date = first spend_date         22           22       NULL       NULL       holds for all  22                  NULL            PASS  
+     4c     I2  next spend_id = next day              1973         1973     1          1          holds for all  1973                1..1            PASS  
+     4c     I3  spend_date inside campaign window     1923         1923     NULL       NULL       holds for all  1923                NULL            PASS  
+     4c     I4  next lead_id: created_at not earlier  1994         1994     0          1          holds for all  1994                NULL            PASS  
+     4c     I5  created_at inside campaign window     1998         1998     NULL       NULL       holds for all  1998                NULL            PASS  
+     4c     I6  conversion lag days >= 0              310          310      0          21         holds for all  310                 0..21           PASS  
+     4c     I7  next conversion_id: date not earlier  1995         1078     NULL       NULL       does not hold  1995                NULL            PASS  
+     4c     I8  next conversion_id: higher lead_id    1999         1999     NULL       NULL       holds for all  1999                NULL            PASS  
+[23] WITH camp AS (
+     BLOCK  TABLE_NAME             KEY_VALUE   COLUMN_NAME   RAW_VALUE   PART2  PART3  SYNTAX_VERDICT             AS_YMD      AS_YDM      EVIDENCE                           EVIDENCE_ROWS            LOWER_BOUND  UPPER_BOUND  WINDOW_START  WINDOW_END  YMD_FITS  YDM_FITS  RESOLVED_DATE  STATUS
+     4d     CHALLENGE_CAMPAIGNS    CMP0018     START_DATE    2023/05/15  5      15     only Y/M/D is a date       2023-05-15  NULL        start = first spend_date (I1)      CMP0018 spend rows       2023-05-15   2023-05-15   NULL          2023-07-28  True      False     2023-05-15     PASS  
+     4d     CHALLENGE_DAILY_SPEND  DSP0000018  SPEND_DATE    2023/07/04  7      4      ambiguous: both are dates  2023-07-04  2023-04-07  spend_id neighbours +-1 day (I2)   DSP0000017 / DSP0000019  2023-07-04   2023-07-04   2023-06-17    2023-08-17  True      False     2023-07-04     PASS  
+     4d     CHALLENGE_LEADS        L00000018   CREATED_AT    2023/06/17  6      17     only Y/M/D is a date       2023-06-17  NULL        lead_id neighbours, monotone (I4)  L00000017 / L00000019    2023-06-17   2023-06-17   2023-06-17    2023-08-17  True      False     2023-06-17     PASS  
+     4d     CHALLENGE_CONVERSIONS  CV0000018   CONVERTED_AT  2023/07/05  7      5      ambiguous: both are dates  2023-07-05  2023-05-07  lead created_at + lag range (I6)   lead L00000122           2023-06-22   2023-07-13   NULL          NULL        True      False     2023-07-05     PASS  
+[24] WITH cells AS (
+     BLOCK  TABLE_NAME             COLUMN_NAME      N_CELLS  N_EMPTY  N_WHITESPACE_ONLY  N_NULL  N_NULL_TOKEN  EMPTY_CELLS          EXPECTED_EMPTY  STATUS
+     5a     CHALLENGE_CAMPAIGNS    BUDGET           121      0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_CAMPAIGNS    CAMPAIGN_ID      121      0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_CAMPAIGNS    CAMPAIGN_NAME    121      1        0                  0       0             CMP0030 (row 30)     1               PASS  
+     5a     CHALLENGE_CAMPAIGNS    CHANNEL          121      0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_CAMPAIGNS    END_DATE         121      0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_CAMPAIGNS    OBJECTIVE        121      0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_CAMPAIGNS    START_DATE       121      0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_DAILY_SPEND  CAMPAIGN_ID      2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_DAILY_SPEND  CLICKS           2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_DAILY_SPEND  IMPRESSIONS      2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_DAILY_SPEND  SPEND            2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_DAILY_SPEND  SPEND_DATE       2001     1        0                  0       0             DSP0000030 (row 30)  1               PASS  
+     5a     CHALLENGE_DAILY_SPEND  SPEND_ID         2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_LEADS        CAMPAIGN_ID      2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_LEADS        CREATED_AT       2001     1        0                  0       0             L00000030 (row 30)   1               PASS  
+     5a     CHALLENGE_LEADS        LEAD_ID          2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_LEADS        LEAD_SCORE       2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_LEADS        LEAD_SOURCE      2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_CONVERSIONS  CONVERSION_ID    2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_CONVERSIONS  CONVERSION_TYPE  2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_CONVERSIONS  CONVERTED_AT     2001     1        0                  0       0             CV0000030 (row 30)   1               PASS  
+     5a     CHALLENGE_CONVERSIONS  LEAD_ID          2001     0        0                  0       0                                  0               PASS  
+     5a     CHALLENGE_CONVERSIONS  REVENUE          2001     0        0                  0       0                                  0               PASS  
+[25] WITH camp AS (
+     BLOCK  RULE                                    N_CAMPAIGNS  N_NAMED  N_RAW_EQUALS_RULE  N_NORMALIZED_EQUALS_RULE  NAMED_BUT_RULE_FAILS  BLANK_NAME_DERIVED             EXPECTED_NAMED  STATUS
+     5b     name = channel + year(start) + id[-3:]  120          119      118                119                                             CMP0030 -> Affiliate 2024 030  119             PASS  
+[26] WITH camp AS (
+     BLOCK  TABLE_NAME             KEY_VALUE   COLUMN_NAME    SOURCE_ROW  EVIDENCE                           EVIDENCE_ROWS                 CANDIDATE_FROM      CANDIDATE_TO        N_CANDIDATES  RECOVERABLE  PROPOSED_FILL       EXPECTED_CANDIDATES  STATUS
+     5c     CHALLENGE_CAMPAIGNS    CMP0030     CAMPAIGN_NAME  30          naming rule (5b)                   rule holds for 119/119 named  Affiliate 2024 030  Affiliate 2024 030  1             yes, unique  Affiliate 2024 030  1                    PASS  
+     5c     CHALLENGE_DAILY_SPEND  DSP0000030  SPEND_DATE     30          spend_id neighbours +-1 day (I2)   DSP0000029 / DSP0000031       2023-07-16          2023-07-16          1             yes, unique  2023-07-16          1                    PASS  
+     5c     CHALLENGE_LEADS        L00000030   CREATED_AT     30          lead_id neighbours, monotone (I4)  L00000029 / L00000031         2023-06-17          2023-06-18          2             no           NULL                2                    PASS  
+     5c     CHALLENGE_CONVERSIONS  CV0000030   CONVERTED_AT   30          lead created_at + lag range (I6)   lead L00000199 2023-06-26     2023-06-26          2023-07-17          22            no           NULL                22                   PASS  
+[27] WITH camp AS (
+     BLOCK  CAMPAIGN_ID  START_DATE  END_DATE    WINDOW_DAYS  SPEND_ROWS  DATED_ROWS  DISTINCT_DATES  N_DAYS_WITHOUT_ROW  DAYS_WITHOUT_ROW  STATUS
+     5d     CMP0001      2023-06-17  2023-08-17  62           62          61          61              1                   2023-07-16        PASS  
+[28] WITH camp AS (SELECT * FROM RAW.CHALLENGE_CAMPAIGNS
+     BLOCK  COLUMN_REF               N_VALUES  N_NONSTANDARD  N_CAST_FAILED  N_NEGATIVE  N_ZERO  MIN_VALUE  MAX_VALUE  EXPECTED_RANGE     EXPECTED_ZERO  STATUS
+     6a     campaigns.budget         120       0              0              0           0       8102.32    79884.92   8102.32..79884.92  0              PASS  
+     6a     daily_spend.impressions  2000      0              0              0           0       4417       113847     4417..113847       0              PASS  
+     6a     daily_spend.clicks       2000      0              0              0           0       47         2390       47..2390           0              PASS  
+     6a     daily_spend.spend        2000      0              0              0           0       71.55      1087.81    71.55..1087.81     0              PASS  
+     6a     leads.lead_score         2000      0              0              0           0       1          100        1..100             0              PASS  
+     6a     conversions.revenue      2000      0              0              0           1132    0.00       2496.07    0.00..2496.07      1132           PASS  
+[29] WITH camp AS (
+     BLOCK  RULE_NAME                            N_EVALUATED  N_VIOLATIONS  EXPECTED_EVALUATED  STATUS
+     6b     clicks > impressions                 2000         0             2000                PASS  
+     6b     lead_score outside 1..100            2000         0             2000                PASS  
+     6b     trial with revenue <> 0              1132         0             1132                PASS  
+     6b     purchase with revenue <= 0           868          0             868                 PASS  
+     6b     conversion before its lead           312          0             312                 PASS  
+     6b     campaign end_date before start_date  120          0             120                 PASS  
+     6b     spend_date outside campaign window   1999         0             1999                PASS  
+     6b     created_at outside campaign window   1999         0             1999                PASS  
+     6b     date outside 2023-01-01..2025-12-31  6237         0             6237                PASS  
+     6b     lead_source <> campaign channel      2000         0             2000                PASS  
+[30] WITH cells AS (
+     BLOCK  ROW_TYPE     DEFECT_NO  DEFECT_CLASS             TABLE_NAME             KEY_VALUE   COLUMN_NAME      RAW_VALUE             SOURCE_ROW  FILE_LINE  N_DEFECTS  EXPECTED  STATUS
+     7      defect       1          duplicate row            CHALLENGE_CAMPAIGNS    CMP0001     (whole row)      identical to row 1    121         122        NULL       NULL      NULL  
+     7      defect       2          duplicate row            CHALLENGE_DAILY_SPEND  DSP0000001  (whole row)      identical to row 1    2001        2002       NULL       NULL      NULL  
+     7      defect       3          duplicate row            CHALLENGE_LEADS        L00000001   (whole row)      identical to row 1    2001        2002       NULL       NULL      NULL  
+     7      defect       4          duplicate row            CHALLENGE_CONVERSIONS  CV0000001   (whole row)      identical to row 1    2001        2002       NULL       NULL      NULL  
+     7      defect       5          casing/whitespace        CHALLENGE_CAMPAIGNS    CMP0008     CAMPAIGN_NAME    [ DISPLAY 2023 008 ]  8           9          NULL       NULL      NULL  
+     7      defect       6          casing/whitespace        CHALLENGE_LEADS        L00000008   LEAD_SOURCE      [ PAID_SEARCH ]       8           9          NULL       NULL      NULL  
+     7      defect       7          casing/whitespace        CHALLENGE_CONVERSIONS  CV0000008   CONVERSION_TYPE  [ TRIAL ]             8           9          NULL       NULL      NULL  
+     7      defect       8          slash date (year first)  CHALLENGE_CAMPAIGNS    CMP0018     START_DATE       [2023/05/15]          18          19         NULL       NULL      NULL  
+     7      defect       9          slash date (year first)  CHALLENGE_DAILY_SPEND  DSP0000018  SPEND_DATE       [2023/07/04]          18          19         NULL       NULL      NULL  
+     7      defect       10         slash date (year first)  CHALLENGE_LEADS        L00000018   CREATED_AT       [2023/06/17]          18          19         NULL       NULL      NULL  
+     7      defect       11         slash date (year first)  CHALLENGE_CONVERSIONS  CV0000018   CONVERTED_AT     [2023/07/05]          18          19         NULL       NULL      NULL  
+     7      defect       12         blank required value     CHALLENGE_CAMPAIGNS    CMP0030     CAMPAIGN_NAME    []                    30          31         NULL       NULL      NULL  
+     7      defect       13         blank required value     CHALLENGE_DAILY_SPEND  DSP0000030  SPEND_DATE       []                    30          31         NULL       NULL      NULL  
+     7      defect       14         blank required value     CHALLENGE_LEADS        L00000030   CREATED_AT       []                    30          31         NULL       NULL      NULL  
+     7      defect       15         blank required value     CHALLENGE_CONVERSIONS  CV0000030   CONVERTED_AT     []                    30          31         NULL       NULL      NULL  
+     7      class total  NULL       duplicate row            NULL                   NULL        NULL             NULL                  NULL        NULL       4          4         PASS  
+     7      class total  NULL       casing/whitespace        NULL                   NULL        NULL             NULL                  NULL        NULL       3          3         PASS  
+     7      class total  NULL       slash date (year first)  NULL                   NULL        NULL             NULL                  NULL        NULL       4          4         PASS  
+     7      class total  NULL       blank required value     NULL                   NULL        NULL             NULL                  NULL        NULL       4          4         PASS  
+     7      class total  NULL       other date defect        NULL                   NULL        NULL             NULL                  NULL        NULL       0          0         PASS  
+     7      class total  NULL       other nonconforming      NULL                   NULL        NULL             NULL                  NULL        NULL       0          0         PASS  
+     7      grand total  NULL       all classes              NULL                   NULL        NULL             NULL                  NULL        NULL       15         15        PASS  
+[31] WITH cln_campaigns AS (
+     BLOCK  TABLE_NAME             N_ROWS  MATCH_BLANKS_NULL  EXPECTED_BLANKS_NULL  NOT_MATCHING_BLANKS_NULL  MATCH_WITH_FILLS  EXPECTED_WITH_FILLS  NOT_MATCHING_WITH_FILLS  STATUS
+     8a     CHALLENGE_CAMPAIGNS    120     119                119                   CMP0030                   120               120                                           PASS  
+     8a     CHALLENGE_DAILY_SPEND  2000    1999               1999                  DSP0000030                2000              2000                                          PASS  
+     8a     CHALLENGE_LEADS        2000    1999               1999                  L00000030                 1999              1999                 L00000030                PASS  
+     8a     CHALLENGE_CONVERSIONS  2000    1999               1999                  CV0000030                 1999              1999                 CV0000030                PASS  
+     8a     TOTAL                  6120    6116               6116                  NULL                      6118              6118                 NULL                     PASS  
+[32] WITH cln_campaigns AS (
+     BLOCK  TABLE_NAME             KEY_VALUE   COLUMN_NAME    CLEANED_BLANKS_NULL  AFTER_FILLS         CLEAN_RELEASE       OUTCOME        STATUS
+     8b     CHALLENGE_CAMPAIGNS    CMP0030     CAMPAIGN_NAME  NULL                 Affiliate 2024 030  Affiliate 2024 030  fixed by fill  PASS  
+     8b     CHALLENGE_DAILY_SPEND  DSP0000030  SPEND_DATE     NULL                 2023-07-16          2023-07-16          fixed by fill  PASS  
+     8b     CHALLENGE_LEADS        L00000030   CREATED_AT     NULL                 NULL                2023-06-18          stays NULL     PASS  
+     8b     CHALLENGE_CONVERSIONS  CV0000030   CONVERTED_AT   NULL                 NULL                2023-07-13          stays NULL     PASS  
+[33] WITH d_spend AS (SELECT * FROM RAW.CHALLENGE_DAILY_SPEND
+     BLOCK  VERSION                  SPEND     IMPRESSIONS  CLICKS  LEADS  CONVERSIONS  REVENUE    BUDGET_ALL_CAMPAIGNS  MATCHES_EXPECTED  STATUS
+     8c     raw extract (as loaded)  13899.32  772156       26562   1375   214          105014.02  5433509.32            True              PASS  
+     8c     extract de-duplicated    13679.39  759938       26014   1374   213          105014.02  5418642.16            True              PASS  
+     8c     clean release            13679.39  759938       26014   1374   213          105014.02  5418642.16            True              PASS  
+OK    01b_challenge_profiling.sql: all 33 statements executed, no check row says FAIL

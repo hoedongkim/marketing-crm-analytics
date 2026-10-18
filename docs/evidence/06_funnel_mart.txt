@@ -1,0 +1,1138 @@
+Phase 6 evidence: MART.MART_CONVERSION_FUNNEL (the plan's mart_conversion_funnel), 2026-10-14
+====================================================================================================
+What changed
+  dbt/models/marts/mart_conversion_funnel.sql   new table model: channel x stage, 5 x 5 = 25 rows, built
+                                                from MART_CHANNEL_PERFORMANCE (long format for the Data
+                                                Studio funnel chart; no stored ratio, no 'ALL' row)
+  dbt/models/marts/_marts.yml                   model + 6 column descriptions (persist_docs), 12 data tests
+  dbt/tests/marts/assert_conversion_funnel_reconciles.sql
+                                                singular test: stage totals vs seed expected_totals, the 25
+                                                cells vs seed expected_campaign_kpi rolled up to channels,
+                                                PREV_STAGE_VALUE and TOP_OF_FUNNEL_VALUE consistency
+  dbt/models/exposures.yml                      the dashboard exposure reads the new model
+  sql/02b_core_models_tests.sql, sql/02c_analysis_marts_tests.sql
+                                                block 1 of each lists MART_CONVERSION_FUNNEL as an expected
+                                                MART object without a column contract (HAS_CONTRACT FALSE);
+                                                both files list every MART object, so an unlisted table
+                                                would be an 'UNEXPECTED' FAIL row
+This file replaces nothing: docs/evidence/05_dbt_build.txt stays the log of the full Phase 5 build.
+Only the selected nodes were rebuilt (shared X-Small warehouse, 4-credit daily account monitor);
+no resource monitor suspended the warehouse.
+
+Commands, from the repository root, in this order (the step 1 output below is the final strict parse,
+re-run at 18:50 UTC after step 8 on the same model files; dbt build and dbt test parse the project too)
+  1. make dbt-parse                                              strict parse: no partial parse, every
+                                                                 deprecation listed and fatal; no query
+  2. make dbt-build-select DBT_SELECT=mart_conversion_funnel+    the new table, its 13 data tests and the
+                                                                 dashboard exposure (NO-OP)
+  3. make dbt-test                                               all 258 data tests and 7 unit tests on the
+                                                                 deployed objects, no rebuild
+  4. .venv/bin/python scripts/run_sql.py --role CRM_TRANSFORMER --max-rows 200 sql/02b_core_models_tests.sql
+  5. .venv/bin/python scripts/run_sql.py --role CRM_TRANSFORMER --max-rows 300 sql/02c_analysis_marts_tests.sql
+  6. planted defects: the compiled singular test run read-only on 6 mutated copies of the deployed
+     table (plus 1 unchanged control), each mutation inside the query (nothing created)
+  7. inspection (read-only): deployed object and column types, grants, the 25 rows and the stage
+     ratios a Data Studio field SUM(STAGE_VALUE) / SUM(PREV_STAGE_VALUE) shows
+  8. make dbt-lineage                                            docs/lineage.md regenerated (no query)
+  Steps 4-7 ran as SVC_CRM_PIPELINE / CRM_TRANSFORMER, read-only (USE and SELECT/WITH/SHOW only).
+
+Summary
+  dbt parse            0 deprecations (any deprecation would have failed the command)
+  dbt build (select)   PASS=14 WARN=0 ERROR=0 SKIP=0 NO-OP=1 TOTAL=15; MART.mart_conversion_funnel SUCCESS 25 rows
+  dbt test             PASS=265 WARN=0 ERROR=0 SKIP=0 TOTAL=265 (258 data tests + 7 unit tests; Phase 5: 245 + 7)
+  02b tests            exit 0, 246 PASS rows, 0 FAIL (Phase 5: 245 PASS); block 1 lists 12 MART objects, all PASS.
+                       Every other line equals docs/evidence/02b_core_models_tests.txt except the session line
+                       (checked with diff after removing the session line).
+  02c tests            exit 0, 259 PASS rows, 0 FAIL (Phase 4/5: 258 PASS); the only new row is
+                       MART_CONVERSION_FUNNEL in block 1; every other line equals
+                       docs/evidence/02c_analysis_marts_tests.txt except the session line.
+  planted defects      6 of 6 mutations detected, each by exactly the expected checks and number of rows; the
+                       unchanged control returns 0 rows
+  deployed object      BASE TABLE, permanent (IS_TRANSIENT NO), owner CRM_TRANSFORMER, 25 rows, table comment
+                       and 6 column comments; CRM_REPORTER has SELECT (MART future grant), and a read as
+                       SVC_CRM_BI / CRM_REPORTER returned the same 5 stage totals
+  stage totals         Impressions 436,844,819 | Clicks 7,102,319 | Leads 261,684 | Converted leads 39,696 |
+                       Purchases 16,691: equal to seed expected_totals and to MART_CHANNEL_PERFORMANCE
+  stage conversion     SUM(STAGE_VALUE) / SUM(PREV_STAGE_VALUE), all channels: Clicks 0.016258 (CTR) |
+                       Leads 0.036845 (click-to-lead) | Converted leads 0.151694 (lead conversion rate) |
+                       Purchases 0.420471 (purchase share of conversions); per channel they equal the stored
+                       MART_CHANNEL_PERFORMANCE ratios (20 of 20, statement [10] of step 7)
+
+====================================================================================================
+1. make dbt-parse
+----------------------------------------------------------------------------------------------------
+.venv/bin/dbt parse --project-dir dbt --profiles-dir dbt --no-use-colors --no-partial-parse --show-all-deprecations --warn-error-options '{"error": ["Deprecations"]}'
+18:50:37  Running with dbt=1.12.5
+18:50:37  Registered adapter: snowflake=1.12.2
+18:50:39  Performance info: dbt/target/perf_info.json
+
+====================================================================================================
+2. make dbt-build-select DBT_SELECT=mart_conversion_funnel+   (build/dbt_build_select.txt)
+----------------------------------------------------------------------------------------------------
+18:47:00  Running with dbt=1.12.5
+18:47:01  Registered adapter: snowflake=1.12.2
+18:47:01  Found 20 models, 258 data tests, 3 seeds, 8 sources, 2 exposures, 684 macros, 7 unit tests
+18:47:01  
+18:47:01  Concurrency: 4 threads (target='prod')
+18:47:01  
+18:47:03  1 of 15 START sql table model MART.mart_conversion_funnel ...................... [RUN]
+18:47:05  1 of 15 OK created sql table model MART.mart_conversion_funnel ................. [SUCCESS 25 in 2.42s]
+18:47:05  5 of 15 START test accepted_values_mart_conversion_funnel_stage_order__False__1__2__3__4__5  [RUN]
+18:47:05  3 of 15 START test accepted_values_mart_conversion_funnel_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:47:05  4 of 15 START test accepted_values_mart_conversion_funnel_stage__Impressions__Clicks__Leads__Converted_leads__Purchases  [RUN]
+18:47:05  2 of 15 NO-OP exposure data_studio_marketing_dashboard ......................... [NO-OP in 0.00s]
+18:47:05  6 of 15 START test assert_conversion_funnel_reconciles ......................... [RUN]
+18:47:05  5 of 15 PASS accepted_values_mart_conversion_funnel_stage_order__False__1__2__3__4__5  [PASS in 0.38s]
+18:47:05  7 of 15 START test dbt_utils_accepted_range_mart_conversion_funnel_stage_value__0  [RUN]
+18:47:06  7 of 15 PASS dbt_utils_accepted_range_mart_conversion_funnel_stage_value__0 .... [PASS in 0.10s]
+18:47:06  8 of 15 START test dbt_utils_unique_combination_of_columns_mart_conversion_funnel_channel__stage_order  [RUN]
+18:47:06  3 of 15 PASS accepted_values_mart_conversion_funnel_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.57s]
+18:47:06  9 of 15 START test mart_conversion_funnel_subset_stage_not_above_previous ...... [RUN]
+18:47:06  4 of 15 PASS accepted_values_mart_conversion_funnel_stage__Impressions__Clicks__Leads__Converted_leads__Purchases  [PASS in 0.58s]
+18:47:06  10 of 15 START test not_null_mart_conversion_funnel_channel .................... [RUN]
+18:47:06  9 of 15 PASS mart_conversion_funnel_subset_stage_not_above_previous ............ [PASS in 0.15s]
+18:47:06  11 of 15 START test not_null_mart_conversion_funnel_prev_stage_value ........... [RUN]
+18:47:06  10 of 15 PASS not_null_mart_conversion_funnel_channel .......................... [PASS in 0.19s]
+18:47:06  12 of 15 START test not_null_mart_conversion_funnel_stage ...................... [RUN]
+18:47:06  8 of 15 PASS dbt_utils_unique_combination_of_columns_mart_conversion_funnel_channel__stage_order  [PASS in 0.31s]
+18:47:06  13 of 15 START test not_null_mart_conversion_funnel_stage_order ................ [RUN]
+18:47:06  11 of 15 PASS not_null_mart_conversion_funnel_prev_stage_value ................. [PASS in 0.14s]
+18:47:06  14 of 15 START test not_null_mart_conversion_funnel_stage_value ................ [RUN]
+18:47:06  12 of 15 PASS not_null_mart_conversion_funnel_stage ............................ [PASS in 0.09s]
+18:47:06  15 of 15 START test not_null_mart_conversion_funnel_top_of_funnel_value ........ [RUN]
+18:47:06  13 of 15 PASS not_null_mart_conversion_funnel_stage_order ...................... [PASS in 0.12s]
+18:47:06  14 of 15 PASS not_null_mart_conversion_funnel_stage_value ...................... [PASS in 0.12s]
+18:47:06  6 of 15 PASS assert_conversion_funnel_reconciles ............................... [PASS in 0.93s]
+18:47:06  15 of 15 PASS not_null_mart_conversion_funnel_top_of_funnel_value .............. [PASS in 0.11s]
+18:47:07  
+18:47:07  Finished running 1 exposure, 1 table model, 13 data tests in 0 hours 0 minutes and 5.61 seconds (5.61s).
+18:47:07  
+18:47:07  Completed successfully
+18:47:07  
+18:47:07  Done. PASS=14 WARN=0 ERROR=0 SKIP=0 NO-OP=1 REUSED=0 TOTAL=15
+
+====================================================================================================
+3. make dbt-test   (build/dbt_test.txt)
+----------------------------------------------------------------------------------------------------
+18:47:58  Running with dbt=1.12.5
+18:47:59  Registered adapter: snowflake=1.12.2
+18:47:59  Found 20 models, 258 data tests, 3 seeds, 8 sources, 2 exposures, 684 macros, 7 unit tests
+18:47:59  
+18:47:59  Concurrency: 4 threads (target='prod')
+18:47:59  
+18:48:00  1 of 265 START test accepted_values_dim_campaign_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:00  3 of 265 START test accepted_values_dim_date_year__False__2023__2024__2025 ..... [RUN]
+18:48:00  4 of 265 START test accepted_values_fct_campaign_daily_activity_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:00  2 of 265 START test accepted_values_dim_campaign_objective__acquisition__awareness__lead_gen  [RUN]
+18:48:00  1 of 265 PASS accepted_values_dim_campaign_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.24s]
+18:48:00  5 of 265 START test accepted_values_fct_campaign_daily_activity_is_in_flight__False__0__1  [RUN]
+18:48:00  2 of 265 PASS accepted_values_dim_campaign_objective__acquisition__awareness__lead_gen  [PASS in 0.28s]
+18:48:00  6 of 265 START test accepted_values_fct_daily_spend_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:01  5 of 265 PASS accepted_values_fct_campaign_daily_activity_is_in_flight__False__0__1  [PASS in 0.12s]
+18:48:01  7 of 265 START test accepted_values_fct_lead_conversions_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:01  6 of 265 PASS accepted_values_fct_daily_spend_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.19s]
+18:48:01  8 of 265 START test accepted_values_fct_lead_conversions_conversion_type__trial__purchase  [RUN]
+18:48:01  7 of 265 PASS accepted_values_fct_lead_conversions_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.14s]
+18:48:01  9 of 265 START test accepted_values_fct_lead_conversions_converted_after_campaign_end__False__0__1  [RUN]
+18:48:01  4 of 265 PASS accepted_values_fct_campaign_daily_activity_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.58s]
+18:48:01  10 of 265 START test accepted_values_fct_lead_conversions_is_converted__False__0__1  [RUN]
+18:48:01  8 of 265 PASS accepted_values_fct_lead_conversions_conversion_type__trial__purchase  [PASS in 0.14s]
+18:48:01  3 of 265 PASS accepted_values_dim_date_year__False__2023__2024__2025 ........... [PASS in 0.61s]
+18:48:01  11 of 265 START test accepted_values_fct_lead_conversions_is_mature__False__0__1  [RUN]
+18:48:01  12 of 265 START test accepted_values_fct_lead_conversions_is_purchase__False__0__1  [RUN]
+18:48:01  9 of 265 PASS accepted_values_fct_lead_conversions_converted_after_campaign_end__False__0__1  [PASS in 0.12s]
+18:48:01  13 of 265 START test accepted_values_fct_lead_conversions_is_trial__False__0__1  [RUN]
+18:48:01  11 of 265 PASS accepted_values_fct_lead_conversions_is_mature__False__0__1 ..... [PASS in 0.13s]
+18:48:01  14 of 265 START test accepted_values_fct_lead_conversions_lead_score_segment__Low__Medium__High  [RUN]
+18:48:01  13 of 265 PASS accepted_values_fct_lead_conversions_is_trial__False__0__1 ...... [PASS in 0.14s]
+18:48:01  10 of 265 PASS accepted_values_fct_lead_conversions_is_converted__False__0__1 .. [PASS in 0.19s]
+18:48:01  15 of 265 START test accepted_values_mart_campaign_performance_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:01  16 of 265 START test accepted_values_mart_channel_performance_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:01  12 of 265 PASS accepted_values_fct_lead_conversions_is_purchase__False__0__1 ... [PASS in 0.21s]
+18:48:01  17 of 265 START test accepted_values_mart_conversion_funnel_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:01  14 of 265 PASS accepted_values_fct_lead_conversions_lead_score_segment__Low__Medium__High  [PASS in 0.12s]
+18:48:01  18 of 265 START test accepted_values_mart_conversion_funnel_stage__Impressions__Clicks__Leads__Converted_leads__Purchases  [RUN]
+18:48:01  15 of 265 PASS accepted_values_mart_campaign_performance_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.15s]
+18:48:01  19 of 265 START test accepted_values_mart_conversion_funnel_stage_order__False__1__2__3__4__5  [RUN]
+18:48:01  18 of 265 PASS accepted_values_mart_conversion_funnel_stage__Impressions__Clicks__Leads__Converted_leads__Purchases  [PASS in 0.11s]
+18:48:01  20 of 265 START test accepted_values_mart_lead_quality_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:01  19 of 265 PASS accepted_values_mart_conversion_funnel_stage_order__False__1__2__3__4__5  [PASS in 0.09s]
+18:48:01  21 of 265 START test accepted_values_mart_lead_quality_lead_score_segment__Low__Medium__High  [RUN]
+18:48:01  16 of 265 PASS accepted_values_mart_channel_performance_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.26s]
+18:48:01  22 of 265 START test accepted_values_mart_lead_quality_score_band__01_10__11_20__21_30__31_40__41_50__51_60__61_70__71_80__81_90__91_100  [RUN]
+18:48:01  17 of 265 PASS accepted_values_mart_conversion_funnel_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.23s]
+18:48:01  23 of 265 START test accepted_values_mart_monthly_cohort_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:01  20 of 265 PASS accepted_values_mart_lead_quality_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.20s]
+18:48:01  24 of 265 START test accepted_values_mart_monthly_marketing_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:01  21 of 265 PASS accepted_values_mart_lead_quality_lead_score_segment__Low__Medium__High  [PASS in 0.17s]
+18:48:01  25 of 265 START test accepted_values_stg_campaigns_channel__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:01  22 of 265 PASS accepted_values_mart_lead_quality_score_band__01_10__11_20__21_30__31_40__41_50__51_60__61_70__71_80__81_90__91_100  [PASS in 0.24s]
+18:48:01  26 of 265 START test accepted_values_stg_campaigns_dq_is_valid__False__True .... [RUN]
+18:48:02  23 of 265 PASS accepted_values_mart_monthly_cohort_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.41s]
+18:48:02  27 of 265 START test accepted_values_stg_campaigns_objective__acquisition__awareness__lead_gen  [RUN]
+18:48:02  24 of 265 PASS accepted_values_mart_monthly_marketing_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.30s]
+18:48:02  28 of 265 START test accepted_values_stg_conversions_conversion_type__trial__purchase  [RUN]
+18:48:02  25 of 265 PASS accepted_values_stg_campaigns_channel__affiliate__display__paid_search__paid_social__video  [PASS in 0.31s]
+18:48:02  26 of 265 PASS accepted_values_stg_campaigns_dq_is_valid__False__True .......... [PASS in 0.23s]
+18:48:02  29 of 265 START test accepted_values_stg_conversions_dq_is_valid__False__True .. [RUN]
+18:48:02  30 of 265 START test accepted_values_stg_daily_spend_dq_is_valid__False__True .. [RUN]
+18:48:02  28 of 265 PASS accepted_values_stg_conversions_conversion_type__trial__purchase  [PASS in 0.23s]
+18:48:02  31 of 265 START test accepted_values_stg_leads_dq_is_valid__False__True ........ [RUN]
+18:48:02  30 of 265 PASS accepted_values_stg_daily_spend_dq_is_valid__False__True ........ [PASS in 0.41s]
+18:48:02  32 of 265 START test accepted_values_stg_leads_lead_source__affiliate__display__paid_search__paid_social__video  [RUN]
+18:48:02  29 of 265 PASS accepted_values_stg_conversions_dq_is_valid__False__True ........ [PASS in 0.44s]
+18:48:02  33 of 265 START test assert_activity_and_cohort_months_differ_but_agree_in_total  [RUN]
+18:48:02  27 of 265 PASS accepted_values_stg_campaigns_objective__acquisition__awareness__lead_gen  [PASS in 0.50s]
+18:48:02  34 of 265 START test assert_budget_prorated_sums ............................... [RUN]
+18:48:02  31 of 265 PASS accepted_values_stg_leads_dq_is_valid__False__True .............. [PASS in 0.26s]
+18:48:02  35 of 265 START test assert_campaign_attributes_match_independent_seed ......... [RUN]
+18:48:02  32 of 265 PASS accepted_values_stg_leads_lead_source__affiliate__display__paid_search__paid_social__video  [PASS in 0.14s]
+18:48:02  36 of 265 START test assert_campaign_kpi_equals_independent_seed ............... [RUN]
+18:48:02  34 of 265 PASS assert_budget_prorated_sums ..................................... [PASS in 0.12s]
+18:48:02  37 of 265 START test assert_campaign_windows ................................... [RUN]
+18:48:02  35 of 265 PASS assert_campaign_attributes_match_independent_seed ............... [PASS in 0.12s]
+18:48:02  38 of 265 START test assert_challenge_defects_flagged .......................... [RUN]
+18:48:02  36 of 265 PASS assert_campaign_kpi_equals_independent_seed ..................... [PASS in 0.10s]
+18:48:02  39 of 265 START test assert_challenge_reconciliation ........................... [RUN]
+18:48:02  33 of 265 PASS assert_activity_and_cohort_months_differ_but_agree_in_total ..... [PASS in 0.34s]
+18:48:02  40 of 265 START test assert_channel_rollup_equals_publisher_reference .......... [RUN]
+18:48:03  40 of 265 PASS assert_channel_rollup_equals_publisher_reference ................ [PASS in 0.17s]
+18:48:03  41 of 265 START test assert_control_totals_in_every_mart ....................... [RUN]
+18:48:03  37 of 265 PASS assert_campaign_windows ......................................... [PASS in 0.46s]
+18:48:03  42 of 265 START test assert_conversion_funnel_reconciles ....................... [RUN]
+18:48:03  42 of 265 PASS assert_conversion_funnel_reconciles ............................. [PASS in 0.39s]
+18:48:03  43 of 265 START test assert_dim_date_calendar .................................. [RUN]
+18:48:03  43 of 265 PASS assert_dim_date_calendar ........................................ [PASS in 0.14s]
+18:48:03  44 of 265 START test assert_lead_score_segments ................................ [RUN]
+18:48:03  41 of 265 PASS assert_control_totals_in_every_mart ............................. [PASS in 0.64s]
+18:48:03  45 of 265 START test assert_lead_source_matches_campaign_channel ............... [RUN]
+18:48:03  45 of 265 PASS assert_lead_source_matches_campaign_channel ..................... [PASS in 0.16s]
+18:48:03  46 of 265 START test assert_post_flight_activity ............................... [RUN]
+18:48:04  44 of 265 PASS assert_lead_score_segments ...................................... [PASS in 0.27s]
+18:48:04  47 of 265 START test assert_staging_keeps_every_raw_row ........................ [RUN]
+18:48:04  46 of 265 PASS assert_post_flight_activity ..................................... [PASS in 0.23s]
+18:48:04  48 of 265 START test assert_total_spend_in_every_mart .......................... [RUN]
+18:48:04  38 of 265 PASS assert_challenge_defects_flagged ................................ [PASS in 1.56s]
+18:48:04  49 of 265 START test dbt_utils_accepted_range_dim_campaign_budget__False__0 .... [RUN]
+18:48:04  39 of 265 PASS assert_challenge_reconciliation ................................. [PASS in 1.53s]
+18:48:04  50 of 265 START test dbt_utils_accepted_range_dim_campaign_campaign_days__1 .... [RUN]
+18:48:04  48 of 265 PASS assert_total_spend_in_every_mart ................................ [PASS in 0.22s]
+18:48:04  51 of 265 START test dbt_utils_accepted_range_dim_date_day_of_week_iso__7__1 ... [RUN]
+18:48:04  49 of 265 PASS dbt_utils_accepted_range_dim_campaign_budget__False__0 .......... [PASS in 0.10s]
+18:48:04  52 of 265 START test dbt_utils_accepted_range_dim_date_quarter__4__1 ........... [RUN]
+18:48:04  51 of 265 PASS dbt_utils_accepted_range_dim_date_day_of_week_iso__7__1 ......... [PASS in 0.14s]
+18:48:04  53 of 265 START test dbt_utils_accepted_range_fct_daily_spend_budget_prorated__False__0  [RUN]
+18:48:04  50 of 265 PASS dbt_utils_accepted_range_dim_campaign_campaign_days__1 .......... [PASS in 0.20s]
+18:48:04  54 of 265 START test dbt_utils_accepted_range_fct_daily_spend_clicks__False__0 . [RUN]
+18:48:04  52 of 265 PASS dbt_utils_accepted_range_dim_date_quarter__4__1 ................. [PASS in 0.14s]
+18:48:04  55 of 265 START test dbt_utils_accepted_range_fct_daily_spend_impressions__False__0  [RUN]
+18:48:04  53 of 265 PASS dbt_utils_accepted_range_fct_daily_spend_budget_prorated__False__0  [PASS in 0.09s]
+18:48:04  56 of 265 START test dbt_utils_accepted_range_fct_daily_spend_spend__False__0 .. [RUN]
+18:48:04  55 of 265 PASS dbt_utils_accepted_range_fct_daily_spend_impressions__False__0 .. [PASS in 0.10s]
+18:48:04  57 of 265 START test dbt_utils_accepted_range_fct_lead_conversions_days_to_convert__21__0  [RUN]
+18:48:04  54 of 265 PASS dbt_utils_accepted_range_fct_daily_spend_clicks__False__0 ....... [PASS in 0.18s]
+18:48:04  58 of 265 START test dbt_utils_accepted_range_fct_lead_conversions_lead_score__100__1  [RUN]
+18:48:04  56 of 265 PASS dbt_utils_accepted_range_fct_daily_spend_spend__False__0 ........ [PASS in 0.12s]
+18:48:04  59 of 265 START test dbt_utils_accepted_range_fct_lead_conversions_revenue__0 .. [RUN]
+18:48:04  57 of 265 PASS dbt_utils_accepted_range_fct_lead_conversions_days_to_convert__21__0  [PASS in 0.10s]
+18:48:04  60 of 265 START test dbt_utils_accepted_range_mart_campaign_performance_budget_utilization__1__0  [RUN]
+18:48:04  47 of 265 PASS assert_staging_keeps_every_raw_row .............................. [PASS in 0.75s]
+18:48:04  61 of 265 START test dbt_utils_accepted_range_mart_campaign_performance_click_to_lead_rate__1__0  [RUN]
+18:48:04  58 of 265 PASS dbt_utils_accepted_range_fct_lead_conversions_lead_score__100__1  [PASS in 0.10s]
+18:48:04  62 of 265 START test dbt_utils_accepted_range_mart_campaign_performance_cost_per_lead__False__0  [RUN]
+18:48:04  59 of 265 PASS dbt_utils_accepted_range_fct_lead_conversions_revenue__0 ........ [PASS in 0.10s]
+18:48:04  63 of 265 START test dbt_utils_accepted_range_mart_campaign_performance_ctr__1__0  [RUN]
+18:48:04  60 of 265 PASS dbt_utils_accepted_range_mart_campaign_performance_budget_utilization__1__0  [PASS in 0.11s]
+18:48:04  64 of 265 START test dbt_utils_accepted_range_mart_campaign_performance_lead_conversion_rate__1__0  [RUN]
+18:48:04  61 of 265 PASS dbt_utils_accepted_range_mart_campaign_performance_click_to_lead_rate__1__0  [PASS in 0.14s]
+18:48:04  65 of 265 START test dbt_utils_accepted_range_mart_campaign_performance_purchase_rate__1__0  [RUN]
+18:48:05  62 of 265 PASS dbt_utils_accepted_range_mart_campaign_performance_cost_per_lead__False__0  [PASS in 0.17s]
+18:48:05  66 of 265 START test dbt_utils_accepted_range_mart_campaign_performance_roas__0  [RUN]
+18:48:05  63 of 265 PASS dbt_utils_accepted_range_mart_campaign_performance_ctr__1__0 .... [PASS in 0.19s]
+18:48:05  67 of 265 START test dbt_utils_accepted_range_mart_channel_performance_budget_utilization__1__0  [RUN]
+18:48:05  64 of 265 PASS dbt_utils_accepted_range_mart_campaign_performance_lead_conversion_rate__1__0  [PASS in 0.16s]
+18:48:05  68 of 265 START test dbt_utils_accepted_range_mart_channel_performance_click_to_lead_rate__1__0  [RUN]
+18:48:05  65 of 265 PASS dbt_utils_accepted_range_mart_campaign_performance_purchase_rate__1__0  [PASS in 0.13s]
+18:48:05  69 of 265 START test dbt_utils_accepted_range_mart_channel_performance_ctr__1__0  [RUN]
+18:48:05  66 of 265 PASS dbt_utils_accepted_range_mart_campaign_performance_roas__0 ...... [PASS in 0.10s]
+18:48:05  70 of 265 START test dbt_utils_accepted_range_mart_channel_performance_lcr_ci_high__1__0  [RUN]
+18:48:05  67 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_budget_utilization__1__0  [PASS in 0.10s]
+18:48:05  71 of 265 START test dbt_utils_accepted_range_mart_channel_performance_lcr_ci_low__1__0  [RUN]
+18:48:05  69 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_ctr__1__0 ..... [PASS in 0.12s]
+18:48:05  72 of 265 START test dbt_utils_accepted_range_mart_channel_performance_lead_conversion_rate__1__0  [RUN]
+18:48:05  70 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_lcr_ci_high__1__0  [PASS in 0.10s]
+18:48:05  73 of 265 START test dbt_utils_accepted_range_mart_channel_performance_leads_share__1__0  [RUN]
+18:48:05  68 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_click_to_lead_rate__1__0  [PASS in 0.15s]
+18:48:05  74 of 265 START test dbt_utils_accepted_range_mart_channel_performance_purchase_rate__1__0  [RUN]
+18:48:05  72 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_lead_conversion_rate__1__0  [PASS in 0.13s]
+18:48:05  75 of 265 START test dbt_utils_accepted_range_mart_channel_performance_revenue_share__1__0  [RUN]
+18:48:05  73 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_leads_share__1__0  [PASS in 0.12s]
+18:48:05  76 of 265 START test dbt_utils_accepted_range_mart_channel_performance_roas__0 . [RUN]
+18:48:05  71 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_lcr_ci_low__1__0  [PASS in 0.29s]
+18:48:05  77 of 265 START test dbt_utils_accepted_range_mart_channel_performance_spend_share__1__0  [RUN]
+18:48:05  75 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_revenue_share__1__0  [PASS in 0.14s]
+18:48:05  78 of 265 START test dbt_utils_accepted_range_mart_conversion_funnel_stage_value__0  [RUN]
+18:48:05  76 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_roas__0 ....... [PASS in 0.15s]
+18:48:05  79 of 265 START test dbt_utils_accepted_range_mart_monthly_marketing_active_campaigns__0  [RUN]
+18:48:05  74 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_purchase_rate__1__0  [PASS in 0.27s]
+18:48:05  80 of 265 START test dbt_utils_accepted_range_stg_campaigns_budget__False__0 ... [RUN]
+18:48:05  78 of 265 PASS dbt_utils_accepted_range_mart_conversion_funnel_stage_value__0 .. [PASS in 0.11s]
+18:48:05  81 of 265 START test dbt_utils_accepted_range_stg_campaigns_campaign_days__1 ... [RUN]
+18:48:05  77 of 265 PASS dbt_utils_accepted_range_mart_channel_performance_spend_share__1__0  [PASS in 0.14s]
+18:48:05  82 of 265 START test dbt_utils_accepted_range_stg_daily_spend_clicks__False__0 . [RUN]
+18:48:05  79 of 265 PASS dbt_utils_accepted_range_mart_monthly_marketing_active_campaigns__0  [PASS in 0.14s]
+18:48:05  83 of 265 START test dbt_utils_accepted_range_stg_daily_spend_impressions__False__0  [RUN]
+18:48:05  80 of 265 PASS dbt_utils_accepted_range_stg_campaigns_budget__False__0 ......... [PASS in 0.15s]
+18:48:05  84 of 265 START test dbt_utils_accepted_range_stg_daily_spend_spend__False__0 .. [RUN]
+18:48:05  81 of 265 PASS dbt_utils_accepted_range_stg_campaigns_campaign_days__1 ......... [PASS in 0.16s]
+18:48:05  85 of 265 START test dbt_utils_accepted_range_stg_leads_lead_score__100__1 ..... [RUN]
+18:48:05  82 of 265 PASS dbt_utils_accepted_range_stg_daily_spend_clicks__False__0 ....... [PASS in 0.17s]
+18:48:05  86 of 265 START test dbt_utils_expression_is_true_dim_campaign_end_date_start_date  [RUN]
+18:48:05  83 of 265 PASS dbt_utils_accepted_range_stg_daily_spend_impressions__False__0 .. [PASS in 0.20s]
+18:48:05  87 of 265 START test dbt_utils_expression_is_true_fct_campaign_daily_activity_trials_purchases_conversions  [RUN]
+18:48:05  86 of 265 PASS dbt_utils_expression_is_true_dim_campaign_end_date_start_date ... [PASS in 0.10s]
+18:48:05  88 of 265 START test dbt_utils_expression_is_true_fct_daily_spend_clicks_impressions  [RUN]
+18:48:05  84 of 265 PASS dbt_utils_accepted_range_stg_daily_spend_spend__False__0 ........ [PASS in 0.22s]
+18:48:05  89 of 265 START test dbt_utils_expression_is_true_fct_lead_conversions_is_trial_is_purchase_is_converted  [RUN]
+18:48:05  85 of 265 PASS dbt_utils_accepted_range_stg_leads_lead_score__100__1 ........... [PASS in 0.19s]
+18:48:05  90 of 265 START test dbt_utils_expression_is_true_mart_campaign_performance_converted_leads_leads  [RUN]
+18:48:05  87 of 265 PASS dbt_utils_expression_is_true_fct_campaign_daily_activity_trials_purchases_conversions  [PASS in 0.12s]
+18:48:05  91 of 265 START test dbt_utils_expression_is_true_mart_campaign_performance_spend_budget  [RUN]
+18:48:05  88 of 265 PASS dbt_utils_expression_is_true_fct_daily_spend_clicks_impressions . [PASS in 0.12s]
+18:48:05  92 of 265 START test dbt_utils_expression_is_true_mart_campaign_performance_trials_purchases_converted_leads  [RUN]
+18:48:06  89 of 265 PASS dbt_utils_expression_is_true_fct_lead_conversions_is_trial_is_purchase_is_converted  [PASS in 0.13s]
+18:48:06  93 of 265 START test dbt_utils_expression_is_true_mart_lead_quality_converted_leads_leads  [RUN]
+18:48:06  90 of 265 PASS dbt_utils_expression_is_true_mart_campaign_performance_converted_leads_leads  [PASS in 0.12s]
+18:48:06  94 of 265 START test dbt_utils_expression_is_true_mart_lead_quality_score_band_min_score_band_max  [RUN]
+18:48:06  91 of 265 PASS dbt_utils_expression_is_true_mart_campaign_performance_spend_budget  [PASS in 0.11s]
+18:48:06  95 of 265 START test dbt_utils_expression_is_true_mart_monthly_cohort_converted_leads_leads  [RUN]
+18:48:06  93 of 265 PASS dbt_utils_expression_is_true_mart_lead_quality_converted_leads_leads  [PASS in 0.11s]
+18:48:06  96 of 265 START test dbt_utils_expression_is_true_mart_monthly_cohort_converted_same_month_converted_later_month_converted_leads  [RUN]
+18:48:06  92 of 265 PASS dbt_utils_expression_is_true_mart_campaign_performance_trials_purchases_converted_leads  [PASS in 0.14s]
+18:48:06  97 of 265 START test dbt_utils_expression_is_true_mart_monthly_cohort_mature_leads_leads  [RUN]
+18:48:06  95 of 265 PASS dbt_utils_expression_is_true_mart_monthly_cohort_converted_leads_leads  [PASS in 0.09s]
+18:48:06  98 of 265 START test dbt_utils_expression_is_true_mart_monthly_marketing_trials_purchases_conversions  [RUN]
+18:48:06  96 of 265 PASS dbt_utils_expression_is_true_mart_monthly_cohort_converted_same_month_converted_later_month_converted_leads  [PASS in 0.10s]
+18:48:06  99 of 265 START test dbt_utils_expression_is_true_stg_campaigns_end_date_start_date  [RUN]
+18:48:06  97 of 265 PASS dbt_utils_expression_is_true_mart_monthly_cohort_mature_leads_leads  [PASS in 0.10s]
+18:48:06  94 of 265 PASS dbt_utils_expression_is_true_mart_lead_quality_score_band_min_score_band_max  [PASS in 0.17s]
+18:48:06  100 of 265 START test dbt_utils_expression_is_true_stg_daily_spend_clicks_impressions  [RUN]
+18:48:06  101 of 265 START test dbt_utils_unique_combination_of_columns_fct_campaign_daily_activity_campaign_id__activity_date  [RUN]
+18:48:06  98 of 265 PASS dbt_utils_expression_is_true_mart_monthly_marketing_trials_purchases_conversions  [PASS in 0.18s]
+18:48:06  102 of 265 START test dbt_utils_unique_combination_of_columns_fct_daily_spend_campaign_id__spend_date  [RUN]
+18:48:06  99 of 265 PASS dbt_utils_expression_is_true_stg_campaigns_end_date_start_date .. [PASS in 0.16s]
+18:48:06  103 of 265 START test dbt_utils_unique_combination_of_columns_mart_conversion_funnel_channel__stage_order  [RUN]
+18:48:06  102 of 265 PASS dbt_utils_unique_combination_of_columns_fct_daily_spend_campaign_id__spend_date  [PASS in 0.12s]
+18:48:06  104 of 265 START test dbt_utils_unique_combination_of_columns_mart_lead_quality_channel__score_band  [RUN]
+18:48:06  100 of 265 PASS dbt_utils_expression_is_true_stg_daily_spend_clicks_impressions  [PASS in 0.23s]
+18:48:06  105 of 265 START test dbt_utils_unique_combination_of_columns_mart_monthly_cohort_cohort_month__channel  [RUN]
+18:48:06  101 of 265 PASS dbt_utils_unique_combination_of_columns_fct_campaign_daily_activity_campaign_id__activity_date  [PASS in 0.27s]
+18:48:06  106 of 265 START test dbt_utils_unique_combination_of_columns_mart_monthly_marketing_month_start__channel  [RUN]
+18:48:06  103 of 265 PASS dbt_utils_unique_combination_of_columns_mart_conversion_funnel_channel__stage_order  [PASS in 0.16s]
+18:48:06  107 of 265 START test dbt_utils_unique_combination_of_columns_stg_daily_spend_campaign_id__spend_date  [RUN]
+18:48:06  105 of 265 PASS dbt_utils_unique_combination_of_columns_mart_monthly_cohort_cohort_month__channel  [PASS in 0.12s]
+18:48:06  108 of 265 START test fct_campaign_daily_activity_no_delivery_after_flight ..... [RUN]
+18:48:06  104 of 265 PASS dbt_utils_unique_combination_of_columns_mart_lead_quality_channel__score_band  [PASS in 0.14s]
+18:48:06  109 of 265 START test fct_lead_conversions_flag_matches_conversion_id .......... [RUN]
+18:48:06  106 of 265 PASS dbt_utils_unique_combination_of_columns_mart_monthly_marketing_month_start__channel  [PASS in 0.11s]
+18:48:06  110 of 265 START test fct_lead_conversions_revenue_only_on_purchases ........... [RUN]
+18:48:06  108 of 265 PASS fct_campaign_daily_activity_no_delivery_after_flight ........... [PASS in 0.09s]
+18:48:06  111 of 265 START test mart_channel_performance_wilson_interval_contains_rate ... [RUN]
+18:48:06  109 of 265 PASS fct_lead_conversions_flag_matches_conversion_id ................ [PASS in 0.10s]
+18:48:06  112 of 265 START test mart_conversion_funnel_subset_stage_not_above_previous ... [RUN]
+18:48:06  107 of 265 PASS dbt_utils_unique_combination_of_columns_stg_daily_spend_campaign_id__spend_date  [PASS in 0.23s]
+18:48:06  113 of 265 START test not_null_dim_campaign_budget ............................. [RUN]
+18:48:06  110 of 265 PASS fct_lead_conversions_revenue_only_on_purchases ................. [PASS in 0.16s]
+18:48:06  114 of 265 START test not_null_dim_campaign_campaign_days ...................... [RUN]
+18:48:06  111 of 265 PASS mart_channel_performance_wilson_interval_contains_rate ......... [PASS in 0.10s]
+18:48:06  115 of 265 START test not_null_dim_campaign_campaign_id ........................ [RUN]
+18:48:06  115 of 265 PASS not_null_dim_campaign_campaign_id .............................. [PASS in 0.09s]
+18:48:06  112 of 265 PASS mart_conversion_funnel_subset_stage_not_above_previous ......... [PASS in 0.19s]
+18:48:06  113 of 265 PASS not_null_dim_campaign_budget ................................... [PASS in 0.12s]
+18:48:06  114 of 265 PASS not_null_dim_campaign_campaign_days ............................ [PASS in 0.10s]
+18:48:06  116 of 265 START test not_null_dim_campaign_campaign_name ...................... [RUN]
+18:48:06  117 of 265 START test not_null_dim_campaign_channel ............................ [RUN]
+18:48:06  118 of 265 START test not_null_dim_campaign_end_date ........................... [RUN]
+18:48:06  119 of 265 START test not_null_dim_campaign_objective .......................... [RUN]
+18:48:06  116 of 265 PASS not_null_dim_campaign_campaign_name ............................ [PASS in 0.11s]
+18:48:06  120 of 265 START test not_null_dim_campaign_start_date ......................... [RUN]
+18:48:07  118 of 265 PASS not_null_dim_campaign_end_date ................................. [PASS in 0.14s]
+18:48:07  121 of 265 START test not_null_dim_date_date_day ............................... [RUN]
+18:48:07  119 of 265 PASS not_null_dim_campaign_objective ................................ [PASS in 0.16s]
+18:48:07  122 of 265 START test not_null_dim_date_day_of_week_iso ........................ [RUN]
+18:48:07  117 of 265 PASS not_null_dim_campaign_channel .................................. [PASS in 0.17s]
+18:48:07  123 of 265 START test not_null_dim_date_is_weekend ............................. [RUN]
+18:48:07  120 of 265 PASS not_null_dim_campaign_start_date ............................... [PASS in 0.10s]
+18:48:07  124 of 265 START test not_null_dim_date_month_start ............................ [RUN]
+18:48:07  121 of 265 PASS not_null_dim_date_date_day ..................................... [PASS in 0.10s]
+18:48:07  125 of 265 START test not_null_dim_date_quarter ................................ [RUN]
+18:48:07  122 of 265 PASS not_null_dim_date_day_of_week_iso .............................. [PASS in 0.10s]
+18:48:07  126 of 265 START test not_null_dim_date_year ................................... [RUN]
+18:48:07  123 of 265 PASS not_null_dim_date_is_weekend ................................... [PASS in 0.10s]
+18:48:07  127 of 265 START test not_null_expected_campaign_kpi_campaign_id ............... [RUN]
+18:48:07  124 of 265 PASS not_null_dim_date_month_start .................................. [PASS in 0.11s]
+18:48:07  128 of 265 START test not_null_expected_totals_metric .......................... [RUN]
+18:48:07  125 of 265 PASS not_null_dim_date_quarter ...................................... [PASS in 0.08s]
+18:48:07  129 of 265 START test not_null_expected_totals_value ........................... [RUN]
+18:48:07  127 of 265 PASS not_null_expected_campaign_kpi_campaign_id ..................... [PASS in 0.11s]
+18:48:07  130 of 265 START test not_null_fct_campaign_daily_activity_activity_date ....... [RUN]
+18:48:07  126 of 265 PASS not_null_dim_date_year ......................................... [PASS in 0.12s]
+18:48:07  131 of 265 START test not_null_fct_campaign_daily_activity_activity_month ...... [RUN]
+18:48:07  128 of 265 PASS not_null_expected_totals_metric ................................ [PASS in 0.11s]
+18:48:07  132 of 265 START test not_null_fct_campaign_daily_activity_campaign_id ......... [RUN]
+18:48:07  129 of 265 PASS not_null_expected_totals_value ................................. [PASS in 0.12s]
+18:48:07  133 of 265 START test not_null_fct_campaign_daily_activity_channel ............. [RUN]
+18:48:07  131 of 265 PASS not_null_fct_campaign_daily_activity_activity_month ............ [PASS in 0.10s]
+18:48:07  134 of 265 START test not_null_fct_campaign_daily_activity_is_in_flight ........ [RUN]
+18:48:07  130 of 265 PASS not_null_fct_campaign_daily_activity_activity_date ............. [PASS in 0.11s]
+18:48:07  135 of 265 START test not_null_fct_daily_spend_budget_prorated ................. [RUN]
+18:48:07  132 of 265 PASS not_null_fct_campaign_daily_activity_campaign_id ............... [PASS in 0.09s]
+18:48:07  136 of 265 START test not_null_fct_daily_spend_campaign_id ..................... [RUN]
+18:48:07  133 of 265 PASS not_null_fct_campaign_daily_activity_channel ................... [PASS in 0.09s]
+18:48:07  137 of 265 START test not_null_fct_daily_spend_channel ......................... [RUN]
+18:48:07  135 of 265 PASS not_null_fct_daily_spend_budget_prorated ....................... [PASS in 0.09s]
+18:48:07  134 of 265 PASS not_null_fct_campaign_daily_activity_is_in_flight .............. [PASS in 0.10s]
+18:48:07  138 of 265 START test not_null_fct_daily_spend_clicks .......................... [RUN]
+18:48:07  139 of 265 START test not_null_fct_daily_spend_impressions ..................... [RUN]
+18:48:07  137 of 265 PASS not_null_fct_daily_spend_channel ............................... [PASS in 0.12s]
+18:48:07  140 of 265 START test not_null_fct_daily_spend_objective ....................... [RUN]
+18:48:07  136 of 265 PASS not_null_fct_daily_spend_campaign_id ........................... [PASS in 0.15s]
+18:48:07  141 of 265 START test not_null_fct_daily_spend_spend ........................... [RUN]
+18:48:07  139 of 265 PASS not_null_fct_daily_spend_impressions ........................... [PASS in 0.10s]
+18:48:07  142 of 265 START test not_null_fct_daily_spend_spend_date ...................... [RUN]
+18:48:07  138 of 265 PASS not_null_fct_daily_spend_clicks ................................ [PASS in 0.12s]
+18:48:07  143 of 265 START test not_null_fct_daily_spend_spend_id ........................ [RUN]
+18:48:07  142 of 265 PASS not_null_fct_daily_spend_spend_date ............................ [PASS in 0.08s]
+18:48:07  144 of 265 START test not_null_fct_daily_spend_spend_month ..................... [RUN]
+18:48:07  140 of 265 PASS not_null_fct_daily_spend_objective ............................. [PASS in 0.12s]
+18:48:07  145 of 265 START test not_null_fct_lead_conversions_as_of_date ................. [RUN]
+18:48:07  141 of 265 PASS not_null_fct_daily_spend_spend ................................. [PASS in 0.12s]
+18:48:07  143 of 265 PASS not_null_fct_daily_spend_spend_id .............................. [PASS in 0.09s]
+18:48:07  146 of 265 START test not_null_fct_lead_conversions_campaign_id ................ [RUN]
+18:48:07  147 of 265 START test not_null_fct_lead_conversions_channel .................... [RUN]
+18:48:07  145 of 265 PASS not_null_fct_lead_conversions_as_of_date ....................... [PASS in 0.12s]
+18:48:07  147 of 265 PASS not_null_fct_lead_conversions_channel .......................... [PASS in 0.10s]
+18:48:07  148 of 265 START test not_null_fct_lead_conversions_converted_after_campaign_end  [RUN]
+18:48:07  149 of 265 START test not_null_fct_lead_conversions_created_date ............... [RUN]
+18:48:07  146 of 265 PASS not_null_fct_lead_conversions_campaign_id ...................... [PASS in 0.11s]
+18:48:07  144 of 265 PASS not_null_fct_daily_spend_spend_month ........................... [PASS in 0.13s]
+18:48:07  150 of 265 START test not_null_fct_lead_conversions_created_month .............. [RUN]
+18:48:07  151 of 265 START test not_null_fct_lead_conversions_is_converted ............... [RUN]
+18:48:07  150 of 265 PASS not_null_fct_lead_conversions_created_month .................... [PASS in 0.11s]
+18:48:07  152 of 265 START test not_null_fct_lead_conversions_is_mature .................. [RUN]
+18:48:07  151 of 265 PASS not_null_fct_lead_conversions_is_converted ..................... [PASS in 0.12s]
+18:48:07  153 of 265 START test not_null_fct_lead_conversions_is_purchase ................ [RUN]
+18:48:07  149 of 265 PASS not_null_fct_lead_conversions_created_date ..................... [PASS in 0.14s]
+18:48:07  154 of 265 START test not_null_fct_lead_conversions_is_trial ................... [RUN]
+18:48:08  152 of 265 PASS not_null_fct_lead_conversions_is_mature ........................ [PASS in 0.10s]
+18:48:08  155 of 265 START test not_null_fct_lead_conversions_lead_id .................... [RUN]
+18:48:08  153 of 265 PASS not_null_fct_lead_conversions_is_purchase ...................... [PASS in 0.11s]
+18:48:08  156 of 265 START test not_null_fct_lead_conversions_lead_score ................. [RUN]
+18:48:08  154 of 265 PASS not_null_fct_lead_conversions_is_trial ......................... [PASS in 0.11s]
+18:48:08  157 of 265 START test not_null_fct_lead_conversions_lead_score_segment ......... [RUN]
+18:48:08  155 of 265 PASS not_null_fct_lead_conversions_lead_id .......................... [PASS in 0.09s]
+18:48:08  158 of 265 START test not_null_fct_lead_conversions_revenue .................... [RUN]
+18:48:08  148 of 265 PASS not_null_fct_lead_conversions_converted_after_campaign_end ..... [PASS in 0.34s]
+18:48:08  159 of 265 START test not_null_mart_campaign_performance_campaign_id ........... [RUN]
+18:48:08  157 of 265 PASS not_null_fct_lead_conversions_lead_score_segment ............... [PASS in 0.12s]
+18:48:08  160 of 265 START test not_null_mart_campaign_performance_channel ............... [RUN]
+18:48:08  156 of 265 PASS not_null_fct_lead_conversions_lead_score ....................... [PASS in 0.14s]
+18:48:08  161 of 265 START test not_null_mart_campaign_performance_leads ................. [RUN]
+18:48:08  159 of 265 PASS not_null_mart_campaign_performance_campaign_id ................. [PASS in 0.10s]
+18:48:08  162 of 265 START test not_null_mart_campaign_performance_revenue ............... [RUN]
+18:48:08  158 of 265 PASS not_null_fct_lead_conversions_revenue .......................... [PASS in 0.14s]
+18:48:08  163 of 265 START test not_null_mart_campaign_performance_spend ................. [RUN]
+18:48:08  160 of 265 PASS not_null_mart_campaign_performance_channel ..................... [PASS in 0.11s]
+18:48:08  164 of 265 START test not_null_mart_channel_performance_channel ................ [RUN]
+18:48:08  161 of 265 PASS not_null_mart_campaign_performance_leads ....................... [PASS in 0.10s]
+18:48:08  165 of 265 START test not_null_mart_conversion_funnel_channel .................. [RUN]
+18:48:08  162 of 265 PASS not_null_mart_campaign_performance_revenue ..................... [PASS in 0.08s]
+18:48:08  166 of 265 START test not_null_mart_conversion_funnel_prev_stage_value ......... [RUN]
+18:48:08  163 of 265 PASS not_null_mart_campaign_performance_spend ....................... [PASS in 0.07s]
+18:48:08  167 of 265 START test not_null_mart_conversion_funnel_stage .................... [RUN]
+18:48:08  164 of 265 PASS not_null_mart_channel_performance_channel ...................... [PASS in 0.10s]
+18:48:08  168 of 265 START test not_null_mart_conversion_funnel_stage_order .............. [RUN]
+18:48:08  165 of 265 PASS not_null_mart_conversion_funnel_channel ........................ [PASS in 0.11s]
+18:48:08  169 of 265 START test not_null_mart_conversion_funnel_stage_value .............. [RUN]
+18:48:08  166 of 265 PASS not_null_mart_conversion_funnel_prev_stage_value ............... [PASS in 0.11s]
+18:48:08  170 of 265 START test not_null_mart_conversion_funnel_top_of_funnel_value ...... [RUN]
+18:48:08  167 of 265 PASS not_null_mart_conversion_funnel_stage .......................... [PASS in 0.11s]
+18:48:08  171 of 265 START test not_null_mart_lead_quality_channel ....................... [RUN]
+18:48:08  169 of 265 PASS not_null_mart_conversion_funnel_stage_value .................... [PASS in 0.11s]
+18:48:08  172 of 265 START test not_null_mart_lead_quality_lead_score_segment ............ [RUN]
+18:48:08  168 of 265 PASS not_null_mart_conversion_funnel_stage_order .................... [PASS in 0.15s]
+18:48:08  173 of 265 START test not_null_mart_lead_quality_score_band .................... [RUN]
+18:48:08  171 of 265 PASS not_null_mart_lead_quality_channel ............................. [PASS in 0.09s]
+18:48:08  174 of 265 START test not_null_mart_monthly_cohort_channel ..................... [RUN]
+18:48:08  170 of 265 PASS not_null_mart_conversion_funnel_top_of_funnel_value ............ [PASS in 0.11s]
+18:48:08  175 of 265 START test not_null_mart_monthly_cohort_cohort_month ................ [RUN]
+18:48:08  172 of 265 PASS not_null_mart_lead_quality_lead_score_segment .................. [PASS in 0.11s]
+18:48:08  176 of 265 START test not_null_mart_monthly_marketing_active_campaigns ......... [RUN]
+18:48:08  174 of 265 PASS not_null_mart_monthly_cohort_channel ........................... [PASS in 0.11s]
+18:48:08  177 of 265 START test not_null_mart_monthly_marketing_channel .................. [RUN]
+18:48:08  173 of 265 PASS not_null_mart_lead_quality_score_band .......................... [PASS in 0.15s]
+18:48:08  178 of 265 START test not_null_mart_monthly_marketing_month_start .............. [RUN]
+18:48:08  175 of 265 PASS not_null_mart_monthly_cohort_cohort_month ...................... [PASS in 0.16s]
+18:48:08  179 of 265 START test not_null_publisher_channel_reference_channel ............. [RUN]
+18:48:08  176 of 265 PASS not_null_mart_monthly_marketing_active_campaigns ............... [PASS in 0.10s]
+18:48:08  180 of 265 START test not_null_stg_campaigns_budget ............................ [RUN]
+18:48:08  177 of 265 PASS not_null_mart_monthly_marketing_channel ........................ [PASS in 0.08s]
+18:48:08  181 of 265 START test not_null_stg_campaigns_campaign_days ..................... [RUN]
+18:48:08  178 of 265 PASS not_null_mart_monthly_marketing_month_start .................... [PASS in 0.12s]
+18:48:08  182 of 265 START test not_null_stg_campaigns_campaign_id ....................... [RUN]
+18:48:08  179 of 265 PASS not_null_publisher_channel_reference_channel ................... [PASS in 0.10s]
+18:48:08  183 of 265 START test not_null_stg_campaigns_campaign_name ..................... [RUN]
+18:48:08  180 of 265 PASS not_null_stg_campaigns_budget .................................. [PASS in 0.15s]
+18:48:08  184 of 265 START test not_null_stg_campaigns_channel ........................... [RUN]
+18:48:08  181 of 265 PASS not_null_stg_campaigns_campaign_days ........................... [PASS in 0.18s]
+18:48:08  185 of 265 START test not_null_stg_campaigns_dq_is_valid ....................... [RUN]
+18:48:08  183 of 265 PASS not_null_stg_campaigns_campaign_name ........................... [PASS in 0.13s]
+18:48:08  186 of 265 START test not_null_stg_campaigns_end_date .......................... [RUN]
+18:48:08  182 of 265 PASS not_null_stg_campaigns_campaign_id ............................. [PASS in 0.15s]
+18:48:08  187 of 265 START test not_null_stg_campaigns_objective ......................... [RUN]
+18:48:09  184 of 265 PASS not_null_stg_campaigns_channel ................................. [PASS in 0.15s]
+18:48:09  188 of 265 START test not_null_stg_campaigns_start_date ........................ [RUN]
+18:48:09  185 of 265 PASS not_null_stg_campaigns_dq_is_valid ............................. [PASS in 0.13s]
+18:48:09  189 of 265 START test not_null_stg_challenge_campaigns_campaign_id ............. [RUN]
+18:48:09  187 of 265 PASS not_null_stg_campaigns_objective ............................... [PASS in 0.19s]
+18:48:09  190 of 265 START test not_null_stg_challenge_conversions_conversion_id ......... [RUN]
+18:48:09  186 of 265 PASS not_null_stg_campaigns_end_date ................................ [PASS in 0.21s]
+18:48:09  191 of 265 START test not_null_stg_challenge_daily_spend_spend_id .............. [RUN]
+18:48:09  188 of 265 PASS not_null_stg_campaigns_start_date .............................. [PASS in 0.13s]
+18:48:09  192 of 265 START test not_null_stg_challenge_leads_lead_id ..................... [RUN]
+18:48:09  189 of 265 PASS not_null_stg_challenge_campaigns_campaign_id ................... [PASS in 0.23s]
+18:48:09  190 of 265 PASS not_null_stg_challenge_conversions_conversion_id ............... [PASS in 0.14s]
+18:48:09  193 of 265 START test not_null_stg_conversions_conversion_id ................... [RUN]
+18:48:09  194 of 265 START test not_null_stg_conversions_conversion_type ................. [RUN]
+18:48:09  191 of 265 PASS not_null_stg_challenge_daily_spend_spend_id .................... [PASS in 0.13s]
+18:48:09  195 of 265 START test not_null_stg_conversions_converted_date .................. [RUN]
+18:48:09  192 of 265 PASS not_null_stg_challenge_leads_lead_id ........................... [PASS in 0.24s]
+18:48:09  196 of 265 START test not_null_stg_conversions_dq_is_valid ..................... [RUN]
+18:48:09  194 of 265 PASS not_null_stg_conversions_conversion_type ....................... [PASS in 0.14s]
+18:48:09  197 of 265 START test not_null_stg_conversions_lead_id ......................... [RUN]
+18:48:09  195 of 265 PASS not_null_stg_conversions_converted_date ........................ [PASS in 0.14s]
+18:48:09  198 of 265 START test not_null_stg_conversions_revenue ......................... [RUN]
+18:48:09  193 of 265 PASS not_null_stg_conversions_conversion_id ......................... [PASS in 0.16s]
+18:48:09  199 of 265 START test not_null_stg_daily_spend_campaign_id ..................... [RUN]
+18:48:09  196 of 265 PASS not_null_stg_conversions_dq_is_valid ........................... [PASS in 0.14s]
+18:48:09  200 of 265 START test not_null_stg_daily_spend_clicks .......................... [RUN]
+18:48:09  198 of 265 PASS not_null_stg_conversions_revenue ............................... [PASS in 0.18s]
+18:48:09  201 of 265 START test not_null_stg_daily_spend_dq_is_valid ..................... [RUN]
+18:48:09  200 of 265 PASS not_null_stg_daily_spend_clicks ................................ [PASS in 0.13s]
+18:48:09  202 of 265 START test not_null_stg_daily_spend_impressions ..................... [RUN]
+18:48:09  199 of 265 PASS not_null_stg_daily_spend_campaign_id ........................... [PASS in 0.24s]
+18:48:09  203 of 265 START test not_null_stg_daily_spend_spend ........................... [RUN]
+18:48:09  197 of 265 PASS not_null_stg_conversions_lead_id ............................... [PASS in 0.28s]
+18:48:09  204 of 265 START test not_null_stg_daily_spend_spend_date ...................... [RUN]
+18:48:09  201 of 265 PASS not_null_stg_daily_spend_dq_is_valid ........................... [PASS in 0.19s]
+18:48:09  205 of 265 START test not_null_stg_daily_spend_spend_id ........................ [RUN]
+18:48:09  203 of 265 PASS not_null_stg_daily_spend_spend ................................. [PASS in 0.13s]
+18:48:09  206 of 265 START test not_null_stg_leads_campaign_id ........................... [RUN]
+18:48:09  204 of 265 PASS not_null_stg_daily_spend_spend_date ............................ [PASS in 0.13s]
+18:48:09  207 of 265 START test not_null_stg_leads_created_date .......................... [RUN]
+18:48:09  202 of 265 PASS not_null_stg_daily_spend_impressions ........................... [PASS in 0.21s]
+18:48:09  208 of 265 START test not_null_stg_leads_dq_is_valid ........................... [RUN]
+18:48:09  206 of 265 PASS not_null_stg_leads_campaign_id ................................. [PASS in 0.15s]
+18:48:09  209 of 265 START test not_null_stg_leads_lead_id ............................... [RUN]
+18:48:09  207 of 265 PASS not_null_stg_leads_created_date ................................ [PASS in 0.13s]
+18:48:09  210 of 265 START test not_null_stg_leads_lead_score ............................ [RUN]
+18:48:09  205 of 265 PASS not_null_stg_daily_spend_spend_id .............................. [PASS in 0.18s]
+18:48:09  211 of 265 START test not_null_stg_leads_lead_source ........................... [RUN]
+18:48:10  208 of 265 PASS not_null_stg_leads_dq_is_valid ................................. [PASS in 0.19s]
+18:48:10  212 of 265 START test relationships_fct_campaign_daily_activity_activity_date__date_day__ref_dim_date_  [RUN]
+18:48:10  209 of 265 PASS not_null_stg_leads_lead_id ..................................... [PASS in 0.16s]
+18:48:10  213 of 265 START test relationships_fct_campaign_daily_activity_activity_month__month_start__ref_dim_date_  [RUN]
+18:48:10  210 of 265 PASS not_null_stg_leads_lead_score .................................. [PASS in 0.17s]
+18:48:10  214 of 265 START test relationships_fct_campaign_daily_activity_campaign_id__campaign_id__ref_dim_campaign_  [RUN]
+18:48:10  211 of 265 PASS not_null_stg_leads_lead_source ................................. [PASS in 0.20s]
+18:48:10  215 of 265 START test relationships_fct_daily_spend_campaign_id__campaign_id__ref_dim_campaign_  [RUN]
+18:48:10  212 of 265 PASS relationships_fct_campaign_daily_activity_activity_date__date_day__ref_dim_date_  [PASS in 0.12s]
+18:48:10  216 of 265 START test relationships_fct_daily_spend_spend_date__date_day__ref_dim_date_  [RUN]
+18:48:10  213 of 265 PASS relationships_fct_campaign_daily_activity_activity_month__month_start__ref_dim_date_  [PASS in 0.12s]
+18:48:10  217 of 265 START test relationships_fct_daily_spend_spend_month__month_start__ref_dim_date_  [RUN]
+18:48:10  214 of 265 PASS relationships_fct_campaign_daily_activity_campaign_id__campaign_id__ref_dim_campaign_  [PASS in 0.14s]
+18:48:10  218 of 265 START test relationships_fct_lead_conversions_campaign_id__campaign_id__ref_dim_campaign_  [RUN]
+18:48:10  216 of 265 PASS relationships_fct_daily_spend_spend_date__date_day__ref_dim_date_  [PASS in 0.11s]
+18:48:10  219 of 265 START test relationships_fct_lead_conversions_converted_date__date_day__ref_dim_date_  [RUN]
+18:48:10  215 of 265 PASS relationships_fct_daily_spend_campaign_id__campaign_id__ref_dim_campaign_  [PASS in 0.15s]
+18:48:10  220 of 265 START test relationships_fct_lead_conversions_created_date__date_day__ref_dim_date_  [RUN]
+18:48:10  217 of 265 PASS relationships_fct_daily_spend_spend_month__month_start__ref_dim_date_  [PASS in 0.15s]
+18:48:10  221 of 265 START test relationships_fct_lead_conversions_created_month__month_start__ref_dim_date_  [RUN]
+18:48:10  218 of 265 PASS relationships_fct_lead_conversions_campaign_id__campaign_id__ref_dim_campaign_  [PASS in 0.13s]
+18:48:10  222 of 265 START test relationships_mart_campaign_performance_campaign_id__campaign_id__ref_dim_campaign_  [RUN]
+18:48:10  219 of 265 PASS relationships_fct_lead_conversions_converted_date__date_day__ref_dim_date_  [PASS in 0.13s]
+18:48:10  223 of 265 START test relationships_mart_monthly_cohort_cohort_month__month_start__ref_dim_date_  [RUN]
+18:48:10  220 of 265 PASS relationships_fct_lead_conversions_created_date__date_day__ref_dim_date_  [PASS in 0.12s]
+18:48:10  224 of 265 START test relationships_mart_monthly_marketing_month_start__month_start__ref_dim_date_  [RUN]
+18:48:10  221 of 265 PASS relationships_fct_lead_conversions_created_month__month_start__ref_dim_date_  [PASS in 0.11s]
+18:48:10  225 of 265 START test relationships_stg_conversions_lead_id__lead_id__ref_stg_leads_  [RUN]
+18:48:10  222 of 265 PASS relationships_mart_campaign_performance_campaign_id__campaign_id__ref_dim_campaign_  [PASS in 0.11s]
+18:48:10  226 of 265 START test relationships_stg_daily_spend_campaign_id__campaign_id__ref_stg_campaigns_  [RUN]
+18:48:10  223 of 265 PASS relationships_mart_monthly_cohort_cohort_month__month_start__ref_dim_date_  [PASS in 0.12s]
+18:48:10  227 of 265 START test relationships_stg_leads_campaign_id__campaign_id__ref_stg_campaigns_  [RUN]
+18:48:10  224 of 265 PASS relationships_mart_monthly_marketing_month_start__month_start__ref_dim_date_  [PASS in 0.12s]
+18:48:10  228 of 265 START test source_not_null_raw_campaigns_campaign_id ................ [RUN]
+18:48:10  225 of 265 PASS relationships_stg_conversions_lead_id__lead_id__ref_stg_leads_ . [PASS in 0.18s]
+18:48:10  229 of 265 START test source_not_null_raw_conversions_conversion_id ............ [RUN]
+18:48:10  228 of 265 PASS source_not_null_raw_campaigns_campaign_id ...................... [PASS in 0.15s]
+18:48:10  230 of 265 START test source_not_null_raw_daily_spend_spend_id ................. [RUN]
+18:48:10  226 of 265 PASS relationships_stg_daily_spend_campaign_id__campaign_id__ref_stg_campaigns_  [PASS in 0.24s]
+18:48:10  227 of 265 PASS relationships_stg_leads_campaign_id__campaign_id__ref_stg_campaigns_  [PASS in 0.20s]
+18:48:10  231 of 265 START test source_not_null_raw_leads_lead_id ........................ [RUN]
+18:48:10  232 of 265 START test source_unique_raw_campaigns_campaign_id .................. [RUN]
+18:48:10  229 of 265 PASS source_not_null_raw_conversions_conversion_id .................. [PASS in 0.11s]
+18:48:10  233 of 265 START test source_unique_raw_conversions_conversion_id .............. [RUN]
+18:48:10  230 of 265 PASS source_not_null_raw_daily_spend_spend_id ....................... [PASS in 0.12s]
+18:48:10  234 of 265 START test source_unique_raw_daily_spend_spend_id ................... [RUN]
+18:48:10  232 of 265 PASS source_unique_raw_campaigns_campaign_id ........................ [PASS in 0.09s]
+18:48:10  235 of 265 START test source_unique_raw_leads_lead_id .......................... [RUN]
+18:48:10  231 of 265 PASS source_not_null_raw_leads_lead_id .............................. [PASS in 0.10s]
+18:48:10  236 of 265 START test stg_conversions_purchase_revenue_is_positive ............. [RUN]
+18:48:10  233 of 265 PASS source_unique_raw_conversions_conversion_id .................... [PASS in 0.08s]
+18:48:10  237 of 265 START test stg_conversions_trial_revenue_is_zero .................... [RUN]
+18:48:10  234 of 265 PASS source_unique_raw_daily_spend_spend_id ......................... [PASS in 0.11s]
+18:48:10  238 of 265 START test unique_dim_campaign_campaign_id .......................... [RUN]
+18:48:10  236 of 265 PASS stg_conversions_purchase_revenue_is_positive ................... [PASS in 0.12s]
+18:48:10  239 of 265 START test unique_dim_campaign_campaign_name ........................ [RUN]
+18:48:10  235 of 265 PASS source_unique_raw_leads_lead_id ................................ [PASS in 0.13s]
+18:48:11  240 of 265 START test unique_dim_date_date_day ................................. [RUN]
+18:48:11  237 of 265 PASS stg_conversions_trial_revenue_is_zero .......................... [PASS in 0.17s]
+18:48:11  241 of 265 START test unique_expected_campaign_kpi_campaign_id ................. [RUN]
+18:48:11  238 of 265 PASS unique_dim_campaign_campaign_id ................................ [PASS in 0.11s]
+18:48:11  242 of 265 START test unique_expected_totals_metric ............................ [RUN]
+18:48:11  239 of 265 PASS unique_dim_campaign_campaign_name .............................. [PASS in 0.09s]
+18:48:11  243 of 265 START test unique_fct_daily_spend_spend_id .......................... [RUN]
+18:48:11  240 of 265 PASS unique_dim_date_date_day ....................................... [PASS in 0.09s]
+18:48:11  244 of 265 START test unique_fct_lead_conversions_conversion_id ................ [RUN]
+18:48:11  241 of 265 PASS unique_expected_campaign_kpi_campaign_id ....................... [PASS in 0.09s]
+18:48:11  245 of 265 START test unique_fct_lead_conversions_lead_id ...................... [RUN]
+18:48:11  244 of 265 PASS unique_fct_lead_conversions_conversion_id ...................... [PASS in 0.10s]
+18:48:11  246 of 265 START test unique_mart_campaign_performance_campaign_id ............. [RUN]
+18:48:11  243 of 265 PASS unique_fct_daily_spend_spend_id ................................ [PASS in 0.12s]
+18:48:11  247 of 265 START test unique_mart_channel_performance_channel .................. [RUN]
+18:48:11  242 of 265 PASS unique_expected_totals_metric .................................. [PASS in 0.13s]
+18:48:11  248 of 265 START test unique_publisher_channel_reference_channel ............... [RUN]
+18:48:11  245 of 265 PASS unique_fct_lead_conversions_lead_id ............................ [PASS in 0.16s]
+18:48:11  249 of 265 START test unique_stg_campaigns_campaign_id ......................... [RUN]
+18:48:11  248 of 265 PASS unique_publisher_channel_reference_channel ..................... [PASS in 0.10s]
+18:48:11  250 of 265 START test unique_stg_campaigns_campaign_name ....................... [RUN]
+18:48:11  247 of 265 PASS unique_mart_channel_performance_channel ........................ [PASS in 0.12s]
+18:48:11  251 of 265 START test unique_stg_challenge_campaigns_campaign_id ............... [RUN]
+18:48:11  246 of 265 PASS unique_mart_campaign_performance_campaign_id ................... [PASS in 0.18s]
+18:48:11  252 of 265 START test unique_stg_challenge_conversions_conversion_id ........... [RUN]
+18:48:11  250 of 265 PASS unique_stg_campaigns_campaign_name ............................. [PASS in 0.13s]
+18:48:11  253 of 265 START test unique_stg_challenge_daily_spend_spend_id ................ [RUN]
+18:48:11  249 of 265 PASS unique_stg_campaigns_campaign_id ............................... [PASS in 0.16s]
+18:48:11  254 of 265 START test unique_stg_challenge_leads_lead_id ....................... [RUN]
+18:48:11  252 of 265 PASS unique_stg_challenge_conversions_conversion_id ................. [PASS in 0.17s]
+18:48:11  255 of 265 START test unique_stg_conversions_conversion_id ..................... [RUN]
+18:48:11  251 of 265 PASS unique_stg_challenge_campaigns_campaign_id ..................... [PASS in 0.24s]
+18:48:11  256 of 265 START test unique_stg_conversions_lead_id ........................... [RUN]
+18:48:11  254 of 265 PASS unique_stg_challenge_leads_lead_id ............................. [PASS in 0.14s]
+18:48:11  257 of 265 START test unique_stg_daily_spend_spend_id .......................... [RUN]
+18:48:11  253 of 265 PASS unique_stg_challenge_daily_spend_spend_id ...................... [PASS in 0.19s]
+18:48:11  258 of 265 START test unique_stg_leads_lead_id ................................. [RUN]
+18:48:11  255 of 265 PASS unique_stg_conversions_conversion_id ........................... [PASS in 0.13s]
+18:48:11  259 of 265 START unit_test fct_campaign_daily_activity::fct_campaign_daily_activity_spine_ends_at_end_date_plus_21  [RUN]
+18:48:11  256 of 265 PASS unique_stg_conversions_lead_id ................................. [PASS in 0.13s]
+18:48:11  260 of 265 START unit_test fct_lead_conversions::fct_lead_conversions_score_segment_boundaries_and_flags  [RUN]
+18:48:11  257 of 265 PASS unique_stg_daily_spend_spend_id ................................ [PASS in 0.22s]
+18:48:11  261 of 265 START unit_test mart_campaign_performance::mart_campaign_performance_zero_denominators_give_null  [RUN]
+18:48:11  258 of 265 PASS unique_stg_leads_lead_id ....................................... [PASS in 0.23s]
+18:48:11  262 of 265 START unit_test mart_channel_performance::mart_channel_performance_wilson_interval  [RUN]
+18:48:13  260 of 265 PASS fct_lead_conversions::fct_lead_conversions_score_segment_boundaries_and_flags  [PASS in 1.42s]
+18:48:13  263 of 265 START unit_test stg_challenge_daily_spend::stg_challenge_daily_spend_fills_a_blank_date_only_when_one_day_fits  [RUN]
+18:48:13  261 of 265 PASS mart_campaign_performance::mart_campaign_performance_zero_denominators_give_null  [PASS in 1.40s]
+18:48:13  264 of 265 START unit_test stg_conversions::stg_conversions_keeps_most_complete_copy_and_flags_duplicates  [RUN]
+18:48:13  262 of 265 PASS mart_channel_performance::mart_channel_performance_wilson_interval  [PASS in 1.75s]
+18:48:13  265 of 265 START unit_test stg_leads::stg_leads_routes_dates_by_shape_and_flags_each_cell  [RUN]
+18:48:13  259 of 265 PASS fct_campaign_daily_activity::fct_campaign_daily_activity_spine_ends_at_end_date_plus_21  [PASS in 2.00s]
+18:48:14  264 of 265 PASS stg_conversions::stg_conversions_keeps_most_complete_copy_and_flags_duplicates  [PASS in 1.58s]
+18:48:14  263 of 265 PASS stg_challenge_daily_spend::stg_challenge_daily_spend_fills_a_blank_date_only_when_one_day_fits  [PASS in 1.81s]
+18:48:15  265 of 265 PASS stg_leads::stg_leads_routes_dates_by_shape_and_flags_each_cell . [PASS in 1.63s]
+18:48:15  
+18:48:15  Finished running 258 data tests, 7 unit tests in 0 hours 0 minutes and 15.88 seconds (15.88s).
+18:48:15  
+18:48:15  Completed successfully
+18:48:15  
+18:48:15  Done. PASS=265 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=265
+
+====================================================================================================
+4. sql/02b_core_models_tests.sql, read-only, full output
+----------------------------------------------------------------------------------------------------
+Running 02b_core_models_tests.sql (22 statements) as SVC_CRM_PIPELINE / CRM_TRANSFORMER
+[ 1] USE ROLE CRM_TRANSFORMER;
+     Statement executed successfully.
+[ 2] USE SECONDARY ROLES NONE;
+     Statement executed successfully.
+[ 3] USE WAREHOUSE MARKETING_WH;
+     Statement executed successfully.
+[ 4] USE SCHEMA MARKETING_CRM.MART;
+     Statement executed successfully.
+[ 5] SELECT CURRENT_USER() AS USER_NAME, CURRENT_ROLE() AS ROLE_NAME, CURRENT_SECONDARY_ROLES() AS SEC...
+     USER_NAME         ROLE_NAME        SECONDARY_ROLES          WAREHOUSE_NAME  SCHEMA_NAME         RUN_AT                STATUS
+     SVC_CRM_PIPELINE  CRM_TRANSFORMER  {"roles":"","value":""}  MARKETING_WH    MARKETING_CRM.MART  2026-10-14 18:48 UTC  PASS  
+[ 6] WITH contract (TABLE_NAME, ORDINAL, COLUMN_NAME, DATA_TYPE) AS (
+     TABLE_NAME                   TABLE_TYPE  CONTRACT_COLUMNS  ACTUAL_COLUMNS  PROBLEMS  PROBLEM_LIST  HAS_TABLE_COMMENT  STATUS
+     DIM_DATE                     BASE TABLE  9                 9               0                       True               PASS  
+     DIM_CAMPAIGN                 BASE TABLE  10                10              0                       True               PASS  
+     FCT_DAILY_SPEND              BASE TABLE  10                10              0                       True               PASS  
+     FCT_LEAD_CONVERSIONS         BASE TABLE  21                21              0                       True               PASS  
+     MART_CAMPAIGN_PERFORMANCE    BASE TABLE  28                28              0                       True               PASS  
+     CONNECTION_TEST              BASE TABLE  0                 0               0                       True               PASS  
+     FCT_CAMPAIGN_DAILY_ACTIVITY  BASE TABLE  0                 0               0                       True               PASS  
+     MART_CHANNEL_PERFORMANCE     BASE TABLE  0                 0               0                       True               PASS  
+     MART_CONVERSION_FUNNEL       BASE TABLE  0                 0               0                       True               PASS  
+     MART_LEAD_QUALITY            BASE TABLE  0                 0               0                       True               PASS  
+     MART_MONTHLY_COHORT          BASE TABLE  0                 0               0                       True               PASS  
+     MART_MONTHLY_MARKETING       BASE TABLE  0                 0               0                       True               PASS  
+[ 7] SELECT VIEW_NAME, N_ROWS, EXPECTED_ROWS, NOT_VALID_ROWS, 0 AS EXPECTED_NOT_VALID,
+     VIEW_NAME                N_ROWS  EXPECTED_ROWS  NOT_VALID_ROWS  EXPECTED_NOT_VALID  STATUS
+     STAGING.STG_CAMPAIGNS    120     120            0               0                   PASS  
+     STAGING.STG_DAILY_SPEND  11240   11240          0               0                   PASS  
+     STAGING.STG_LEADS        261684  261684         0               0                   PASS  
+     STAGING.STG_CONVERSIONS  39696   39696          0               0                   PASS  
+[ 8] SELECT TABLE_NAME, GRAIN, ROW_COUNT, SOURCE_NAME, SOURCE_ROWS, EXPECTED,
+     TABLE_NAME                 GRAIN                              ROW_COUNT  SOURCE_NAME      SOURCE_ROWS  EXPECTED  STATUS
+     DIM_DATE                   one row per calendar day           1096       (date spine)     NULL         1096      PASS  
+     DIM_CAMPAIGN               one row per campaign               120        STG_CAMPAIGNS    120          120       PASS  
+     FCT_DAILY_SPEND            one row per campaign x active day  11240      STG_DAILY_SPEND  11240        11240     PASS  
+     FCT_LEAD_CONVERSIONS       one row per lead                   261684     STG_LEADS        261684       261684    PASS  
+     MART_CAMPAIGN_PERFORMANCE  one row per campaign               120        STG_CAMPAIGNS    120          120       PASS  
+     CONNECTION_TEST            Phase 1 test table, untouched      159        (Phase 1)        NULL         159       PASS  
+[ 9] WITH duplicated_keys AS (
+     TABLE_NAME                 KEY_COLUMNS                           ROW_COUNT  NULL_KEYS  EXPECTED_NULL_KEYS  DUPLICATED_KEYS  EXPECTED_DUPLICATED  STATUS
+     DIM_DATE                   DATE_DAY (PK)                         1096       0          0                   0                0                    PASS  
+     DIM_CAMPAIGN               CAMPAIGN_ID (PK)                      120        0          0                   0                0                    PASS  
+     DIM_CAMPAIGN               CAMPAIGN_NAME (alternate key)         120        0          0                   0                0                    PASS  
+     FCT_DAILY_SPEND            SPEND_ID (PK)                         11240      0          0                   0                0                    PASS  
+     FCT_DAILY_SPEND            CAMPAIGN_ID + SPEND_DATE (grain)      11240      0          0                   0                0                    PASS  
+     FCT_LEAD_CONVERSIONS       LEAD_ID (PK)                          261684     0          0                   0                0                    PASS  
+     FCT_LEAD_CONVERSIONS       CONVERSION_ID (NULL = not converted)  261684     221988     221988              0                0                    PASS  
+     MART_CAMPAIGN_PERFORMANCE  CAMPAIGN_ID (PK)                      120        0          0                   0                0                    PASS  
+[10] WITH null_cells AS (
+     TABLE_NAME                 ROW_COUNT  COLUMNS_CHECKED  NULL_CELLS  COLUMNS_WITH_NULLS  EXPECTED  STATUS
+     DIM_DATE                   1096       9                0                               0         PASS  
+     DIM_CAMPAIGN               120        10               0                               0         PASS  
+     FCT_DAILY_SPEND            11240      10               0                               0         PASS  
+     FCT_LEAD_CONVERSIONS       261684     16               0                               0         PASS  
+     MART_CAMPAIGN_PERFORMANCE  120        19               0                               0         PASS  
+[11] SELECT RELATIONSHIP, ROWS_FOUND, EXPECTED, IFF(ROWS_FOUND = EXPECTED, 'PASS', 'FAIL') AS STATUS
+     RELATIONSHIP                              ROWS_FOUND  EXPECTED  STATUS
+     FCT_DAILY_SPEND.CAMPAIGN_ID -> DIM_CAMPA  0           0         PASS  
+     FCT_LEAD_CONVERSIONS.CAMPAIGN_ID -> DIM_  0           0         PASS  
+     MART_CAMPAIGN_PERFORMANCE.CAMPAIGN_ID ->  0           0         PASS  
+     DIM_CAMPAIGN without a MART_CAMPAIGN_PER  0           0         PASS  
+     DIM_CAMPAIGN without FCT_DAILY_SPEND row  0           0         PASS  
+     DIM_CAMPAIGN without FCT_LEAD_CONVERSION  0           0         PASS  
+     STG_CONVERSIONS rows missing from FCT_LE  0           0         PASS  
+     FCT_DAILY_SPEND.SPEND_DATE -> DIM_DATE    0           0         PASS  
+     FCT_LEAD_CONVERSIONS.CREATED_DATE -> DIM  0           0         PASS  
+     FCT_LEAD_CONVERSIONS.CONVERTED_DATE -> D  0           0         PASS  
+     DIM_CAMPAIGN.START_DATE / END_DATE -> DI  0           0         PASS  
+     month columns -> DIM_DATE.MONTH_START (S  0           0         PASS  
+     DIM_DATE days without a FCT_DAILY_SPEND   32          32        PASS  
+     DIM_DATE days without a lead              32          32        PASS  
+     DIM_DATE days without a conversion        16          16        PASS  
+     FCT_LEAD_CONVERSIONS leads without a con  221988      221988    PASS  
+[12] WITH steps AS (
+     CHECK_NAME                                ACTUAL    EXPECTED  STATUS
+     rows                                      1096      1096      PASS  
+     first DATE_DAY (YYYYMMDD)                 20230101  20230101  PASS  
+     last DATE_DAY (YYYYMMDD)                  20251231  20251231  PASS  
+     span in days, MAX - MIN + 1 (= rows: no   1096      1096      PASS  
+     consecutive days not exactly 1 day apart  0         0         PASS  
+     days in 2023                              365       365       PASS  
+     days in 2024 (leap year)                  366       366       PASS  
+     days in 2025                              365       365       PASS  
+     distinct MONTH_START                      36        36        PASS  
+     rows whose MONTH_START is not day 1 of t  0         0         PASS  
+     distinct (YEAR, QUARTER)                  12        12        PASS  
+     rows whose WEEK_START is not a Monday 0-  0         0         PASS  
+     distinct WEEK_START (ISO weeks touched)   158       158       PASS  
+     weekend days (IS_WEEKEND)                 313       313       PASS  
+     Mondays (DAY_OF_WEEK_ISO = 1, DAY_NAME M  157       157       PASS  
+     Sundays (DAY_OF_WEEK_ISO = 7, DAY_NAME S  157       157       PASS  
+[13] WITH expected (DATE_DAY, YEAR, QUARTER, MONTH_START, MONTH_NAME, WEEK_START, DAY_OF_WEEK_ISO, DAY...
+     DATE_DAY    YEAR  QUARTER  MONTH_START  MONTH_NAME  WEEK_START  DAY_OF_WEEK_ISO  DAY_NAME   IS_WEEKEND  STATUS
+     2023-01-01  2023  1        2023-01-01   January     2022-12-26  7                Sunday     True        PASS  
+     2023-01-02  2023  1        2023-01-01   January     2023-01-02  1                Monday     False       PASS  
+     2024-02-29  2024  1        2024-02-01   February    2024-02-26  4                Thursday   False       PASS  
+     2024-12-30  2024  4        2024-12-01   December    2024-12-30  1                Monday     False       PASS  
+     2025-06-15  2025  2        2025-06-01   June        2025-06-09  7                Sunday     True        PASS  
+     2025-12-31  2025  4        2025-12-01   December    2025-12-29  3                Wednesday  False       PASS  
+[14] WITH prorated_by_campaign AS (
+     CHECK_NAME                                ACTUAL            EXPECTED          TOLERANCE  STATUS
+     FCT_DAILY_SPEND: SUM(SPEND)               4523050.020000    4523050.020000    0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(SPEND)     4523050.020000    4523050.020000    0          PASS  
+     CONNECTION_TEST: SUM(SPEND) (Phase 1, un  4523050.020000    4523050.020000    0          PASS  
+     FCT_DAILY_SPEND: SUM(IMPRESSIONS)         436844819.000000  436844819.000000  0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(IMPRESSIO  436844819.000000  436844819.000000  0          PASS  
+     FCT_DAILY_SPEND: SUM(CLICKS)              7102319.000000    7102319.000000    0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(CLICKS)    7102319.000000    7102319.000000    0          PASS  
+     DIM_CAMPAIGN: SUM(BUDGET)                 5418642.160000    5418642.160000    0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(BUDGET)    5418642.160000    5418642.160000    0          PASS  
+     FCT_DAILY_SPEND: SUM(BUDGET_PRORATED) =   5418642.159820    5418642.159820    0          PASS  
+     FCT_DAILY_SPEND: campaigns whose SUM(BUD  0.000000          0.000000          0          PASS  
+     DIM_CAMPAIGN: SUM(CAMPAIGN_DAYS)          11240.000000      11240.000000      0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(SPEND_DAY  11240.000000      11240.000000      0          PASS  
+     FCT_LEAD_CONVERSIONS: leads (rows)        261684.000000     261684.000000     0          PASS  
+     FCT_LEAD_CONVERSIONS: SUM(IS_CONVERTED)   39696.000000      39696.000000      0          PASS  
+     FCT_LEAD_CONVERSIONS: SUM(IS_TRIAL)       23005.000000      23005.000000      0          PASS  
+     FCT_LEAD_CONVERSIONS: SUM(IS_PURCHASE)    16691.000000      16691.000000      0          PASS  
+     FCT_LEAD_CONVERSIONS: SUM(REVENUE)        21561839.010000   21561839.010000   0          PASS  
+     FCT_LEAD_CONVERSIONS: unconverted leads   221988.000000     221988.000000     0          PASS  
+     FCT_LEAD_CONVERSIONS: SUM(LEAD_SCORE)     13233637.000000   13233637.000000   0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(LEADS)     261684.000000     261684.000000     0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(CONVERTED  39696.000000      39696.000000      0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(TRIALS)    23005.000000      23005.000000      0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(PURCHASES  16691.000000      16691.000000      0          PASS  
+     MART_CAMPAIGN_PERFORMANCE: SUM(REVENUE)   21561839.010000   21561839.010000   0          PASS  
+     overall ROAS = SUM(REVENUE) / SUM(SPEND)  4.767102          4.767102          0          PASS  
+     overall CPL = SUM(SPEND) / SUM(LEADS), 4  17.284400         17.284400         0          PASS  
+     overall lead conversion rate = SUM(IS_CO  0.151694          0.151694          0          PASS  
+     overall CTR = SUM(CLICKS) / SUM(IMPRESSI  0.016258          0.016258          0          PASS  
+     overall ROAS from the two facts, each su  4.767102          4.767102          0          PASS  
+[15] SELECT CHECK_NAME, ACTUAL, EXPECTED, IFF(ACTUAL = EXPECTED, 'PASS', 'FAIL') AS STATUS
+     CHECK_NAME                                ACTUAL        EXPECTED      STATUS
+     converted leads (IS_CONVERTED = 1)        39696.0000    39696.0000    PASS  
+     converted leads missing a conversion col  0.0000        0.0000        PASS  
+     unconverted leads (IS_CONVERTED = 0)      221988.0000   221988.0000   PASS  
+     unconverted leads with a conversion colu  0.0000        0.0000        PASS  
+     rows where IS_TRIAL + IS_PURCHASE <> IS_  0.0000        0.0000        PASS  
+     revenue of trials                         0.0000        0.0000        PASS  
+     DAYS_TO_CONVERT: values (converted leads  39696.0000    39696.0000    PASS  
+     DAYS_TO_CONVERT: minimum (no conversion   0.0000        0.0000        PASS  
+     DAYS_TO_CONVERT: maximum                  21.0000       21.0000       PASS  
+     DAYS_TO_CONVERT: values outside 0..21     0.0000        0.0000        PASS  
+     DAYS_TO_CONVERT: mean, 4 dp               10.5056       10.5056       PASS  
+     same-day conversions (DAYS_TO_CONVERT =   1811.0000     1811.0000     PASS  
+     SUM(CONVERTED_AFTER_CAMPAIGN_END)         4716.0000     4716.0000     PASS  
+     ... of which purchases                    1951.0000     1951.0000     PASS  
+     ... of which trials                       2765.0000     2765.0000     PASS  
+     ... their revenue                         2532266.7400  2532266.7400  PASS  
+     CONVERTED_AFTER_CAMPAIGN_END on unconver  0.0000        0.0000        PASS  
+     rows with AS_OF_DATE = 2025-12-31         261684.0000   261684.0000   PASS  
+     SUM(IS_MATURE) (all leads mature at the   261684.0000   261684.0000   PASS  
+[16] WITH actual AS (
+     SEGMENT  MIN_SCORE  MAX_SCORE  LEADS   CONVERTED  PURCHASES  REVENUE     CONVERSION_RATE  STATUS
+     Low      1          40         104245  9505       3965       5075916.10  0.091179         PASS  
+     Medium   41         70         78862   12758      5346       6908346.48  0.161776         PASS  
+     High     71         100        78577   17433      7380       9577576.43  0.221859         PASS  
+[17] WITH expected (CAMPAIGN_ID, CHANNEL, OBJECTIVE, BUDGET, SPEND_DAYS, SPEND, IMPRESSIONS, CLICKS, L...
+     MODEL                      COLUMN_NAME           COMPARISON                              CAMPAIGNS_JOINED  CAMPAIGNS_MATCHING  EXPECTED  STATUS
+     MART_CAMPAIGN_PERFORMANCE  BUDGET                equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  CHANNEL               equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  CLICKS                equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  CONVERTED_LEADS       equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  IMPRESSIONS           equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  LEADS                 equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  OBJECTIVE             equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  PURCHASES             equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  REVENUE               equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  SPEND                 equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  SPEND_DAYS            equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  TRIALS                equal                                   120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  BUDGET_UTILIZATION    exact [D], rounded once in Python       120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  CLICK_TO_LEAD_RATE    exact [D], rounded once in Python       120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  COST_PER_CONVERSION   exact [D], rounded once in Python       120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  COST_PER_LEAD         exact [D], rounded once in Python       120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  COST_PER_PURCHASE     exact [D], rounded once in Python       120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  CTR                   exact [D], rounded once in Python       120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  LEAD_CONVERSION_RATE  exact [D], rounded once in Python       120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  PURCHASE_RATE         exact [D], rounded once in Python       120               120                 120       PASS  
+     MART_CAMPAIGN_PERFORMANCE  ROAS                  exact [D], rounded once in Python       120               120                 120       PASS  
+     DIM_CAMPAIGN               BUDGET                equal                                   120               120                 120       PASS  
+     DIM_CAMPAIGN               CHANNEL               equal                                   120               120                 120       PASS  
+     DIM_CAMPAIGN               OBJECTIVE             equal                                   120               120                 120       PASS  
+     FCT_DAILY_SPEND            CHANNEL               every row of the campaign               120               120                 120       PASS  
+     FCT_DAILY_SPEND            OBJECTIVE             every row of the campaign               120               120                 120       PASS  
+     FCT_DAILY_SPEND            BUDGET_PRORATED       exact [D] on every row of the campaign  120               120                 120       PASS  
+     FCT_DAILY_SPEND            CLICKS                rolled up to the campaign               120               120                 120       PASS  
+     FCT_DAILY_SPEND            IMPRESSIONS           rolled up to the campaign               120               120                 120       PASS  
+     FCT_DAILY_SPEND            SPEND                 rolled up to the campaign               120               120                 120       PASS  
+     FCT_DAILY_SPEND            SPEND_DAYS            rolled up to the campaign               120               120                 120       PASS  
+     FCT_LEAD_CONVERSIONS       CHANNEL               every row of the campaign               120               120                 120       PASS  
+     FCT_LEAD_CONVERSIONS       OBJECTIVE             every row of the campaign               120               120                 120       PASS  
+     FCT_LEAD_CONVERSIONS       CONVERTED_LEADS       rolled up to the campaign               120               120                 120       PASS  
+     FCT_LEAD_CONVERSIONS       LEADS                 rolled up to the campaign               120               120                 120       PASS  
+     FCT_LEAD_CONVERSIONS       PURCHASES             rolled up to the campaign               120               120                 120       PASS  
+     FCT_LEAD_CONVERSIONS       REVENUE               rolled up to the campaign               120               120                 120       PASS  
+     FCT_LEAD_CONVERSIONS       TRIALS                rolled up to the campaign               120               120                 120       PASS  
+[18] WITH by_channel AS (
+     CHANNEL      CAMPAIGNS  SPEND       REVENUE      BUDGET      SPEND_DAYS  IMPRESSIONS  CLICKS   LEADS   CONVERTED_LEADS  TRIALS  PURCHASES  EQUALS_PUBLISHER  STATUS
+     paid_social  24         984731.88   4690137.28   1180823.70  1906        89520215     1602785  57619   8648             5002    3646       yes               PASS  
+     display      24         955297.00   3734117.43   1138158.37  2367        146967688    879874   45149   6744             3873    2871       yes               PASS  
+     paid_search  24         897091.53   5439329.35   1079299.66  2307        49837405     1740314  65268   10019            5815    4204       yes               PASS  
+     affiliate    24         857835.07   5610700.73   1025491.41  2150        95314042     2386856  67849   10352            6020    4332       yes               PASS  
+     video        24         828094.54   2087554.22   994869.02   2510        55205469     492490   25799   3933             2295    1638       yes               PASS  
+     TOTAL        120        4523050.02  21561839.01  5418642.16  11240       436844819    7102319  261684  39696            23005   16691      yes               PASS  
+[19] WITH by_channel AS (
+     CHANNEL      CTR       CLICK_TO_LEAD_RATE  LEAD_CONVERSION_RATE  PURCHASE_RATE  COST_PER_LEAD  COST_PER_CONVERSION  COST_PER_PURCHASE  ROAS      BUDGET_UTILIZATION  AVG_OF_CAMPAIGN_ROAS  STATUS
+     affiliate    0.025042  0.028426            0.152574              0.063848       12.6433        82.8666              198.0229           6.540536  0.836511            7.928143              PASS  
+     paid_search  0.034920  0.037504            0.153506              0.064411       13.7447        89.5390              213.3900           6.063294  0.831179            6.734678              PASS  
+     paid_social  0.017904  0.035949            0.150089              0.063278       17.0904        113.8682             270.0855           4.762857  0.833936            5.023908              PASS  
+     display      0.005987  0.051313            0.149372              0.063589       21.1588        141.6514             332.7402           3.908855  0.839336            3.910376              PASS  
+     video        0.008921  0.052385            0.152448              0.063491       32.0979        210.5504             505.5522           2.520913  0.832365            2.504421              PASS  
+     TOTAL        0.016258  0.036845            0.151694              0.063783       17.2844        113.9422             270.9874           4.767102  0.834720            5.220305              PASS  
+[20] SELECT CHECK_NAME, ACTUAL, EXPECTED, IFF(ACTUAL = EXPECTED, 'PASS', 'FAIL') AS STATUS
+     CHECK_NAME                                ACTUAL      EXPECTED    STATUS
+     campaigns evaluated                       120.000000  120.000000  PASS  
+     campaigns with a NULL ratio (a zero deno  0.000000    0.000000    PASS  
+     rates outside 0..1 (CTR, CLICK_TO_LEAD,   0.000000    0.000000    PASS  
+     BUDGET_UTILIZATION outside 0..1 (over bu  0.000000    0.000000    PASS  
+     ROAS <= 0                                 0.000000    0.000000    PASS  
+     ROAS < 1 (attributed revenue below spend  0.000000    0.000000    PASS  
+     cost per lead / conversion / purchase <=  0.000000    0.000000    PASS  
+     PURCHASE_RATE > LEAD_CONVERSION_RATE      0.000000    0.000000    PASS  
+     cost per lead > per conversion, or per c  0.000000    0.000000    PASS  
+     lowest CLICK_TO_LEAD_RATE                 0.012878    0.012878    PASS  
+     highest CLICK_TO_LEAD_RATE                0.056555    0.056555    PASS  
+     lowest BUDGET_UTILIZATION                 0.698798    0.698798    PASS  
+     highest BUDGET_UTILIZATION                0.986811    0.986811    PASS  
+     fewest CONVERTED_LEADS of a campaign (CM  14.000000   14.000000   PASS  
+[21] WITH ranked AS (
+     RANKING    RANK_IN_LIST  CAMPAIGN_ID  CAMPAIGN_NAME         ROAS       EXPECTED_CAMPAIGN  EXPECTED_ROAS  STATUS
+     top 10     1             CMP0080      Affiliate 2024 080    13.013216  CMP0080            13.013216      PASS  
+     top 10     2             CMP0070      Affiliate 2024 070    12.609300  CMP0070            12.609300      PASS  
+     top 10     3             CMP0040      Affiliate 2023 040    12.274784  CMP0040            12.274784      PASS  
+     top 10     4             CMP0035      Affiliate 2025 035    12.007766  CMP0035            12.007766      PASS  
+     top 10     5             CMP0045      Affiliate 2024 045    11.390125  CMP0045            11.390125      PASS  
+     top 10     6             CMP0095      Affiliate 2025 095    11.375832  CMP0095            11.375832      PASS  
+     top 10     7             CMP0005      Affiliate 2024 005    11.133811  CMP0005            11.133811      PASS  
+     top 10     8             CMP0050      Affiliate 2023 050    11.042774  CMP0050            11.042774      PASS  
+     top 10     9             CMP0110      Affiliate 2025 110    10.879181  CMP0110            10.879181      PASS  
+     top 10     10            CMP0086      Paid Search 2023 086  10.849844  CMP0086            10.849844      PASS  
+     bottom 10  1             CMP0084      Video 2023 084        1.823364   CMP0084            1.823364       PASS  
+     bottom 10  2             CMP0034      Video 2024 034        1.978327   CMP0034            1.978327       PASS  
+     bottom 10  3             CMP0039      Video 2025 039        2.131284   CMP0039            2.131284       PASS  
+     bottom 10  4             CMP0119      Video 2025 119        2.173423   CMP0119            2.173423       PASS  
+     bottom 10  5             CMP0018      Display 2023 018      2.174672   CMP0018            2.174672       PASS  
+     bottom 10  6             CMP0074      Video 2023 074        2.177704   CMP0074            2.177704       PASS  
+     bottom 10  7             CMP0009      Video 2024 009        2.202279   CMP0009            2.202279       PASS  
+     bottom 10  8             CMP0079      Video 2024 079        2.213323   CMP0079            2.213323       PASS  
+     bottom 10  9             CMP0099      Video 2023 099        2.267776   CMP0099            2.267776       PASS  
+     bottom 10  10            CMP0064      Video 2024 064        2.323173   CMP0064            2.323173       PASS  
+[22] WITH months AS (
+     MONTH    SPEND      LEADS  ACTIVITY_CONVERSIONS  COHORT_CONVERSIONS  ACTIVITY_REVENUE  COHORT_REVENUE  STATUS
+     2023-01  23686.55   1325   110                   212                 52800.58          104789.28       PASS  
+     2023-02  49461.61   2825   325                   427                 170806.55         203501.92       PASS  
+     2023-03  104283.65  6229   798                   914                 393351.94         459636.12       PASS  
+     2023-04  104393.90  5748   902                   880                 474970.42         467059.31       PASS  
+     2023-05  97734.10   5188   811                   771                 435288.12         433096.71       PASS  
+     2023-06  123064.68  7491   963                   1137                569578.22         657294.35       PASS  
+     2023-07  116810.98  7779   1273                  1220                699206.04         688314.91       PASS  
+     2023-08  134065.09  9024   1221                  1377                672633.67         757947.97       PASS  
+     2023-09  155294.61  10771  1590                  1604                884815.77         873286.79       PASS  
+     2023-10  171832.62  10930  1654                  1648                939852.38         982891.87       PASS  
+     2023-11  191171.25  10526  1582                  1575                904954.17         896561.10       PASS  
+     2023-12  186463.37  9713   1550                  1471                877224.49         814229.75       PASS  
+     2024-01  122943.61  6493   1158                  975                 618809.35         505522.79       PASS  
+     2024-02  100601.92  5638   794                   882                 441376.15         490071.45       PASS  
+     2024-03  130497.60  7576   1063                  1172                568388.08         639937.50       PASS  
+     2024-04  196892.88  10413  1424                  1588                795905.02         826515.58       PASS  
+     2024-05  177398.24  8898   1550                  1332                813289.19         759968.60       PASS  
+     2024-06  129762.16  5954   1035                  918                 581296.94         491639.76       PASS  
+     2024-07  115762.43  5895   861                   879                 468529.67         469706.98       PASS  
+     2024-08  185052.08  10718  1316                  1607                687143.69         845201.71       PASS  
+     2024-09  205363.34  11825  1780                  1779                950923.18         942884.99       PASS  
+     2024-10  219378.73  11683  1830                  1771                961348.25         938239.29       PASS  
+     2024-11  181790.58  10557  1579                  1588                857423.40         865052.92       PASS  
+     2024-12  205754.77  11721  1758                  1831                933214.90         980609.89       PASS  
+     2025-01  189821.49  10136  1699                  1557                926132.23         867523.60       PASS  
+     2025-02  97550.77   6308   1116                  930                 619062.19         501984.76       PASS  
+     2025-03  103654.48  7226   1061                  1099                598344.60         621952.09       PASS  
+     2025-04  95842.28   6504   969                   1036                544558.36         577892.10       PASS  
+     2025-05  109131.26  7506   1183                  1113                629458.15         565975.71       PASS  
+     2025-06  94604.52   6371   971                   996                 515898.62         554537.00       PASS  
+     2025-07  132922.32  7710   1101                  1156                601132.60         603557.74       PASS  
+     2025-08  138359.57  7339   1190                  1109                596182.42         586219.70       PASS  
+     2025-09  65610.05   3680   700                   513                 381379.89         265118.01       PASS  
+     2025-10  48774.54   2826   462                   445                 228041.53         222570.47       PASS  
+     2025-11  16510.95   1093   256                   173                 137433.25         96402.96        PASS  
+     2025-12  807.04     65     61                    11                  31085.00          4143.33         PASS  
+OK    02b_core_models_tests.sql: all 22 statements executed, no check row says FAIL
+
+====================================================================================================
+5. sql/02c_analysis_marts_tests.sql, read-only: block 1 (statement [6]) and the last line; every other
+   line equals docs/evidence/02c_analysis_marts_tests.txt except the session line
+----------------------------------------------------------------------------------------------------
+[ 6] WITH contract (TABLE_NAME, ORDINAL, COLUMN_NAME, DATA_TYPE) AS (
+     TABLE_NAME                   TABLE_TYPE  CHECKED_AS          CONTRACT_COLUMNS  ACTUAL_COLUMNS  PROBLEMS  PROBLEM_LIST  HAS_TABLE_COMMENT  STATUS
+     FCT_CAMPAIGN_DAILY_ACTIVITY  BASE TABLE  Phase 4 contract    15                15              0                       True               PASS  
+     MART_MONTHLY_MARKETING       BASE TABLE  Phase 4 contract    12                12              0                       True               PASS  
+     MART_MONTHLY_COHORT          BASE TABLE  Phase 4 contract    11                11              0                       True               PASS  
+     MART_CHANNEL_PERFORMANCE     BASE TABLE  Phase 4 contract    27                27              0                       True               PASS  
+     MART_LEAD_QUALITY            BASE TABLE  Phase 4 contract    12                12              0                       True               PASS  
+     DIM_DATE                     BASE TABLE  exists (02b tests)  0                 0               0                       True               PASS  
+     DIM_CAMPAIGN                 BASE TABLE  exists (02b tests)  0                 0               0                       True               PASS  
+     FCT_DAILY_SPEND              BASE TABLE  exists (02b tests)  0                 0               0                       True               PASS  
+     FCT_LEAD_CONVERSIONS         BASE TABLE  exists (02b tests)  0                 0               0                       True               PASS  
+     MART_CAMPAIGN_PERFORMANCE    BASE TABLE  exists (02b tests)  0                 0               0                       True               PASS  
+     CONNECTION_TEST              BASE TABLE  exists (02b tests)  0                 0               0                       True               PASS  
+     MART_CONVERSION_FUNNEL       BASE TABLE  exists (02b tests)  0                 0               0                       True               PASS  
+...
+OK    02c_analysis_marts_tests.sql: all 24 statements executed, no check row says FAIL
+
+====================================================================================================
+6. Planted defects: assert_conversion_funnel_reconciles (compiled by dbt) on mutated copies of the table
+----------------------------------------------------------------------------------------------------
+Each row runs the compiled test with MARKETING_CRM.MART.mart_conversion_funnel replaced by a subquery:
+  1 the deployed table, unchanged (control)            expect 0 rows
+  2 video Leads STAGE_VALUE + 1                         expect 3: stage_total (stage 3), channel_stage
+                                                        (video, 3), prev_stage (video, 4)
+  3 PREV_STAGE_VALUE on stage 1 set to impressions      expect 5 prev_stage rows (must be NULL there)
+  4 an 'ALL' channel row per stage added                expect 10: 5 stage_total, 5 channel_stage
+  5 the display Purchases row dropped                   expect 2: stage_total (stage 5), channel_stage
+  6 stage 4 renamed 'Conversions'                       expect 5 channel_stage rows
+  7 TOP_OF_FUNNEL_VALUE of paid_social set to 7         expect 5 top_of_funnel rows
+STATUS = PASS when the test returned exactly the expected number of rows from exactly the expected checks.
+Running planted.sql (4 statements) as SVC_CRM_PIPELINE / CRM_TRANSFORMER
+[ 1] USE ROLE CRM_TRANSFORMER;
+     Statement executed successfully.
+[ 2] USE SECONDARY ROLES NONE;
+     Statement executed successfully.
+[ 3] USE WAREHOUSE MARKETING_WH;
+     Statement executed successfully.
+[ 4] SELECT * FROM (
+     ORD  DEFECT                              FAILING_ROWS  EXPECTED_ROWS  CHECKS_FIRED                            EXPECTED_CHECKS                         STATUS
+     1    control: deployed table, unchanged  0             0                                                                                              PASS  
+     2    video Leads +1                      3             3              channel_stage, prev_stage, stage_total  channel_stage, prev_stage, stage_total  PASS  
+     3    stage 1 PREV not NULL               5             5              prev_stage                              prev_stage                              PASS  
+     4    ALL row added                       10            10             channel_stage, stage_total              channel_stage, stage_total              PASS  
+     5    display Purchases row dropped       2             2              channel_stage, stage_total              channel_stage, stage_total              PASS  
+     6    stage 4 renamed                     5             5              channel_stage                           channel_stage                           PASS  
+     7    TOP = clicks on paid_social         5             5              top_of_funnel                           top_of_funnel                           PASS  
+OK    planted.sql: all 4 statements executed, no check row says FAIL
+
+====================================================================================================
+7. Inspection of the deployed table (read-only)
+----------------------------------------------------------------------------------------------------
+The query file:
+-- Read-only inspection of MART.MART_CONVERSION_FUNNEL (Phase 6): types, comments, grants, rows, stage ratios.
+USE ROLE CRM_TRANSFORMER;
+USE SECONDARY ROLES NONE;
+USE WAREHOUSE MARKETING_WH;
+USE SCHEMA MARKETING_CRM.MART;
+
+-- Object: type, transient flag, owner, row count, table comment length
+SELECT TABLE_NAME, TABLE_TYPE, IS_TRANSIENT, TABLE_OWNER, ROW_COUNT, LENGTH(COMMENT) AS COMMENT_LEN
+FROM MARKETING_CRM.INFORMATION_SCHEMA.TABLES
+WHERE TABLE_SCHEMA = 'MART' AND TABLE_NAME = 'MART_CONVERSION_FUNNEL';
+
+-- Columns: position, name, deployed type, comment length
+SELECT ORDINAL_POSITION, COLUMN_NAME,
+       IFF(DATA_TYPE = 'NUMBER', 'NUMBER(' || NUMERIC_PRECISION || ',' || NUMERIC_SCALE || ')', DATA_TYPE) AS TYPE,
+       IS_NULLABLE, LENGTH(COMMENT) AS COMMENT_LEN
+FROM MARKETING_CRM.INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'MART' AND TABLE_NAME = 'MART_CONVERSION_FUNNEL'
+ORDER BY ORDINAL_POSITION;
+
+-- Grants on the table (CRM_REPORTER must have SELECT through the MART future grant)
+SHOW GRANTS ON TABLE MARKETING_CRM.MART.MART_CONVERSION_FUNNEL;
+
+-- The 25 rows, with the stage conversion and the share of top of funnel (6 dp, rounded once)
+SELECT CHANNEL, STAGE_ORDER, STAGE, STAGE_VALUE, PREV_STAGE_VALUE, TOP_OF_FUNNEL_VALUE,
+       ROUND(STAGE_VALUE::NUMBER(32,18) / NULLIF(PREV_STAGE_VALUE, 0), 6)    AS STAGE_CONVERSION,
+       ROUND(STAGE_VALUE::NUMBER(32,18) / NULLIF(TOP_OF_FUNNEL_VALUE, 0), 8) AS SHARE_OF_TOP_8DP
+FROM MART_CONVERSION_FUNNEL
+ORDER BY CHANNEL, STAGE_ORDER;
+
+-- All channels: what SUM(STAGE_VALUE) / SUM(PREV_STAGE_VALUE) and / SUM(TOP_OF_FUNNEL_VALUE) give per stage
+SELECT STAGE_ORDER, STAGE, SUM(STAGE_VALUE) AS STAGE_VALUE, SUM(PREV_STAGE_VALUE) AS PREV_STAGE_VALUE,
+       SUM(TOP_OF_FUNNEL_VALUE) AS TOP_OF_FUNNEL_VALUE,
+       ROUND(SUM(STAGE_VALUE)::NUMBER(32,18) / NULLIF(SUM(PREV_STAGE_VALUE), 0), 6)    AS STAGE_CONVERSION,
+       ROUND(SUM(STAGE_VALUE)::NUMBER(32,18) / NULLIF(SUM(TOP_OF_FUNNEL_VALUE), 0), 8) AS SHARE_OF_TOP_8DP
+FROM MART_CONVERSION_FUNNEL
+GROUP BY STAGE_ORDER, STAGE
+ORDER BY STAGE_ORDER;
+
+-- Cross-check: the stage conversions equal the stored channel ratios of MART_CHANNEL_PERFORMANCE
+WITH f AS (
+  SELECT CHANNEL, STAGE_ORDER,
+         ROUND(STAGE_VALUE::NUMBER(32,18) / NULLIF(PREV_STAGE_VALUE, 0), 6) AS STAGE_CONVERSION
+  FROM MART_CONVERSION_FUNNEL
+),
+c AS (
+  SELECT CHANNEL, CTR, CLICK_TO_LEAD_RATE, LEAD_CONVERSION_RATE,
+         ROUND(PURCHASES::NUMBER(32,18) / NULLIF(CONVERTED_LEADS, 0), 6) AS PURCHASE_SHARE
+  FROM MART_CHANNEL_PERFORMANCE
+)
+SELECT c.CHANNEL,
+       COUNT_IF(f.STAGE_ORDER = 2 AND f.STAGE_CONVERSION = c.CTR)
+     + COUNT_IF(f.STAGE_ORDER = 3 AND f.STAGE_CONVERSION = c.CLICK_TO_LEAD_RATE)
+     + COUNT_IF(f.STAGE_ORDER = 4 AND f.STAGE_CONVERSION = c.LEAD_CONVERSION_RATE)
+     + COUNT_IF(f.STAGE_ORDER = 5 AND f.STAGE_CONVERSION = c.PURCHASE_SHARE) AS MATCHING_RATIOS,
+       4 AS EXPECTED,
+       IFF(MATCHING_RATIOS = 4, 'PASS', 'FAIL') AS STATUS
+FROM c JOIN f ON f.CHANNEL = c.CHANNEL
+GROUP BY c.CHANNEL
+ORDER BY c.CHANNEL;
+
+Output:
+Running inspect.sql (10 statements) as SVC_CRM_PIPELINE / CRM_TRANSFORMER
+[ 1] USE ROLE CRM_TRANSFORMER;
+     Statement executed successfully.
+[ 2] USE SECONDARY ROLES NONE;
+     Statement executed successfully.
+[ 3] USE WAREHOUSE MARKETING_WH;
+     Statement executed successfully.
+[ 4] USE SCHEMA MARKETING_CRM.MART;
+     Statement executed successfully.
+[ 5] SELECT TABLE_NAME, TABLE_TYPE, IS_TRANSIENT, TABLE_OWNER, ROW_COUNT, LENGTH(COMMENT) AS COMMENT_LEN
+     TABLE_NAME              TABLE_TYPE  IS_TRANSIENT  TABLE_OWNER      ROW_COUNT  COMMENT_LEN
+     MART_CONVERSION_FUNNEL  BASE TABLE  NO            CRM_TRANSFORMER  25         1288       
+[ 6] SELECT ORDINAL_POSITION, COLUMN_NAME,
+     ORDINAL_POSITION  COLUMN_NAME          TYPE          IS_NULLABLE  COMMENT_LEN
+     1                 CHANNEL              TEXT          YES          228        
+     2                 STAGE_ORDER          NUMBER(1,0)   YES          229        
+     3                 STAGE                TEXT          YES          160        
+     4                 STAGE_VALUE          NUMBER(38,0)  YES          269        
+     5                 PREV_STAGE_VALUE     NUMBER(38,0)  YES          344        
+     6                 TOP_OF_FUNNEL_VALUE  NUMBER(38,0)  YES          259        
+[ 7] SHOW GRANTS ON TABLE MARKETING_CRM.MART.MART_CONVERSION_FUNNEL;
+     created_on                        privilege  granted_on  name                                      granted_to  grantee_name     grant_option  granted_by       granted_by_role_type
+     2026-10-14 11:47:03.475000-07:00  SELECT     TABLE       MARKETING_CRM.MART.MART_CONVERSION_FUNNE  ROLE        CRM_REPORTER     false         CRM_TRANSFORMER  ROLE                
+     2026-10-14 11:47:03.451000-07:00  OWNERSHIP  TABLE       MARKETING_CRM.MART.MART_CONVERSION_FUNNE  ROLE        CRM_TRANSFORMER  true          CRM_TRANSFORMER  ROLE                
+[ 8] SELECT CHANNEL, STAGE_ORDER, STAGE, STAGE_VALUE, PREV_STAGE_VALUE, TOP_OF_FUNNEL_VALUE,
+     CHANNEL      STAGE_ORDER  STAGE            STAGE_VALUE  PREV_STAGE_VALUE  TOP_OF_FUNNEL_VALUE  STAGE_CONVERSION  SHARE_OF_TOP_8DP
+     affiliate    1            Impressions      95314042     NULL              95314042             NULL              1.00000000      
+     affiliate    2            Clicks           2386856      95314042          95314042             0.025042          0.02504202      
+     affiliate    3            Leads            67849        2386856           95314042             0.028426          0.00071185      
+     affiliate    4            Converted leads  10352        67849             95314042             0.152574          0.00010861      
+     affiliate    5            Purchases        4332         10352             95314042             0.418470          0.00004545      
+     display      1            Impressions      146967688    NULL              146967688            NULL              1.00000000      
+     display      2            Clicks           879874       146967688         146967688            0.005987          0.00598685      
+     display      3            Leads            45149        879874            146967688            0.051313          0.00030720      
+     display      4            Converted leads  6744         45149             146967688            0.149372          0.00004589      
+     display      5            Purchases        2871         6744              146967688            0.425712          0.00001953      
+     paid_search  1            Impressions      49837405     NULL              49837405             NULL              1.00000000      
+     paid_search  2            Clicks           1740314      49837405          49837405             0.034920          0.03491984      
+     paid_search  3            Leads            65268        1740314           49837405             0.037504          0.00130962      
+     paid_search  4            Converted leads  10019        65268             49837405             0.153506          0.00020103      
+     paid_search  5            Purchases        4204         10019             49837405             0.419603          0.00008435      
+     paid_social  1            Impressions      89520215     NULL              89520215             NULL              1.00000000      
+     paid_social  2            Clicks           1602785      89520215          89520215             0.017904          0.01790417      
+     paid_social  3            Leads            57619        1602785           89520215             0.035949          0.00064364      
+     paid_social  4            Converted leads  8648         57619             89520215             0.150089          0.00009660      
+     paid_social  5            Purchases        3646         8648              89520215             0.421600          0.00004073      
+     video        1            Impressions      55205469     NULL              55205469             NULL              1.00000000      
+     video        2            Clicks           492490       55205469          55205469             0.008921          0.00892104      
+     video        3            Leads            25799        492490            55205469             0.052385          0.00046733      
+     video        4            Converted leads  3933         25799             55205469             0.152448          0.00007124      
+     video        5            Purchases        1638         3933              55205469             0.416476          0.00002967      
+[ 9] SELECT STAGE_ORDER, STAGE, SUM(STAGE_VALUE) AS STAGE_VALUE, SUM(PREV_STAGE_VALUE) AS PREV_STAGE_V...
+     STAGE_ORDER  STAGE            STAGE_VALUE  PREV_STAGE_VALUE  TOP_OF_FUNNEL_VALUE  STAGE_CONVERSION  SHARE_OF_TOP_8DP
+     1            Impressions      436844819    NULL              436844819            NULL              1.00000000      
+     2            Clicks           7102319      436844819         436844819            0.016258          0.01625822      
+     3            Leads            261684       7102319           436844819            0.036845          0.00059903      
+     4            Converted leads  39696        261684            436844819            0.151694          0.00009087      
+     5            Purchases        16691        39696             436844819            0.420471          0.00003821      
+[10] WITH f AS (
+     CHANNEL      MATCHING_RATIOS  EXPECTED  STATUS
+     affiliate    4                4         PASS  
+     display      4                4         PASS  
+     paid_search  4                4         PASS  
+     paid_social  4                4         PASS  
+     video        4                4         PASS  
+OK    inspect.sql: all 10 statements executed, no check row says FAIL

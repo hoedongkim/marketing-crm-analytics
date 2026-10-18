@@ -1,0 +1,370 @@
+Running 06_marketing_efficiency.sql (40 statements) as SVC_CRM_PIPELINE / CRM_TRANSFORMER
+[ 1] USE ROLE CRM_TRANSFORMER;
+     Statement executed successfully.
+[ 2] USE SECONDARY ROLES NONE;
+     Statement executed successfully.
+[ 3] USE WAREHOUSE MARKETING_WH;
+     Statement executed successfully.
+[ 4] USE SCHEMA MARKETING_CRM.MART;
+     Statement executed successfully.
+[ 5] SELECT CURRENT_USER() AS USER_NAME, CURRENT_ROLE() AS ROLE_NAME, CURRENT_SECONDARY_ROLES() AS SEC...
+     USER_NAME         ROLE_NAME        SECONDARY_ROLES          WAREHOUSE_NAME  SCHEMA_NAME         RUN_AT                STATUS
+     SVC_CRM_PIPELINE  CRM_TRANSFORMER  {"roles":"","value":""}  MARKETING_WH    MARKETING_CRM.MART  2026-10-14 08:58 UTC  PASS  
+[ 6] SELECT TABLE_NAME, ROW_COUNT, EXPECTED_ROWS, IFF(ROW_COUNT = EXPECTED_ROWS, 'PASS', 'FAIL') AS ST...
+     TABLE_NAME                   ROW_COUNT  EXPECTED_ROWS  STATUS
+     DIM_DATE                     1096       1096           PASS  
+     DIM_CAMPAIGN                 120        120            PASS  
+     FCT_DAILY_SPEND              11240      11240          PASS  
+     FCT_LEAD_CONVERSIONS         261684     261684         PASS  
+     MART_CAMPAIGN_PERFORMANCE    120        120            PASS  
+     FCT_CAMPAIGN_DAILY_ACTIVITY  13760      13760          PASS  
+     MART_MONTHLY_MARKETING       180        180            PASS  
+     MART_CHANNEL_PERFORMANCE     5          5              PASS  
+[ 7] WITH campaigns_by_channel AS (
+     CHANNEL      CAMPAIGNS  SPEND      LEADS  PURCHASES  REVENUE     ROAS      ROAS_RANK  COST_PER_LEAD  PURCHASE_RATE  REVENUE_PER_PURCHASE  COST_PER_PURCHASE
+     affiliate    24         857835.07  67849  4332       5610700.73  6.540536  1          12.6433        0.063848       1295.18               198.0229         
+     paid_search  24         897091.53  65268  4204       5439329.35  6.063294  2          13.7447        0.064411       1293.85               213.3900         
+     paid_social  24         984731.88  57619  3646       4690137.28  4.762857  3          17.0904        0.063278       1286.38               270.0855         
+     display      24         955297.00  45149  2871       3734117.43  3.908855  4          21.1588        0.063589       1300.63               332.7402         
+     video        24         828094.54  25799  1638       2087554.22  2.520913  5          32.0979        0.063491       1274.45               505.5522         
+[ 8] WITH printed_1 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                           ACTUAL           EXPECTED         DETAIL  STATUS
+     rows printed                         5.000000         5.000000                 PASS  
+     rows equal to expected (12 columns)  5.000000         5.000000                 PASS  
+     SUM(CAMPAIGNS) [KT]                  120.000000       120.000000               PASS  
+     SUM(SPEND) [KT]                      4523050.020000   4523050.020000           PASS  
+     SUM(LEADS) [KT]                      261684.000000    261684.000000            PASS  
+     SUM(PURCHASES) [KT]                  16691.000000     16691.000000             PASS  
+     SUM(REVENUE) [KT]                    21561839.010000  21561839.010000          PASS  
+[ 9] WITH channel_factors AS (
+     FACTOR                CHANNEL_AT_MIN  MIN_VALUE    CHANNEL_AT_MAX  MAX_VALUE    MAX_OVER_MIN
+     ROAS                  video           2.520913     affiliate       6.540536     2.595       
+     COST_PER_LEAD         affiliate       12.643297    video           32.097932    2.539       
+     PURCHASE_RATE         paid_social     0.063278     paid_search     0.064411     1.018       
+     REVENUE_PER_PURCHASE  video           1274.453126  display         1300.633030  1.021       
+[10] WITH printed_2 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                          ACTUAL    EXPECTED  DETAIL  STATUS
+     rows printed                        4.000000  4.000000          PASS  
+     rows equal to expected (6 columns)  4.000000  4.000000          PASS  
+[11] WITH campaigns_by_cell AS (
+     CHANNEL      OBJECTIVE    CAMPAIGNS  SPEND      REVENUE     ROAS      ROAS_RANK_IN_CHANNEL  CHANNEL_ROAS  OBJECTIVE_ROAS_ALL_CHANNELS
+     affiliate    acquisition  8          266566.50  2020489.36  7.579682  1                     6.540536      5.138426                   
+     affiliate    awareness    11         356332.26  2434691.40  6.832644  2                     6.540536      4.776849                   
+     affiliate    lead_gen     5          234936.31  1155519.97  4.918439  3                     6.540536      4.491290                   
+     paid_search  acquisition  9          342535.00  2229025.00  6.507437  1                     6.063294      5.138426                   
+     paid_search  awareness    7          252858.06  1523478.38  6.025034  2                     6.063294      4.776849                   
+     paid_search  lead_gen     8          301698.47  1686825.97  5.591099  3                     6.063294      4.491290                   
+     paid_social  lead_gen     7          247216.30  1526138.82  6.173294  1                     4.762857      4.491290                   
+     paid_social  awareness    10         445827.81  2093815.01  4.696466  2                     4.762857      4.776849                   
+     paid_social  acquisition  7          291687.77  1070183.45  3.668935  3                     4.762857      5.138426                   
+     display      awareness    4          228529.10  919010.44   4.021415  1                     3.908855      4.776849                   
+     display      lead_gen     17         664339.11  2598298.33  3.911102  2                     3.908855      4.491290                   
+     display      acquisition  3          62428.79   216808.66   3.472895  3                     3.908855      5.138426                   
+     video        acquisition  8          233692.27  613728.26   2.626224  1                     2.520913      5.138426                   
+     video        awareness    12         372666.30  940487.05   2.523671  2                     2.520913      4.776849                   
+     video        lead_gen     4          221735.97  533338.91   2.405288  3                     2.520913      4.491290                   
+[12] WITH printed_3 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                          ACTUAL           EXPECTED         DETAIL  STATUS
+     rows printed                        15.000000        15.000000                PASS  
+     rows equal to expected (9 columns)  15.000000        15.000000                PASS  
+     SUM(CAMPAIGNS) [KT]                 120.000000       120.000000               PASS  
+     SUM(SPEND) [KT]                     4523050.020000   4523050.020000           PASS  
+     SUM(REVENUE) [KT]                   21561839.010000  21561839.010000          PASS  
+[13] WITH channels AS (
+     YEAR  CHANNEL      ACTIVE_CAMPAIGNS  SPEND      SPEND_SHARE_IN_YEAR  REVENUE_BOOKED  REVENUE_FROM_PRIOR_YEAR_LEADS  ROAS_ACTIVITY  ROAS_RANK_IN_YEAR  REVENUE_OF_YEAR_LEADS  ROAS_ACQUISITION_YEAR  ROAS_ACQ_CHANGE_VS_PRIOR_YEAR
+     2023  affiliate    7                 191203.31  0.131117             1279630.45      0.00                           6.692512       1                  1360359.91             7.114730               NULL                         
+     2023  paid_search  10                300163.09  0.205836             1896544.12      0.00                           6.318379       2                  1962597.64             6.538438               NULL                         
+     2023  paid_social  10                396556.03  0.271937             1980837.05      0.00                           4.995100       3                  1999269.18             5.041581               NULL                         
+     2023  display      13                375255.15  0.257330             1444009.62      0.00                           3.848074       4                  1517826.65             4.044786               NULL                         
+     2023  video        8                 195084.83  0.133779             474461.11       0.00                           2.432076       5                  498556.70              2.555589               NULL                         
+     2024  affiliate    14                393675.01  0.199714             2371226.62      80729.46                       6.023310       1                  2383700.05             6.054995               -1.059735                    
+     2024  paid_search  14                437390.55  0.221891             2377104.14      66053.52                       5.434741       2                  2358050.28             5.391178               -1.147260                    
+     2024  paid_social  11                387302.85  0.196481             1655266.92      18432.13                       4.273831       3                  1776006.91             4.585577               -0.456004                    
+     2024  display      9                 249038.96  0.126339             973295.94       73817.03                       3.908208       4                  947377.96              3.804136               -0.240650                    
+     2024  video        12                503790.97  0.255576             1300754.20      24095.59                       2.581932       5                  1290216.26             2.561015               0.005426                     
+     2025  paid_search  5                 159537.89  0.145885             1165681.09      46999.66                       7.306610       1                  1118681.43             7.012011               1.620833                     
+     2025  affiliate    8                 272956.75  0.249597             1959843.66      93202.89                       7.180052       2                  1866640.77             6.838595               0.783601                     
+     2025  paid_social  6                 200873.00  0.183682             1054033.31      139172.12                      5.247262       3                  914861.19              4.554426               -0.031151                    
+     2025  display      8                 331002.89  0.302676             1316811.87      47899.05                       3.978249       4                  1268912.82             3.833540               0.029404                     
+     2025  video        8                 129218.74  0.118160             312338.91       13557.65                       2.417133       5                  298781.26              2.312213               -0.248802                    
+[14] WITH printed_4 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                               ACTUAL           EXPECTED         DETAIL  STATUS
+     rows printed                             15.000000        15.000000                PASS  
+     rows equal to expected (12 columns)      15.000000        15.000000                PASS  
+     years add up to [E02c 18], [D] (5 sums)  3.000000         3.000000                 PASS  
+     SUM(SPEND) [KT]                          4523050.020000   4523050.020000           PASS  
+     SUM(REVENUE_BOOKED) [KT]                 21561839.010000  21561839.010000          PASS  
+     SUM(REVENUE_OF_YEAR_LEADS) [KT]          21561839.010000  21561839.010000          PASS  
+     leads created after 2025-12-10 [D]       0.000000         0.000000                 PASS  
+     MAX(DAYS_TO_CONVERT) [D]                 21.000000        21.000000                PASS  
+[15] SELECT RANK()       OVER (ORDER BY ROAS DESC)                      AS ROAS_RANK,
+     ROAS_RANK  ROAS_DENSE_RANK  ROAS_RANK_IN_CHANNEL  CAMPAIGN_ID  CAMPAIGN_NAME         CHANNEL      OBJECTIVE    SPEND     PURCHASES  REVENUE    ROAS       COST_PER_PURCHASE
+     1          1                1                     CMP0080      Affiliate 2024 080    affiliate    awareness    17904.18  172        232990.96  13.013216  104.0941         
+     2          2                2                     CMP0070      Affiliate 2024 070    affiliate    awareness    17318.50  167        218374.17  12.609300  103.7036         
+     3          3                3                     CMP0040      Affiliate 2023 040    affiliate    awareness    14920.90  146        183150.82  12.274784  102.1979         
+     4          4                4                     CMP0035      Affiliate 2025 035    affiliate    awareness    15913.35  142        191083.78  12.007766  112.0658         
+     5          5                5                     CMP0045      Affiliate 2024 045    affiliate    awareness    10543.72  88         120094.29  11.390125  119.8150         
+     6          6                6                     CMP0095      Affiliate 2025 095    affiliate    acquisition  17881.69  166        203419.10  11.375832  107.7210         
+     7          7                7                     CMP0005      Affiliate 2024 005    affiliate    acquisition  17057.46  143        189914.53  11.133811  119.2829         
+     8          8                8                     CMP0050      Affiliate 2023 050    affiliate    awareness    35219.40  299        388919.88  11.042774  117.7906         
+     9          9                9                     CMP0110      Affiliate 2025 110    affiliate    acquisition  30384.26  257        330555.85  10.879181  118.2267         
+     10         10               1                     CMP0086      Paid Search 2023 086  paid_search  awareness    11691.91  101        126855.40  10.849844  115.7615         
+     111        111              16                    CMP0064      Video 2024 064        video        lead_gen     55178.97  94         128190.29  2.323173   587.0103         
+     112        112              17                    CMP0099      Video 2023 099        video        awareness    9348.40   15         21200.08   2.267776   623.2267         
+     113        113              18                    CMP0079      Video 2024 079        video        lead_gen     62230.93  110        137737.16  2.213323   565.7357         
+     114        114              19                    CMP0009      Video 2024 009        video        lead_gen     54786.64  102        120655.46  2.202279   537.1239         
+     115        115              20                    CMP0074      Video 2023 074        video        awareness    26109.81  46         56859.44   2.177704   567.6046         
+     116        116              24                    CMP0018      Display 2023 018      display      acquisition  7405.03   11         16103.51   2.174672   673.1845         
+     117        117              21                    CMP0119      Video 2025 119        video        acquisition  16825.46  30         36568.85   2.173423   560.8487         
+     118        118              22                    CMP0039      Video 2025 039        video        acquisition  24066.86  39         51293.31   2.131284   617.0990         
+     119        119              23                    CMP0034      Video 2024 034        video        awareness    34180.02  57         67619.25   1.978327   599.6495         
+     120        120              24                    CMP0084      Video 2023 084        video        awareness    6105.33   7          11132.24   1.823364   872.1900         
+[16] WITH printed_5 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                                ACTUAL      EXPECTED    DETAIL  STATUS
+     rows printed                              20.000000   20.000000           PASS  
+     ranks equal to expected (8 columns)       20.000000   20.000000           PASS  
+     distinct ROAS values (RANK = DENSE_RANK)  120.000000  120.000000          PASS  
+     affiliate campaigns in the top 10         9.000000    9.000000            PASS  
+     video campaigns in the bottom 10          9.000000    9.000000            PASS  
+[17] WITH ranked AS (
+     CHANNEL      POSITION_IN_CHANNEL  CAMPAIGN_ID  CAMPAIGN_NAME         OBJECTIVE    SPEND     PURCHASES  ROAS       ROAS_RANK_OVERALL  CHANNEL_ROAS  BEST_OVER_WORST
+     affiliate    best                 CMP0080      Affiliate 2024 080    awareness    17904.18  172        13.013216  1                  6.540536      4.27           
+     affiliate    worst                CMP0085      Affiliate 2024 085    awareness    51639.87  111        3.046811   92                 6.540536      4.27           
+     paid_search  best                 CMP0086      Paid Search 2023 086  awareness    11691.91  101        10.849844  10                 6.063294      4.09           
+     paid_search  worst                CMP0041      Paid Search 2024 041  acquisition  66691.10  134        2.650154   103                6.063294      4.09           
+     paid_social  best                 CMP0017      Paid Social 2024 017  lead_gen     17839.66  95         6.926556   27                 4.762857      2.79           
+     paid_social  worst                CMP0067      Paid Social 2024 067  acquisition  59042.06  112        2.484971   106                4.762857      2.79           
+     display      best                 CMP0028      Display 2023 028      lead_gen     6701.48   22         4.860810   51                 3.908855      2.24           
+     display      worst                CMP0018      Display 2023 018      acquisition  7405.03   11         2.174672   116                3.908855      2.24           
+     video        best                 CMP0054      Video 2024 054        awareness    14158.05  37         3.486709   85                 2.520913      1.91           
+     video        worst                CMP0084      Video 2023 084        awareness    6105.33   7          1.823364   120                2.520913      1.91           
+[18] WITH printed_6 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                          ACTUAL     EXPECTED   DETAIL  STATUS
+     rows printed                        10.000000  10.000000          PASS  
+     rows equal to expected (7 columns)  10.000000  10.000000          PASS  
+[19] SELECT RANK() OVER (ORDER BY COST_PER_PURCHASE ASC)                      AS CPP_RANK,
+     CPP_RANK  CPP_RANK_IN_CHANNEL  CAMPAIGN_ID  CAMPAIGN_NAME         CHANNEL      OBJECTIVE    SPEND     PURCHASES  COST_PER_PURCHASE  ROAS_RANK
+     1         1                    CMP0040      Affiliate 2023 040    affiliate    awareness    14920.90  146        102.1979           3        
+     2         2                    CMP0070      Affiliate 2024 070    affiliate    awareness    17318.50  167        103.7036           2        
+     3         3                    CMP0080      Affiliate 2024 080    affiliate    awareness    17904.18  172        104.0941           1        
+     4         4                    CMP0095      Affiliate 2025 095    affiliate    acquisition  17881.69  166        107.7210           6        
+     5         5                    CMP0035      Affiliate 2025 035    affiliate    awareness    15913.35  142        112.0658           4        
+     6         1                    CMP0086      Paid Search 2023 086  paid_search  awareness    11691.91  101        115.7615           10       
+     7         6                    CMP0050      Affiliate 2023 050    affiliate    awareness    35219.40  299        117.7906           8        
+     8         7                    CMP0110      Affiliate 2025 110    affiliate    acquisition  30384.26  257        118.2267           9        
+     9         8                    CMP0005      Affiliate 2024 005    affiliate    acquisition  17057.46  143        119.2829           7        
+     10        9                    CMP0045      Affiliate 2024 045    affiliate    awareness    10543.72  88         119.8150           5        
+     111       16                   CMP0119      Video 2025 119        video        acquisition  16825.46  30         560.8487           117      
+     112       17                   CMP0079      Video 2024 079        video        lead_gen     62230.93  110        565.7357           113      
+     113       18                   CMP0074      Video 2023 074        video        awareness    26109.81  46         567.6046           115      
+     114       19                   CMP0049      Video 2023 049        video        acquisition  25032.55  44         568.9216           107      
+     115       20                   CMP0064      Video 2024 064        video        lead_gen     55178.97  94         587.0103           111      
+     116       21                   CMP0034      Video 2024 034        video        awareness    34180.02  57         599.6495           119      
+     117       22                   CMP0039      Video 2025 039        video        acquisition  24066.86  39         617.0990           118      
+     118       23                   CMP0099      Video 2023 099        video        awareness    9348.40   15         623.2267           112      
+     119       24                   CMP0018      Display 2023 018      display      acquisition  7405.03   11         673.1845           116      
+     120       24                   CMP0084      Video 2023 084        video        awareness    6105.33   7          872.1900           120      
+[20] WITH printed_7 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                           ACTUAL      EXPECTED    DETAIL  STATUS
+     rows printed                         20.000000   20.000000           PASS  
+     ranks equal to expected (8 columns)  20.000000   20.000000           PASS  
+     distinct COST_PER_PURCHASE values    120.000000  120.000000          PASS  
+[21] SELECT ROW_NUMBER() OVER (ORDER BY PURCHASES DESC, CAMPAIGN_ID) AS PURCHASES_ROW_NUMBER,
+     PURCHASES_ROW_NUMBER  PURCHASES_RANK  PURCHASES_DENSE_RANK  CAMPAIGN_ID  CAMPAIGN_NAME         CHANNEL      PURCHASES  CAMPAIGNS_WITH_SAME_PURCHASES
+     1                     1               1                     CMP0060      Affiliate 2024 060    affiliate    326        1                            
+     2                     2               2                     CMP0050      Affiliate 2023 050    affiliate    299        1                            
+     3                     3               3                     CMP0021      Paid Search 2024 021  paid_search  291        1                            
+     4                     4               4                     CMP0061      Paid Search 2023 061  paid_search  283        1                            
+     5                     5               5                     CMP0020      Affiliate 2025 020    affiliate    282        1                            
+     6                     6               6                     CMP0081      Paid Search 2023 081  paid_search  278        1                            
+     7                     7               7                     CMP0110      Affiliate 2025 110    affiliate    257        1                            
+     8                     8               8                     CMP0057      Paid Social 2024 057  paid_social  248        1                            
+     9                     9               9                     CMP0062      Paid Social 2023 062  paid_social  246        1                            
+     10                    10              10                    CMP0015      Affiliate 2024 015    affiliate    244        1                            
+     11                    11              11                    CMP0117      Paid Social 2023 117  paid_social  242        1                            
+     12                    12              12                    CMP0107      Paid Social 2024 107  paid_social  238        1                            
+     13                    13              13                    CMP0056      Paid Search 2025 056  paid_search  237        1                            
+     14                    14              14                    CMP0116      Paid Search 2023 116  paid_search  233        1                            
+     15                    15              15                    CMP0073      Display 2023 073      display      232        1                            
+     16                    16              16                    CMP0102      Paid Social 2025 102  paid_social  231        1                            
+     17                    17              17                    CMP0026      Paid Search 2025 026  paid_search  228        1                            
+     18                    18              18                    CMP0092      Paid Social 2024 092  paid_social  224        1                            
+     19                    19              19                    CMP0055      Affiliate 2024 055    affiliate    219        2                            
+     20                    19              19                    CMP0105      Affiliate 2023 105    affiliate    219        2                            
+     21                    21              20                    CMP0006      Paid Search 2024 006  paid_search  217        2                            
+     22                    21              20                    CMP0111      Paid Search 2023 111  paid_search  217        2                            
+     23                    23              21                    CMP0010      Affiliate 2023 010    affiliate    215        1                            
+     24                    24              22                    CMP0093      Display 2024 093      display      198        1                            
+     25                    25              23                    CMP0008      Display 2023 008      display      189        1                            
+[22] WITH printed_8 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                          ACTUAL     EXPECTED   DETAIL  STATUS
+     rows printed                        25.000000  25.000000          PASS  
+     rows equal to expected (6 columns)  25.000000  25.000000          PASS  
+     rows where RANK <> ROW_NUMBER       2.000000   2.000000           PASS  
+     rows where DENSE_RANK <> RANK       5.000000   5.000000           PASS  
+[23] WITH ranked AS (
+     TOP_N  ROWS_WITH_ROW_NUMBER  ROWS_WITH_RANK  ROWS_WITH_DENSE_RANK
+     10     10                    10              10                  
+     19     19                    20              20                  
+     20     20                    20              22                  
+[24] WITH printed_9 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                              ACTUAL    EXPECTED  DETAIL  STATUS
+     rows printed                            3.000000  3.000000          PASS  
+     cut-offs equal to expected (4 columns)  3.000000  3.000000          PASS  
+[25] SELECT IFF(GROUPING(CHANNEL) = 1, 'ALL CHANNELS', CHANNEL)             AS CHANNEL_GROUP,
+     CHANNEL_GROUP  CAMPAIGNS  BUDGET      SPEND       UNSPENT_BUDGET  BUDGET_UTILIZATION  MIN_CAMPAIGN  P25_CAMPAIGN  MEDIAN_CAMPAIGN  P75_CAMPAIGN  MAX_CAMPAIGN  CAMPAIGNS_OVER_BUDGET  CORR_UTILIZATION_ROAS
+     affiliate      24         1025491.41  857835.07   167656.34       0.836511            0.698798      0.779961      0.853895         0.916607      0.986811      0                      0.1154               
+     display        24         1138158.37  955297.00   182861.37       0.839336            0.745782      0.785435      0.836901         0.878455      0.977479      0                      -0.0297              
+     paid_search    24         1079299.66  897091.53   182208.13       0.831179            0.705829      0.775343      0.842583         0.892200      0.971502      0                      0.1721               
+     paid_social    24         1180823.70  984731.88   196091.82       0.833936            0.714609      0.771573      0.841316         0.890922      0.951822      0                      -0.1556              
+     video          24         994869.02   828094.54   166774.48       0.832365            0.721211      0.777772      0.846692         0.885632      0.928071      0                      0.1686               
+     ALL CHANNELS   120        5418642.16  4523050.02  895592.14       0.834720            0.698798      0.776925      0.843463         0.893718      0.986811      0                      0.0895               
+[26] WITH printed_10 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                           ACTUAL          EXPECTED        DETAIL  STATUS
+     rows printed                         6.000000        6.000000                PASS  
+     rows equal to expected (13 columns)  6.000000        6.000000                PASS  
+     ALL CHANNELS: BUDGET [KT]            5418642.160000  5418642.160000          PASS  
+     ALL CHANNELS: SPEND [KT]             4523050.020000  4523050.020000          PASS  
+[27] WITH bins AS (
+     BIN  UTILIZATION_RANGE  CAMPAIGNS  AFFILIATE  DISPLAY  PAID_SEARCH  PAID_SOCIAL  VIDEO
+     0    below 0.65         0          0          0        0            0            0    
+     1    0.65-0.70          1          1          0        0            0            0    
+     2    0.70-0.75          15         2          1        3            4            5    
+     3    0.75-0.80          29         5          8        6            6            4    
+     4    0.80-0.85          18         3          4        4            4            3    
+     5    0.85-0.90          31         4          6        7            5            9    
+     6    0.90-0.95          19         7          3        2            4            3    
+     7    0.95-1.00          7          2          2        2            1            0    
+     8    1.00 or more       0          0          0        0            0            0    
+[28] WITH printed_11 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                              ACTUAL      EXPECTED    DETAIL  STATUS
+     rows printed                            9.000000    9.000000            PASS  
+     bins equal to expected (8 columns)      9.000000    9.000000            PASS  
+     SUM(CAMPAIGNS) [KT]                     120.000000  120.000000          PASS  
+     channels with 24 campaigns in the bins  5.000000    5.000000            PASS  
+[29] SELECT RANK() OVER (ORDER BY BUDGET_UTILIZATION ASC) AS UTILIZATION_RANK,
+     UTILIZATION_RANK  CAMPAIGN_ID  CAMPAIGN_NAME         CHANNEL      BUDGET    SPEND     UNSPENT_BUDGET  BUDGET_UTILIZATION  ROAS     
+     1                 CMP0100      Affiliate 2023 100    affiliate    61774.40  43167.80  18606.60        0.698798            3.940222 
+     2                 CMP0101      Paid Search 2023 101  paid_search  74445.68  52545.91  21899.77        0.705829            2.960100 
+     3                 CMP0006      Paid Search 2024 006  paid_search  50135.67  35513.84  14621.83        0.708355            8.126586 
+     4                 CMP0035      Affiliate 2025 035    affiliate    22324.72  15913.35  6411.37         0.712813            12.007766
+     5                 CMP0032      Paid Social 2024 032  paid_social  61445.05  43909.18  17535.87        0.714609            4.053278 
+     116               CMP0061      Paid Search 2023 061  paid_search  50880.95  48907.03  1973.92         0.961205            7.561897 
+     117               CMP0015      Affiliate 2024 015    affiliate    60983.68  58887.07  2096.61         0.965620            5.421631 
+     118               CMP0091      Paid Search 2024 091  paid_search  33046.33  32104.58  941.75          0.971502            7.673270 
+     119               CMP0063      Display 2025 063      display      58760.38  57437.04  1323.34         0.977479            3.227940 
+     120               CMP0115      Affiliate 2025 115    affiliate    53698.12  52989.89  708.23          0.986811            3.471060 
+[30] WITH printed_12 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                           ACTUAL      EXPECTED    DETAIL  STATUS
+     rows printed                         10.000000   10.000000           PASS  
+     ranks equal to expected (8 columns)  10.000000   10.000000           PASS  
+     distinct BUDGET_UTILIZATION values   120.000000  120.000000          PASS  
+[31] WITH monthly AS (
+     ACTIVITY_MONTH  ACTIVE_CAMPAIGNS  SPEND      REVENUE_BOOKED  REVENUE_FROM_EARLIER_MONTH_LEADS  ROAS_ACTIVITY  ROAS_ACTIVITY_ROLLING_3M  CUM_SPEND   CUM_REVENUE_BOOKED  ROAS_ACTIVITY_CUMULATIVE
+     2023-01         3                 23686.55   52800.58        0.00                              2.229138       2.229138                  23686.55    52800.58            2.229138                
+     2023-02         5                 49461.61   170806.55       51988.70                          3.453316       3.056907                  73148.16    223607.13           3.056907                
+     2023-03         10                104283.65  393351.94       84684.07                          3.771943       3.477162                  177431.81   616959.07           3.477162                
+     2023-04         11                104393.90  474970.42       150968.25                         4.549791       4.025460                  281825.71   1091929.49          3.874485                
+     2023-05         14                97734.10   435288.12       143057.14                         4.453800       4.254442                  379559.81   1527217.61          4.023655                
+     2023-06         18                123064.68  569578.22       140865.73                         4.628283       4.550646                  502624.49   2096795.83          4.171695                
+     2023-07         16                116810.98  699206.04       228581.86                         5.985790       5.047462                  619435.47   2796001.87          4.513790                
+     2023-08         18                134065.09  672633.67       217690.73                         5.017217       5.191780                  753500.56   3468635.54          4.603362                
+     2023-09         18                155294.61  884815.77       303005.03                         5.697659       5.555929                  908795.17   4353451.31          4.790355                
+     2023-10         19                171832.62  939852.38       291476.05                         5.469581       5.414882                  1080627.79  5293303.69          4.898360                
+     2023-11         16                191171.25  904954.17       334515.54                         4.733736       5.266507                  1271799.04  6198257.86          4.873614                
+     2023-12         17                186463.37  877224.49       326122.47                         4.704541       4.953946                  1458262.41  7075482.35          4.851995                
+     2024-01         12                122943.61  618809.35       263127.73                         5.033278       4.796429                  1581206.02  7694291.70          4.866091                
+     2024-02         11                100601.92  441376.15       149841.17                         4.387353       4.725288                  1681807.94  8135667.85          4.837454                
+     2024-03         16                130497.60  568388.08       198536.47                         4.355544       4.599930                  1812305.54  8704055.93          4.802753                
+     2024-04         19                196892.88  795905.02       270085.89                         4.042325       4.218928                  2009198.42  9499960.95          4.728234                
+     2024-05         17                177398.24  813289.19       300696.45                         4.584539       4.313849                  2186596.66  10313250.14         4.716576                
+     2024-06         13                129762.16  581296.94       247375.86                         4.479711       4.345753                  2316358.82  10894547.08         4.703307                
+     2024-07         13                115762.43  468529.67       157718.68                         4.047338       4.405333                  2432121.25  11363076.75         4.672085                
+     2024-08         18                185052.08  687143.69       158895.99                         3.713245       4.034056                  2617173.33  12050220.44         4.604288                
+     2024-09         20                205363.34  950923.18       316954.01                         4.630443       4.161771                  2822536.67  13001143.62         4.606191                
+     2024-10         18                219378.73  961348.25       308915.82                         4.382140       4.262775                  3041915.40  13962491.87         4.590033                
+     2024-11         19                181790.58  857423.40       285806.86                         4.716545       4.566440                  3223705.98  14819915.27         4.597167                
+     2024-12         18                205754.77  933214.90       293436.38                         4.535569       4.534318                  3429460.75  15753130.17         4.593471                
+     2025-01         16                189821.49  926132.23       340831.37                         4.878964       4.705450                  3619282.24  16679262.40         4.608445                
+     2025-02         13                97550.77   619062.19       282222.74                         6.346051       5.025904                  3716833.01  17298324.59         4.654049                
+     2025-03         12                103654.48  598344.60       165145.31                         5.772491       5.481822                  3820487.49  17896669.19         4.684394                
+     2025-04         13                95842.28   544558.36       188752.80                         5.681818       5.931593                  3916329.77  18441227.55         4.708804                
+     2025-05         14                109131.26  629458.15       222086.54                         5.767900       5.742710                  4025461.03  19070685.70         4.737516                
+     2025-06         14                94604.52   515898.62       158604.10                         5.453213       5.640984                  4120065.55  19586584.32         4.753950                
+     2025-07         15                132922.32  601132.60       197242.48                         4.522435       5.187724                  4252987.87  20187716.92         4.746714                
+     2025-08         14                138359.57  596182.42       199667.62                         4.308935       4.682365                  4391347.44  20783899.34         4.732921                
+     2025-09         11                65610.05   381379.89       189704.90                         5.812827       4.686057                  4456957.49  21165279.23         4.748818                
+     2025-10         5                 48774.54   228041.53       73443.02                          4.675421       4.770056                  4505732.03  21393320.76         4.748023                
+     2025-11         3                 16510.95   137433.25       67971.96                          8.323764       5.705730                  4522242.98  21530754.01         4.761079                
+     2025-12         1                 807.04     31085.00        26941.67                          38.517298      6.000070                  4523050.02  21561839.01         4.767102                
+[32] WITH printed_13 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                             ACTUAL           EXPECTED         DETAIL  STATUS
+     rows printed (36 months)               36.000000        36.000000                PASS  
+     months equal to expected (10 columns)  36.000000        36.000000                PASS  
+     last CUM_SPEND [KT]                    4523050.020000   4523050.020000           PASS  
+     last CUM_REVENUE_BOOKED [KT]           21561839.010000  21561839.010000          PASS  
+     last cumulative ROAS = portfolio [D]   4.767102         4.767102                 PASS  
+     total from earlier-month leads [D]     7336961.390000   7336961.390000           PASS  
+[33] WITH channel_bases AS (
+     CHANNEL      SPEND      PURCHASES  REVENUE     SPEND_SHARE  PURCHASE_SHARE  REVENUE_SHARE  REVENUE_SHARE_MINUS_SPEND_SHARE  REVENUE_PER_1000_SPEND  PURCHASES_PER_1000_SPEND  ROAS_INDEX
+     affiliate    857835.07  4332       5610700.73  0.189659     0.259541        0.260214       0.070556                         6540.54                 5.0499                    1.3720    
+     paid_search  897091.53  4204       5439329.35  0.198338     0.251872        0.252266       0.053929                         6063.29                 4.6863                    1.2719    
+     paid_social  984731.88  3646       4690137.28  0.217714     0.218441        0.217520       -0.000194                        4762.86                 3.7025                    0.9991    
+     display      955297.00  2871       3734117.43  0.211206     0.172009        0.173182       -0.038025                        3908.85                 3.0053                    0.8200    
+     video        828094.54  1638       2087554.22  0.183083     0.098137        0.096817       -0.086266                        2520.91                 1.9780                    0.5288    
+[34] WITH printed_14 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                          ACTUAL           EXPECTED         DETAIL  STATUS
+     rows printed                        5.000000         5.000000                 PASS  
+     rows equal to expected (8 columns)  5.000000         5.000000                 PASS  
+     SUM(SPEND) [KT]                     4523050.020000   4523050.020000           PASS  
+     SUM(PURCHASES) [KT]                 16691.000000     16691.000000             PASS  
+     SUM(REVENUE) [KT]                   21561839.010000  21561839.010000          PASS  
+[35] WITH ceiling_days AS (
+     CHANNEL      SPEND_TERCILE  CAMPAIGNS  MIN_CAMPAIGN_SPEND  MAX_CAMPAIGN_SPEND  SPEND      REVENUE     ROAS       CORR_SPEND_ROAS_IN_CHANNEL  SPEND_PER_FLIGHT_DAY  SHARE_OF_DAYS_AT_LEAD_CEILING
+     affiliate    1              8          10543.72            18220.92            129760.72  1510598.36  11.641415  -0.8235                     191.67                0.267356                     
+     affiliate    2              8          18328.31            51492.57            271062.53  1879152.31  6.932542   -0.8235                     390.58                0.753602                     
+     affiliate    3              8          51639.87            62309.32            457011.82  2220950.06  4.859721   -0.8235                     586.66                0.975610                     
+     display      1              8          6701.48             28256.07            154010.87  615955.30   3.999427   -0.0055                     211.84                0.015131                     
+     display      2              8          30895.96            48391.76            324052.67  1214639.36  3.748278   -0.0055                     459.65                0.130496                     
+     display      3              8          48553.90            72153.85            477233.46  1903522.77  3.988662   -0.0055                     510.41                0.187166                     
+     paid_search  1              8          11529.48            32104.58            156217.52  1262994.97  8.084848   -0.7502                     208.85                0.196524                     
+     paid_search  2              8          33985.21            41140.87            302224.34  1970909.50  6.521346   -0.7502                     398.71                0.571240                     
+     paid_search  3              8          41412.64            71337.50            438649.67  2205424.88  5.027759   -0.7502                     547.63                0.755306                     
+     paid_social  1              8          10152.69            34977.43            171110.70  936783.38   5.474721   -0.5517                     331.61                0.296512                     
+     paid_social  2              8          37097.85            48945.75            353899.86  1584501.27  4.477259   -0.5517                     615.48                0.789565                     
+     paid_social  3              8          49872.48            67070.47            459721.32  2168852.63  4.717755   -0.5517                     564.08                0.738650                     
+     video        1              8          6105.33             23146.07            121784.55  316042.66   2.595097   0.0861                      163.03                0.000000                     
+     video        2              8          24066.86            43162.47            259138.94  645512.28   2.490989   0.0861                      302.73                0.005841                     
+     video        3              8          49539.43            66524.17            447171.05  1125999.28  2.518050   0.0861                      493.02                0.029768                     
+[36] WITH printed_15 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                           ACTUAL           EXPECTED         DETAIL  STATUS
+     rows printed                         15.000000        15.000000                PASS  
+     rows equal to expected (11 columns)  15.000000        15.000000                PASS  
+     SUM(CAMPAIGNS) [KT]                  120.000000       120.000000               PASS  
+     SUM(SPEND) [KT]                      4523050.020000   4523050.020000           PASS  
+     SUM(REVENUE) [KT]                    21561839.010000  21561839.010000          PASS  
+[37] WITH campaign_days AS (
+     CHANNEL      FLIGHT_DAYS  MAX_LEADS_ON_A_CAMPAIGN_DAY  DAYS_AT_CEILING  SHARE_OF_DAYS_AT_CEILING  CPL_BELOW_CEILING  CPL_AT_CEILING  ROAS_BELOW_CEILING  ROAS_AT_CEILING  CPL_LOWEST_SPEND_FIFTH  CPL_HIGHEST_SPEND_FIFTH  ROAS_LOWEST_SPEND_FIFTH  ROAS_HIGHEST_SPEND_FIFTH  MIN_DAILY_CPM  MAX_DAILY_CPM
+     affiliate    2150         35                           1464             0.680930                  7.9335             14.1699         10.563176           5.810505         6.7360                  22.3294                  12.739994                3.580868                  9.0000         9.0008       
+     paid_social  1906         35                           1209             0.634313                  14.7270            17.9452         5.559997            4.526259         11.9126                 24.7676                  6.963150                 3.312808                  11.0000        11.0012      
+     paid_search  2307         35                           1185             0.513654                  11.3423            15.1229         7.189339            5.578803         9.5667                  21.8814                  9.229117                 3.660564                  18.0000        18.0034      
+     display      2367         35                           278              0.117448                  21.3997            20.2816         3.895634            3.959635         21.9488                 23.1664                  4.022302                 3.451811                  6.5000         6.5010       
+     video        2510         35                           32               0.012749                  32.3841            25.7918         2.501912            3.046600         35.5769                 31.4530                  2.368337                 2.495889                  15.0000        15.0039      
+[38] WITH printed_16 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                           ACTUAL        EXPECTED      DETAIL  STATUS
+     rows printed                         5.000000      5.000000              PASS  
+     rows equal to expected (15 columns)  5.000000      5.000000              PASS  
+     SUM(FLIGHT_DAYS) [KT]                11240.000000  11240.000000          PASS  
+     SUM(DAYS_AT_CEILING) [D]             4168.000000   4168.000000           PASS  
+[39] WITH channel AS (
+     CHANNEL      ROAS      ROAS_RANK  ROAS_LARGEST_SPEND_TERCILE  ROAS_RANK_AT_SCALE  SHARE_OF_DAYS_AT_LEAD_CEILING  SPEND_SHARE  REVENUE_SHARE  ALLOCATION_HYPOTHESIS
+     affiliate    6.540536  1          4.859721                    2                   0.680930                       0.189659     0.260214       increase (test)      
+     paid_search  6.063294  2          5.027759                    1                   0.513654                       0.198338     0.252266       increase (test)      
+     paid_social  4.762857  3          4.717755                    3                   0.634313                       0.217714     0.217520       hold                 
+     display      3.908855  4          3.988662                    4                   0.117448                       0.211206     0.173182       decrease (test)      
+     video        2.520913  5          2.518050                    5                   0.012749                       0.183083     0.096817       decrease (test)      
+[40] WITH printed_17 AS (SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))),
+     CHECK_NAME                          ACTUAL    EXPECTED  DETAIL  STATUS
+     rows printed                        5.000000  5.000000          PASS  
+     rows equal to expected (9 columns)  5.000000  5.000000          PASS  
+OK    06_marketing_efficiency.sql: all 40 statements executed, no check row says FAIL

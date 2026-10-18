@@ -1,0 +1,461 @@
+Phase 5 parity evidence: the dbt build replaces the hand-written SQL build in place
+============================================================================================
+Date: 2026-10-14 (UTC). Snowflake MARKETING_CRM, role CRM_TRANSFORMER (no secondary roles),
+warehouse MARKETING_WH (X-Small). dbt Core 1.12.5 + dbt-snowflake 1.12.2, run from the repository root,
+one target (`prod`): every dbt run replaces the live STAGING and MART objects.
+
+Procedure (every step is a make target; steps 1 and 2 build, all others are read-only)
+  1. make parity-snapshot PARITY=before  sql/parity/parity_snapshot.sql on the SQL-built objects
+                              (the `make models` state of Phases 3-4), taken before the first dbt run
+                              -> build/parity_before.txt
+  2. make dbt-build           parse (0 deprecations), dbt build (PASS=273 WARN=0 ERROR=0 SKIP=0 NO-OP=2 TOTAL=275),
+                              source freshness (8 of 8 PASS), docs generate -> docs/evidence/05_dbt_build.txt
+  3. make parity-snapshot PARITY=after && make parity-diff
+                              the same snapshot on the dbt-built objects, compared field by field (A)
+  4. make parity-check        scripts/parity_minus.py: the 18 hand-written CREATE bodies of sql/02*.sql
+                              rebuilt from RAW as CTEs in one query per object and compared with the
+                              deployed dbt objects (A.3). Creates nothing and needs no SQL build, so it
+                              can be repeated at any time without overwriting the dbt build.
+  5. make sql-checks          the 7 hand-written SQL check files, read-only, on the dbt build (C)
+  6. make seeds-check         the independent seeds regenerated from the CSV files (E)
+  The 'before' snapshot only exists while the SQL build is deployed (steps 1-3); steps 4-6 do not
+  depend on it. `make models` (the legacy SQL build) would replace the dbt-built objects.
+
+A. Parity verdict (scripts/parity_diff.py build/parity_before.txt build/parity_after.txt)
+--------------------------------------------------------------------------------------------
+  objects before: 18, after: 21
+  data fingerprints (COUNT + HASH_AGG): 18 of 18 identical
+  columns of the before objects: 245; comment changes: 90
+  NOTE  STAGING.STG_CAMPAIGNS: relation comment changed (length 242 -> 341)
+  NOTE  STAGING.STG_CHALLENGE_CAMPAIGNS: relation comment changed (length 258 -> 367)
+  NOTE  STAGING.STG_CHALLENGE_CONVERSIONS: relation comment changed (length 274 -> 387)
+  NOTE  STAGING.STG_CHALLENGE_DAILY_SPEND: relation comment changed (length 317 -> 430)
+  NOTE  STAGING.STG_CHALLENGE_LEADS: relation comment changed (length 259 -> 360)
+  NOTE  STAGING.STG_CONVERSIONS: relation comment changed (length 259 -> 362)
+  NOTE  STAGING.STG_DAILY_SPEND: relation comment changed (length 291 -> 394)
+  NOTE  STAGING.STG_LEADS: relation comment changed (length 227 -> 318)
+  NOTE  MART.DIM_CAMPAIGN: relation comment changed (length 268 -> 317)
+  NOTE  MART.DIM_DATE: relation comment changed (length 218 -> 263)
+  NOTE  MART.FCT_CAMPAIGN_DAILY_ACTIVITY: relation comment changed (length 644 -> 708)
+  NOTE  MART.FCT_DAILY_SPEND: relation comment changed (length 402 -> 454)
+  NOTE  MART.FCT_LEAD_CONVERSIONS: relation comment changed (length 397 -> 558)
+  NOTE  MART.MART_CAMPAIGN_PERFORMANCE: relation comment changed (length 715 -> 777)
+  NOTE  MART.MART_CHANNEL_PERFORMANCE: relation comment changed (length 668 -> 729)
+  NOTE  MART.MART_LEAD_QUALITY: relation comment changed (length 585 -> 639)
+  NOTE  MART.MART_MONTHLY_COHORT: relation comment changed (length 628 -> 684)
+  NOTE  MART.MART_MONTHLY_MARKETING: relation comment changed (length 620 -> 679)
+  NOTE  STAGING.EXPECTED_CAMPAIGN_KPI: new object (BASE TABLE YES CRM_TRANSFORMER)
+  NOTE  STAGING.EXPECTED_TOTALS: new object (BASE TABLE YES CRM_TRANSFORMER)
+  NOTE  STAGING.PUBLISHER_CHANNEL_REFERENCE: new object (BASE TABLE YES CRM_TRANSFORMER)
+  OK    parity: every object, row count, row hash, column, type and nullability is identical (comment changes and new objects listed above)
+  (90 NOTE lines 'column comment added' for the STAGING view columns are summarised in B.3)
+
+A.1 Data fingerprints, object by object (identical before and after)
+  object                               rows before  rows after     HASH_AGG(*) before     HASH_AGG(*) after  equal
+  STAGING.STG_CAMPAIGNS                        120         120    1717624088339651087   1717624088339651087  yes
+  STAGING.STG_CHALLENGE_CAMPAIGNS              120         120    6455250274993065328   6455250274993065328  yes
+  STAGING.STG_CHALLENGE_CONVERSIONS           2000        2000    8859919106472785574   8859919106472785574  yes
+  STAGING.STG_CHALLENGE_DAILY_SPEND           2000        2000    4868678173830811470   4868678173830811470  yes
+  STAGING.STG_CHALLENGE_LEADS                 2000        2000     436242141627482006    436242141627482006  yes
+  STAGING.STG_CONVERSIONS                    39696       39696    2066261352943892607   2066261352943892607  yes
+  STAGING.STG_DAILY_SPEND                    11240       11240    5283715262876986124   5283715262876986124  yes
+  STAGING.STG_LEADS                         261684      261684    6233214971418270007   6233214971418270007  yes
+  MART.DIM_CAMPAIGN                            120         120   -1104996342875633986  -1104996342875633986  yes
+  MART.DIM_DATE                               1096        1096    -373068479842130692   -373068479842130692  yes
+  MART.FCT_CAMPAIGN_DAILY_ACTIVITY           13760       13760   -6430133930449104346  -6430133930449104346  yes
+  MART.FCT_DAILY_SPEND                       11240       11240   -9113104766388117916  -9113104766388117916  yes
+  MART.FCT_LEAD_CONVERSIONS                 261684      261684    -491270112516839862   -491270112516839862  yes
+  MART.MART_CAMPAIGN_PERFORMANCE               120         120    6171642545708145185   6171642545708145185  yes
+  MART.MART_CHANNEL_PERFORMANCE                  5           5   -8733952273888884832  -8733952273888884832  yes
+  MART.MART_LEAD_QUALITY                        50          50   -6407495699444632072  -6407495699444632072  yes
+  MART.MART_MONTHLY_COHORT                     180         180    4004764949054026918   4004764949054026918  yes
+  MART.MART_MONTHLY_MARKETING                  180         180    4612967747966399221   4612967747966399221  yes
+
+A.2 Object shape
+  18 of 18 objects keep their type, transient flag and owner: 8 VIEW (STAGING),
+  10 BASE TABLE with IS_TRANSIENT = NO (MART, permanent as before), all owned by CRM_TRANSFORMER.
+  245 of 245 columns keep their ordinal position, full type (TEXT length, NUMBER precision
+  and scale, TIMESTAMP precision) and nullability; no column was added, dropped or moved.
+  New objects (dbt seeds, test inputs only, transient tables in STAGING): STAGING.EXPECTED_CAMPAIGN_KPI, STAGING.EXPECTED_TOTALS, STAGING.PUBLISHER_CHANNEL_REFERENCE
+
+A.3 Read-only rebuild of the hand-written SQL vs the deployed objects (make parity-check)
+  scripts/parity_minus.py -> build/parity_minus.sql, run by scripts/run_sql.py -> build/parity_check.txt.
+  HW = the CREATE body of sql/02*.sql computed from RAW in the query (references to other STAGING/MART
+  objects rewritten into CTEs; current schema RAW). MINUS is positional (column count and order must
+  agree); HASH_AGG also counts duplicate rows. DEPLOYED_BY comes from the relation comment.
+  object                                      HW rows deployed HW-dep dep-HW hash eq parity expect  by  status
+  STAGING.STG_CAMPAIGNS                           120      120      0      0    True   True   True dbt  PASS
+  STAGING.STG_DAILY_SPEND                       11240    11240      0      0    True   True   True dbt  PASS
+  STAGING.STG_LEADS                            261684   261684      0      0    True   True   True dbt  PASS
+  STAGING.STG_CONVERSIONS                       39696    39696      0      0    True   True   True dbt  PASS
+  STAGING.STG_CHALLENGE_CAMPAIGNS                 120      120      0      0    True   True   True dbt  PASS
+  STAGING.STG_CHALLENGE_DAILY_SPEND              2000     2000      0      0    True   True   True dbt  PASS
+  STAGING.STG_CHALLENGE_LEADS                    2000     2000      0      0    True   True   True dbt  PASS
+  STAGING.STG_CHALLENGE_CONVERSIONS              2000     2000      0      0    True   True   True dbt  PASS
+  MART.DIM_DATE                                  1096     1096      0      0    True   True   True dbt  PASS
+  MART.DIM_CAMPAIGN                               120      120      0      0    True   True   True dbt  PASS
+  MART.FCT_DAILY_SPEND                          11240    11240      0      0    True   True   True dbt  PASS
+  MART.FCT_LEAD_CONVERSIONS                    261684   261684      0      0    True   True   True dbt  PASS
+  MART.MART_CAMPAIGN_PERFORMANCE                  120      120      0      0    True   True   True dbt  PASS
+  MART.FCT_CAMPAIGN_DAILY_ACTIVITY              13760    13760      0      0    True   True   True dbt  PASS
+  MART.MART_MONTHLY_MARKETING                     180      180      0      0    True   True   True dbt  PASS
+  MART.MART_MONTHLY_COHORT                        180      180      0      0    True   True   True dbt  PASS
+  MART.MART_CHANNEL_PERFORMANCE                     5        5      0      0    True   True   True dbt  PASS
+  MART.MART_LEAD_QUALITY                           50       50      0      0    True   True   True dbt  PASS
+  CONTROL budget +0.01 (MINUS finds it)           120      120      1      1   False  False  False dbt  PASS
+  CONTROL one row twice (only COUNT, HASH)        120      121      0      0   False  False  False dbt  PASS
+  18 of 18 objects: identical rows (MINUS 0 / 0, equal COUNT and HASH_AGG), all deployed by dbt.
+  2 of 2 control rows detect their planted difference (expected parity FALSE): a 1-cent budget change
+  (MINUS 1 / 1) and one duplicated row (MINUS 0 / 0, so only COUNT and HASH_AGG see it).
+  OK    parity_minus.sql: all 24 statements executed, no check row says FAIL
+
+B. Comment changes (intended; the parity check reports them, it does not fail on them)
+--------------------------------------------------------------------------------------------
+B.1 MART column comments: 155 of 155 identical, character for character (the dbt column
+    descriptions are the Phase 3-4 comments copied verbatim; persist_docs writes them back).
+B.2 Relation comments: 18 of 18 reworded in their provenance sentence only, because dbt now
+    builds the objects: the closing 'Built by' / 'Rules:' sentence, and for FCT_LEAD_CONVERSIONS
+    also the 'Source:' sentence, which now names the ephemeral int_lead_conversions (it reads the
+    campaign attributes from STG_CAMPAIGNS instead of DIM_CAMPAIGN; the values are identical: A.1 and
+    tests/marts/assert_campaign_attributes_match_independent_seed.sql). Everything before the first
+    changed sentence is unchanged. Old tail -> new tail:
+    MART.DIM_CAMPAIGN
+      old: ...Built by sql/02b_core_models.sql.
+      new: ...Built by dbt (models/marts/dim_campaign.sql, ported from sql/02b_core_models.sql).
+    MART.DIM_DATE
+      old: ...Built by sql/02b_core_models.sql.
+      new: ...Built by dbt (models/marts/dim_date.sql, ported from sql/02b_core_models.sql).
+    MART.FCT_CAMPAIGN_DAILY_ACTIVITY
+      old: ...Built by sql/02c_analysis_marts.sql.
+      new: ...Built by dbt (models/marts/fct_campaign_daily_activity.sql, ported from sql/02c_analysis_marts.sql).
+    MART.FCT_DAILY_SPEND
+      old: ...Built by sql/02b_core_models.sql.
+      new: ...Built by dbt (models/marts/fct_daily_spend.sql, ported from sql/02b_core_models.sql).
+    MART.FCT_LEAD_CONVERSIONS
+      old: ...Source: STAGING.STG_LEADS LEFT JOIN STG_CONVERSIONS (1:0..1 on LEAD_ID) + DIM_CAMPAIGN (n:1). Cohort KPIs group by CREATED_MONTH; CONVERTED_MONTH is the activity month; never mix the two on one axis. Flags are 0/1 so they SUM; REVENUE is 0.00 when not converted. AS_OF_DATE 2025-12-31 is an assumption. Built by sql/02b_core_models.sql.
+      new: ...Source: int_lead_conversions (ephemeral) = STAGING.STG_LEADS LEFT JOIN STG_CONVERSIONS (1:0..1 on LEAD_ID) + the campaign attributes of STG_CAMPAIGNS (n:1; the same values as DIM_CAMPAIGN, tested). Cohort KPIs group by CREATED_MONTH; CONVERTED_MONTH is the activity month; never mix the two on one axis. Flags are 0/1 so they SUM; REVENUE is 0.00 when not converted. AS_OF_DATE 2025-12-31 is an assumption. Built by dbt (models/marts/fct_lead_conversions.sql, ported from sql/02b_core_models.sql).
+    MART.MART_CAMPAIGN_PERFORMANCE
+      old: ...Built by sql/02b_core_models.sql.
+      new: ...Built by dbt (models/marts/mart_campaign_performance.sql, ported from sql/02b_core_models.sql).
+    MART.MART_CHANNEL_PERFORMANCE
+      old: ...Built by sql/02c_analysis_marts.sql.
+      new: ...Built by dbt (models/marts/mart_channel_performance.sql, ported from sql/02c_analysis_marts.sql).
+    MART.MART_LEAD_QUALITY
+      old: ...Built by sql/02c_analysis_marts.sql.
+      new: ...Built by dbt (models/marts/mart_lead_quality.sql, ported from sql/02c_analysis_marts.sql).
+    MART.MART_MONTHLY_COHORT
+      old: ...Built by sql/02c_analysis_marts.sql.
+      new: ...Built by dbt (models/marts/mart_monthly_cohort.sql, ported from sql/02c_analysis_marts.sql).
+    MART.MART_MONTHLY_MARKETING
+      old: ...Built by sql/02c_analysis_marts.sql.
+      new: ...Built by dbt (models/marts/mart_monthly_marketing.sql, ported from sql/02c_analysis_marts.sql).
+    STAGING.STG_CAMPAIGNS
+      old: ...Rules: sql/02_data_cleaning.sql.
+      new: ...Built by dbt (models/staging/stg_campaigns.sql, rules in macros/staging/clean_campaigns.sql, ported from sql/02_data_cleaning.sql).
+    STAGING.STG_CHALLENGE_CAMPAIGNS
+      old: ...Rules: sql/02_data_cleaning.sql.
+      new: ...Built by dbt (models/staging/stg_challenge_campaigns.sql, rules in macros/staging/clean_campaigns.sql, ported from sql/02_data_cleaning.sql).
+    STAGING.STG_CHALLENGE_CONVERSIONS
+      old: ...Rules: sql/02_data_cleaning.sql.
+      new: ...Built by dbt (models/staging/stg_challenge_conversions.sql, rules in macros/staging/clean_conversions.sql, ported from sql/02_data_cleaning.sql).
+    STAGING.STG_CHALLENGE_DAILY_SPEND
+      old: ...Rules: sql/02_data_cleaning.sql.
+      new: ...Built by dbt (models/staging/stg_challenge_daily_spend.sql, rules in macros/staging/clean_daily_spend.sql, ported from sql/02_data_cleaning.sql).
+    STAGING.STG_CHALLENGE_LEADS
+      old: ...Rules: sql/02_data_cleaning.sql.
+      new: ...Built by dbt (models/staging/stg_challenge_leads.sql, rules in macros/staging/clean_leads.sql, ported from sql/02_data_cleaning.sql).
+    STAGING.STG_CONVERSIONS
+      old: ...Rules: sql/02_data_cleaning.sql.
+      new: ...Built by dbt (models/staging/stg_conversions.sql, rules in macros/staging/clean_conversions.sql, ported from sql/02_data_cleaning.sql).
+    STAGING.STG_DAILY_SPEND
+      old: ...Rules: sql/02_data_cleaning.sql.
+      new: ...Built by dbt (models/staging/stg_daily_spend.sql, rules in macros/staging/clean_daily_spend.sql, ported from sql/02_data_cleaning.sql).
+    STAGING.STG_LEADS
+      old: ...Rules: sql/02_data_cleaning.sql.
+      new: ...Built by dbt (models/staging/stg_leads.sql, rules in macros/staging/clean_leads.sql, ported from sql/02_data_cleaning.sql).
+B.3 STAGING view column comments: 90 of 90 added (the SQL build commented the views,
+    not their columns). The dbt descriptions (dbt/models/staging/_staging.yml, from
+    docs/data_dictionary.md) document every column. They never quote a cleaning rule, so
+    sql/02_data_cleaning_tests.sql block 2b still counts exactly the rule texts in each view's DDL
+    (section C.1: 8 of 8 views PASS). The 46 column comments of the 4 STG_CHALLENGE_* views quote no
+    count or total of the clean release (their numbers, e.g. 1,687 leads outside the leads extract,
+    FALSE on 4 rows, are the extracts' own and were checked against the views on 2026-10-14).
+B.4 Seed tables: relation comment and 18 of 18 column comments (new objects).
+
+C. The hand-written SQL files against the dbt-built objects (make sql-checks -> build/sql_checks/)
+--------------------------------------------------------------------------------------------
+  file                                 statements  PASS (SQL build)  PASS (dbt build)  FAIL  other lines  last line
+  sql/02_data_cleaning_tests.sql               25               194               197     0           12  OK
+  sql/02b_core_models_tests.sql                22               245               245     0            0  OK
+  sql/02c_analysis_marts_tests.sql             24               258               258     0            0  OK
+  sql/03_marketing_overview.sql                15               126               126     0            0  OK
+  sql/04_conversion_funnel.sql                 19               232               232     0            0  OK
+  sql/05_lead_analysis.sql                     19               150               150     0            0  OK
+  sql/06_marketing_efficiency.sql              40                80                80     0            0  OK
+  total                                                        1285              1288     0
+  PASS (SQL build) is the Phase 3-4 evidence in docs/evidence/. 'other lines' counts the output lines
+  that differ from that evidence besides the session line (user, role, warehouse, UTC time): 0 for six
+  files, so every number they print, every analysis result included, is identical on the dbt build.
+  In 02_data_cleaning_tests.sql the only other difference is block 1, which now also lists the 3 seed
+  tables as allowed non-contract objects (+3 PASS rows, wider columns; section D). All 7 files exit 0:
+  every check of Phases 3-4 holds on the dbt-built objects, including the STAGING contract, the rule
+  texts in the deployed view definitions (block 2b), the MART contracts with comments, the Phase 2
+  baselines and all analysis checks.
+
+C.1 sql/02_data_cleaning_tests.sql block 1 (contract) and block 2b (rule texts) on the dbt views:
+  [ 6] WITH business_columns (BASE_VIEW, ORDINAL, COLUMN_NAME, DATA_TYPE) AS (
+       VIEW_NAME                    OBJECT_TYPE  CONTRACT_COLUMNS  ACTUAL_COLUMNS  PROBLEMS  PROBLEM_LIST                              STATUS
+       STG_CAMPAIGNS                VIEW         13                13              0                                                   PASS
+       STG_DAILY_SPEND              VIEW         11                11              0                                                   PASS
+       STG_LEADS                    VIEW         10                10              0                                                   PASS
+       STG_CONVERSIONS              VIEW         10                10              0                                                   PASS
+       STG_CHALLENGE_CAMPAIGNS      VIEW         14                14              0                                                   PASS
+       STG_CHALLENGE_DAILY_SPEND    VIEW         12                12              0                                                   PASS
+       STG_CHALLENGE_LEADS          VIEW         10                10              0                                                   PASS
+       STG_CHALLENGE_CONVERSIONS    VIEW         10                10              0                                                   PASS
+       EXPECTED_CAMPAIGN_KPI        BASE TABLE   0                 0               0         dbt seed (test input), not part of the c  PASS
+       EXPECTED_TOTALS              BASE TABLE   0                 0               0         dbt seed (test input), not part of the c  PASS
+       PUBLISHER_CHANNEL_REFERENCE  BASE TABLE   0                 0               0         dbt seed (test input), not part of the c  PASS
+  [ 8] WITH rule_texts (TEXT_NAME, RULE_TEXT) AS (
+       VIEW_NAME                  TEXTS_CHECKED  RULE_TEXTS_FOUND  RULE_TEXTS_EXPECTED  UNEXPECTED_FOUND  PROBLEMS  PROBLEM_LIST  STATUS
+       STG_CAMPAIGNS              29             63                63                   0                 0                       PASS
+       STG_DAILY_SPEND            29             53                53                   0                 0                       PASS
+       STG_LEADS                  29             43                43                   0                 0                       PASS
+       STG_CONVERSIONS            29             43                43                   0                 0                       PASS
+       STG_CHALLENGE_CAMPAIGNS    29             64                64                   0                 0                       PASS
+       STG_CHALLENGE_DAILY_SPEND  29             53                53                   0                 0                       PASS
+       STG_CHALLENGE_LEADS        29             43                43                   0                 0                       PASS
+       STG_CHALLENGE_CONVERSIONS  29             43                43                   0                 0                       PASS
+
+D. The one edit in sql/ (allowed: a test file's expected-object list)
+--------------------------------------------------------------------------------------------
+  --- sql/02_data_cleaning_tests.sql (Phase 3-4)
+  +++ sql/02_data_cleaning_tests.sql (Phase 5)
+  @@ -95,8 +95,12 @@
+   --      the five trailing columns that every view shares, and the fill column that each of
+   --      two challenge views appends. A challenge view's first columns therefore line up with
+   --      its clean view position by position. Any other object in STAGING appears as its own
+  ---      FAIL row.
+  ---    Expected [C]: 13 / 11 / 10 / 10 columns (clean), 14 / 12 / 10 / 10 (challenge), 0 problems.
+  +--      FAIL row, except the three dbt seed tables of Phase 5 (EXPECTED_CAMPAIGN_KPI,
+  +--      EXPECTED_TOTALS, PUBLISHER_CHANNEL_REFERENCE): test inputs, not part of this contract.
+  +--      Each one that exists gets its own row, which passes when it is a table; they are absent
+  +--      after a pure SQL build.
+  +--    Expected [C]: 13 / 11 / 10 / 10 columns (clean), 14 / 12 / 10 / 10 (challenge), 0 problems;
+  +--      after a dbt build also the 3 seed tables, each a BASE TABLE.
+   -- -----------------------------------------------------------------------------
+   WITH business_columns (BASE_VIEW, ORDINAL, COLUMN_NAME, DATA_TYPE) AS (   -- [C] business columns of the clean views
+     SELECT * FROM VALUES
+  @@ -134,11 +138,15 @@
+     SELECT * FROM VALUES ('STG_CHALLENGE_CAMPAIGNS', 14, 'CAMPAIGN_NAME_FILLED', 'TEXT'),
+                          ('STG_CHALLENGE_DAILY_SPEND', 12, 'SPEND_DATE_FILLED', 'DATE')
+   ),
+  +non_contract_objects (VIEW_NAME) AS (   -- Phase 5 dbt seeds (test inputs): allowed, columns not checked
+  +  SELECT * FROM VALUES ('EXPECTED_CAMPAIGN_KPI'), ('EXPECTED_TOTALS'), ('PUBLISHER_CHANNEL_REFERENCE')
+  +),
+   actual AS (
+     SELECT TABLE_NAME AS VIEW_NAME, ORDINAL_POSITION AS ORDINAL, COLUMN_NAME,
+            IFF(DATA_TYPE = 'NUMBER', 'NUMBER(' || NUMERIC_PRECISION || ',' || NUMERIC_SCALE || ')', DATA_TYPE) AS DATA_TYPE
+     FROM MARKETING_CRM.INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = 'STAGING'
+  +    AND TABLE_NAME NOT IN (SELECT VIEW_NAME FROM non_contract_objects)
+   ),
+   objects AS (
+     SELECT TABLE_NAME AS VIEW_NAME, TABLE_TYPE FROM MARKETING_CRM.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'STAGING'
+  @@ -152,17 +160,29 @@
+            END AS PROBLEM
+     FROM contract k
+     FULL OUTER JOIN actual a ON a.VIEW_NAME = k.VIEW_NAME AND a.COLUMN_NAME = k.COLUMN_NAME
+  -)
+  -SELECT c.VIEW_NAME, MAX(o.TABLE_TYPE) AS OBJECT_TYPE,
+  -       COUNT(c.CONTRACT_ORDINAL) AS CONTRACT_COLUMNS, COUNT(c.ACTUAL_ORDINAL) AS ACTUAL_COLUMNS,
+  -       COUNT(c.PROBLEM) AS PROBLEMS,
+  -       COALESCE(LISTAGG(c.PROBLEM, '; ') WITHIN GROUP (ORDER BY c.PROBLEM), '') AS PROBLEM_LIST,
+  -       IFF(MAX(o.TABLE_TYPE) = 'VIEW' AND COUNT(c.CONTRACT_ORDINAL) > 0 AND COUNT(c.PROBLEM) = 0, 'PASS', 'FAIL') AS STATUS
+  -FROM compared c
+  -LEFT JOIN objects o ON o.VIEW_NAME = c.VIEW_NAME
+  -GROUP BY c.VIEW_NAME
+  -ORDER BY STARTSWITH(c.VIEW_NAME, 'STG_CHALLENGE_'),
+  -         DECODE(REPLACE(c.VIEW_NAME, 'STG_CHALLENGE_', 'STG_'), 'STG_CAMPAIGNS', 1, 'STG_DAILY_SPEND', 2, 'STG_LEADS', 3, 4);
+  +),
+  +contract_rows AS (
+  +  SELECT c.VIEW_NAME, MAX(o.TABLE_TYPE) AS OBJECT_TYPE,
+  +         COUNT(c.CONTRACT_ORDINAL) AS CONTRACT_COLUMNS, COUNT(c.ACTUAL_ORDINAL) AS ACTUAL_COLUMNS,
+  +         COUNT(c.PROBLEM) AS PROBLEMS,
+  +         COALESCE(LISTAGG(c.PROBLEM, '; ') WITHIN GROUP (ORDER BY c.PROBLEM), '') AS PROBLEM_LIST,
+  +         IFF(MAX(o.TABLE_TYPE) = 'VIEW' AND COUNT(c.CONTRACT_ORDINAL) > 0 AND COUNT(c.PROBLEM) = 0, 'PASS', 'FAIL') AS STATUS
+  +  FROM compared c
+  +  LEFT JOIN objects o ON o.VIEW_NAME = c.VIEW_NAME
+  +  GROUP BY c.VIEW_NAME
+  +),
+  +non_contract_rows AS (   -- one row per seed table that exists; it must be a table
+  +  SELECT o.VIEW_NAME, o.TABLE_TYPE AS OBJECT_TYPE, 0 AS CONTRACT_COLUMNS, 0 AS ACTUAL_COLUMNS, 0 AS PROBLEMS,
+  +         'dbt seed (test input), not part of the contract' AS PROBLEM_LIST,
+  +         IFF(o.TABLE_TYPE = 'BASE TABLE', 'PASS', 'FAIL') AS STATUS
+  +  FROM objects o
+  +  JOIN non_contract_objects n ON n.VIEW_NAME = o.VIEW_NAME
+  +)
+  +SELECT VIEW_NAME, OBJECT_TYPE, CONTRACT_COLUMNS, ACTUAL_COLUMNS, PROBLEMS, PROBLEM_LIST, STATUS
+  +FROM (SELECT *, 0 AS IS_SEED FROM contract_rows UNION ALL SELECT *, 1 FROM non_contract_rows)
+  +ORDER BY IS_SEED, STARTSWITH(VIEW_NAME, 'STG_CHALLENGE_'),
+  +         DECODE(REPLACE(VIEW_NAME, 'STG_CHALLENGE_', 'STG_'), 'STG_CAMPAIGNS', 1, 'STG_DAILY_SPEND', 2, 'STG_LEADS', 3, 4),
+  +         VIEW_NAME;
+  
+  
+   -- -----------------------------------------------------------------------------
+
+E. Independent expected values (seeds) are reproducible (make seeds-check)
+--------------------------------------------------------------------------------------------
+  python3 scripts/independent_check.py --check   (Python csv + decimal from data/raw/source/*.csv)
+    OK    dbt/seeds/expected_campaign_kpi.csv: 120 rows, identical to a fresh computation
+    OK    dbt/seeds/expected_totals.csv: 29 rows, identical to a fresh computation
+    OK    dbt/seeds/publisher_channel_reference.csv: spend and attributed revenue of all 5 channels equal the CSV roll-up to the cent
+    totals:
+      campaigns=120, budget=5418642.16, spend_rows=11240, spend=4523050.02
+      impressions=436844819, clicks=7102319, budget_prorated=5418642.159820, leads=261684
+      sum_lead_score=13233637, converted_leads=39696, trials=23005, purchases=16691
+      revenue=21561839.01, trial_revenue=0.00, leads_without_conversion=221988, conversions_after_campaign_end=4716
+      revenue_after_campaign_end=2532266.74, conversions_later_month=13675, max_days_to_convert=21, mature_leads=261684
+      activity_spine_rows=13760, leads_low=104245, leads_medium=78862, leads_high=78577
+      converted_low=9505, converted_medium=12758, converted_high=17433, calendar_days=1096
+      calendar_weekend_days=313
+  dbt/seeds/expected_campaign_kpi.csv is byte-identical to the Phase 2 local baseline
+  (profiling p3-kpi-reconciliation/expected_campaign_kpi.csv, 2026-10-13): 120 campaigns x 13 columns.
+  mature_leads (leads created on or before 2025-12-10, i.e. as-of 2025-12-31 minus 21 days) is checked
+  against SUM(FCT_LEAD_CONVERSIONS.IS_MATURE) and SUM(MART_MONTHLY_COHORT.MATURE_LEADS).
+
+F. Lineage of the dbt project (from dbt/target/manifest.json after docs generate)
+--------------------------------------------------------------------------------------------
+  Model lineage (parents -> model [materialization, relation])
+    stg_campaigns                 [view     ] MARKETING_CRM.STAGING.stg_campaigns
+        <- source:raw.campaigns
+    stg_challenge_campaigns       [view     ] MARKETING_CRM.STAGING.stg_challenge_campaigns
+        <- source:raw.challenge_campaigns
+    stg_challenge_conversions     [view     ] MARKETING_CRM.STAGING.stg_challenge_conversions
+        <- source:raw.challenge_conversions
+    stg_challenge_daily_spend     [view     ] MARKETING_CRM.STAGING.stg_challenge_daily_spend
+        <- source:raw.challenge_daily_spend
+    stg_challenge_leads           [view     ] MARKETING_CRM.STAGING.stg_challenge_leads
+        <- source:raw.challenge_leads
+    stg_conversions               [view     ] MARKETING_CRM.STAGING.stg_conversions
+        <- source:raw.conversions
+    stg_daily_spend               [view     ] MARKETING_CRM.STAGING.stg_daily_spend
+        <- source:raw.daily_spend
+    stg_leads                     [view     ] MARKETING_CRM.STAGING.stg_leads
+        <- source:raw.leads
+    int_lead_conversions          [ephemeral] (ephemeral: no relation)
+        <- model:stg_campaigns, model:stg_conversions, model:stg_leads
+    dim_campaign                  [table    ] MARKETING_CRM.MART.dim_campaign
+        <- model:stg_campaigns
+    dim_date                      [table    ] MARKETING_CRM.MART.dim_date
+        <- (none: GENERATOR date spine from vars coverage_start..coverage_end)
+    fct_campaign_daily_activity   [table    ] MARKETING_CRM.MART.fct_campaign_daily_activity
+        <- model:dim_campaign, model:dim_date, model:fct_daily_spend, model:fct_lead_conversions
+    fct_daily_spend               [table    ] MARKETING_CRM.MART.fct_daily_spend
+        <- model:dim_campaign, model:stg_daily_spend
+    fct_lead_conversions          [table    ] MARKETING_CRM.MART.fct_lead_conversions
+        <- model:int_lead_conversions
+    mart_campaign_performance     [table    ] MARKETING_CRM.MART.mart_campaign_performance
+        <- model:dim_campaign, model:stg_conversions, model:stg_daily_spend, model:stg_leads
+    mart_channel_performance      [table    ] MARKETING_CRM.MART.mart_channel_performance
+        <- model:dim_campaign, model:fct_daily_spend, model:fct_lead_conversions
+    mart_lead_quality             [table    ] MARKETING_CRM.MART.mart_lead_quality
+        <- model:dim_campaign, model:fct_lead_conversions
+    mart_monthly_cohort           [table    ] MARKETING_CRM.MART.mart_monthly_cohort
+        <- model:dim_campaign, model:dim_date, model:fct_lead_conversions
+    mart_monthly_marketing        [table    ] MARKETING_CRM.MART.mart_monthly_marketing
+        <- model:dim_campaign, model:dim_date, model:fct_campaign_daily_activity
+
+  Exposures (downstream consumers):
+    data_studio_marketing_dashboard (dashboard) <- 10 models
+    phase4_sql_analyses (analysis) <- 14 models
+
+  Seeds: read only by tests:
+    expected_campaign_kpi        MARKETING_CRM.STAGING.expected_campaign_kpi  used by 5 tests, 0 models
+    expected_totals              MARKETING_CRM.STAGING.expected_totals  used by 11 tests, 0 models
+    publisher_channel_reference  MARKETING_CRM.STAGING.publisher_channel_reference  used by 3 tests, 0 models
+
+G. dbt test inventory (dbt/target/manifest.json); all passed in the build of step 2
+--------------------------------------------------------------------------------------------
+  not_null                                     97
+  dbt_utils.accepted_range                     36
+  accepted_values                              29
+  unique                                       25
+  dbt_utils.expression_is_true                 21
+  relationships                                16
+  singular (tests/*.sql)                       15
+  dbt_utils.unique_combination_of_columns       6
+  data tests, total                           245   (severity error 244, warn 1)
+  unit tests (unit_tests: in YAML)              7
+    fct_campaign_daily_activity::fct_campaign_daily_activity_spine_ends_at_end_date_plus_21
+    fct_lead_conversions::fct_lead_conversions_score_segment_boundaries_and_flags
+    mart_campaign_performance::mart_campaign_performance_zero_denominators_give_null
+    mart_channel_performance::mart_channel_performance_wilson_interval
+    stg_challenge_daily_spend::stg_challenge_daily_spend_fills_a_blank_date_only_when_one_day_fits
+    stg_conversions::stg_conversions_keeps_most_complete_copy_and_flags_duplicates
+    stg_leads::stg_leads_routes_dates_by_shape_and_flags_each_cell
+  dbt build: 19 models, 245 data tests, 3 seeds, 8 sources, 2 exposures, 684 macros, 7 unit tests
+
+H. Can the checks fail? Planted defects, 2026-10-14 (each file restored afterwards, byte-identical)
+--------------------------------------------------------------------------------------------
+  dbt test --select <model>,test_type:unit on a deliberately broken copy of the logic:
+    fct_lead_conversions IS_MATURE '<=' flipped to '>'      ERROR, actual differs from expected: all 10
+                                                            rows, e.g. LM1 1->0, LM0 0->1
+    fct_lead_conversions IS_MATURE '<=' changed to '<'      ERROR: LM1 (created 2025-12-10) 1->0
+    clean_daily_spend fill without PARTITION BY CAMPAIGN_ID ERROR: DSP0000007 NULL->2023-08-05 (neighbours
+                                                            from another campaign)
+    clean_daily_spend fill whenever a previous date exists  ERROR: DSP0000005 NULL->2023-08-02 (neighbours
+                                                            3 days apart, two candidate days)
+  The flipped predicate also breaks tests/marts/assert_control_totals_in_every_mart.sql once the table is
+  rebuilt: SUM(IS_MATURE) and SUM(MART_MONTHLY_COHORT.MATURE_LEADS) would be 0 against the seed's 261,684.
+  tests/marts/assert_campaign_attributes_match_independent_seed.sql, compiled, run against a seed copy with
+  CMP0001 relabelled 'video' and CMP0120 removed: 8 failing rows, both campaigns in all 4 models
+  (dim_campaign, fct_daily_spend, fct_lead_conversions, fct_campaign_daily_activity).
+  make parity-check: the 2 control rows of A.3.
+
+I. Wiring checks that need no Snowflake query (2026-10-14, after the runs above)
+--------------------------------------------------------------------------------------------
+  dbt parse renders the profile (every env_var) but opens no connection, so these could run after
+  RM_ACCOUNT_DAILY had used up its daily quota (at 17:40 UTC a dbt docs generate failed with
+  "Warehouse 'MARKETING_WH' cannot be resumed because resource monitor 'RM_ACCOUNT_DAILY' has
+  exceeded its quota"; the monitor resets at 00:00 UTC; docs/dbt.md, Cost).
+  I.1 The root .env supplies the profile. dbt-core 1.12.5 (site-packages dbt/cli/main.py) runs
+      load_dotenv(find_dotenv(usecwd=True), override=False): the first .env from the working
+      directory upward; variables already set in the shell win.
+        env -i HOME=$HOME PATH=/usr/bin:/bin .venv/bin/dbt parse --project-dir dbt --profiles-dir dbt ...
+          from the repository root                exit 0
+          from a directory outside the repository Parsing Error
+                                                    Env var required but not provided: 'SNOWFLAKE_ACCOUNT'
+  I.2 Deprecations are fatal. make dbt-parse and the parse step of make dbt-build now pass
+      --warn-error-options '{"error": ["Deprecations"]}' (a plain parse only warns and exits 0).
+        make dbt-parse on dbt/                                      exit 0 (0 deprecations)
+        a scratch copy of dbt/ with one planted deprecation (accepted_values with `values:` at the
+        top level instead of under `arguments:`):
+          dbt parse --no-partial-parse --show-all-deprecations       exit 0, [WARNING]
+                                                    MissingArgumentsPropertyInGenericTestDeprecation
+          make dbt-parse (the same parse + the option above)         exit 2, Compilation Error:
+                                                    Invalid generic test configuration (same deprecation)
+  I.3 Lineage. python scripts/dbt_lineage.py --check: "OK    docs/lineage.md matches the manifest".
+      The 40 edges of the model diagram in docs/lineage.md (34 between sources and models, 6 to the
+      exposures) equal the depends_on of dbt/target/manifest.json, none missing, none extra; both
+      Mermaid diagrams parse and render with mermaid 11.4.1. dbt ls: 19 models, 245 data tests,
+      8 sources, 7 unit tests, 3 seeds, 2 exposures. The test inventory recomputed from the
+      manifest equals section G, including 8 tests on RAW source columns and 7 on seed columns.
+
+== J. CRM_REPORTER access to the dbt-built MART tables (2026-10-14, ~18:07 UTC, after the RM_ACCOUNT_DAILY quota was raised to 4)
+Connected as SVC_CRM_BI with role CRM_REPORTER (key-pair), SELECT COUNT(*) per table:
+PASS DIM_DATE 1096
+PASS DIM_CAMPAIGN 120
+PASS FCT_DAILY_SPEND 11240
+PASS FCT_LEAD_CONVERSIONS 261684
+PASS MART_CAMPAIGN_PERFORMANCE 120
+PASS FCT_CAMPAIGN_DAILY_ACTIVITY 13760
+PASS MART_MONTHLY_MARKETING 180
+PASS MART_MONTHLY_COHORT 180
+PASS MART_CHANNEL_PERFORMANCE 5
+PASS MART_LEAD_QUALITY 50
+PASS CONNECTION_TEST 159
+PASS blocked STAGING.STG_LEADS (002003: schema not visible to CRM_REPORTER)
+PASS blocked RAW.LEADS (002003: schema not visible to CRM_REPORTER)
+SUM(SPEND) of MART_CHANNEL_PERFORMANCE read by SVC_CRM_BI: 4523050.02
+Result: 11 of 11 MART tables readable through the MART future grants; RAW and STAGING stay hidden.

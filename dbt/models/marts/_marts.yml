@@ -1,0 +1,882 @@
+# Mart models: 11 permanent tables in MARKETING_CRM.MART, the tables Data Studio and the
+# Phase 4 analyses (sql/03-06) read. For the 10 tables of the Phase 3-4 SQL build, every column
+# description is that build's column COMMENT, copied verbatim; mart_conversion_funnel (Phase 6,
+# last below) has no SQL twin. persist_docs writes every description back to Snowflake.
+# Model descriptions are the table comments of the SQL build, with the last sentence naming
+# the dbt model that now builds the table (and, for fct_lead_conversions, the Source sentence
+# naming the ephemeral int_lead_conversions). Tests: keys, grain, relationships to dim_campaign
+# and dim_date, accepted values, rates in 0..1; unit tests in _marts_unit_tests.yml, singular
+# tests against the independent seeds in tests/marts/.
+
+models:
+  - name: dim_date
+    description: "Calendar dimension. Grain: one row per DATE_DAY, gap-free 2023-01-01..2025-12-31 = the documented dataset coverage (1,096 days, incl. 32 days without spend). ISO weeks start on Monday. Built by dbt (models/marts/dim_date.sql, ported from sql/02b_core_models.sql)."
+    columns:
+      - name: date_day
+        description: "Calendar day (PK). Gap-free 2023-01-01..2025-12-31, the documented dataset coverage. Join key for SPEND_DATE, CREATED_DATE, CONVERTED_DATE."
+        data_tests:
+          - unique
+          - not_null
+      - name: year
+        description: "Calendar year of DATE_DAY."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [2023, 2024, 2025]
+                quote: false
+      - name: quarter
+        description: "Calendar quarter of DATE_DAY, 1-4."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 4
+      - name: month_start
+        description: "First day of the month of DATE_DAY. Join key for the month columns SPEND_MONTH, CREATED_MONTH, CONVERTED_MONTH."
+        data_tests:
+          - not_null
+      - name: month_name
+        description: "Full English month name, e.g. January."
+      - name: week_start
+        description: "Monday of the ISO week of DATE_DAY (from DAYOFWEEKISO, independent of the WEEK_START session parameter). The first week starts 2022-12-26, before the spine."
+      - name: day_of_week_iso
+        description: "ISO day of week: 1 = Monday ... 7 = Sunday."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 7
+      - name: day_name
+        description: "Full English day name, e.g. Monday."
+      - name: is_weekend
+        description: "TRUE on Saturday and Sunday (DAY_OF_WEEK_ISO 6 or 7). A filter attribute, not a measure."
+        data_tests:
+          - not_null
+
+  - name: dim_campaign
+    description: "Campaign dimension. Grain: one row per CAMPAIGN_ID (120 rows). Source: STAGING.STG_CAMPAIGNS (clean release). CHANNEL here is the canonical channel dimension. BUDGET is per campaign window: additive across campaigns, not across dates. Built by dbt (models/marts/dim_campaign.sql, ported from sql/02b_core_models.sql)."
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "end_date >= start_date"
+    columns:
+      - name: campaign_id
+        description: "Campaign key (PK), e.g. CMP0001."
+        data_tests:
+          - unique
+          - not_null
+      - name: campaign_name
+        description: "Campaign name, unique (alternate key), e.g. Paid Search 2023 001."
+        data_tests:
+          - unique
+          - not_null
+      - name: channel
+        description: "Marketing channel: affiliate, display, paid_search, paid_social, video. The canonical channel dimension of every MART table (leads.lead_source only duplicates it)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: objective
+        description: "Campaign objective: acquisition, awareness, lead_gen. Partly confounded with channel (display is 17 of 24 lead_gen), so compare objectives within a channel."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [acquisition, awareness, lead_gen]
+      - name: start_date
+        description: "First day of the campaign window."
+        data_tests:
+          - not_null
+      - name: end_date
+        description: "Last day of the campaign window. Conversions of its leads can land up to 21 days later."
+        data_tests:
+          - not_null
+      - name: campaign_days
+        description: "Window length in days, END_DATE - START_DATE + 1; equals the number of spend rows of the campaign."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+      - name: budget
+        description: "Budget for the whole campaign window. Additive across campaigns, not across dates: for budget totals by month or year use FCT_DAILY_SPEND.BUDGET_PRORATED."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: start_year
+        description: "Year of START_DATE (campaigns can run into the next year)."
+      - name: start_month
+        description: "First day of the month of START_DATE."
+
+  - name: fct_daily_spend
+    description: "Delivery fact. Grain: one row per campaign per active day = SPEND_ID (11,240 rows), unique on (CAMPAIGN_ID, SPEND_DATE). Source: STAGING.STG_DAILY_SPEND + DIM_CAMPAIGN (n:1). Additive: IMPRESSIONS, CLICKS, SPEND, BUDGET_PRORATED (= BUDGET / CAMPAIGN_DAYS, rounded once to 6 dp; a planned budget, not a utilisation base below whole campaigns). Ratios must be SUM / SUM. Built by dbt (models/marts/fct_daily_spend.sql, ported from sql/02b_core_models.sql)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [campaign_id, spend_date]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "clicks <= impressions"
+    columns:
+      - name: spend_id
+        description: "Spend row key (PK). One row per campaign per active day; (CAMPAIGN_ID, SPEND_DATE) is unique."
+        data_tests:
+          - unique
+          - not_null
+      - name: campaign_id
+        description: "Campaign (FK to DIM_CAMPAIGN)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_campaign')
+                field: campaign_id
+      - name: spend_date
+        description: "Activity date (FK to DIM_DATE.DATE_DAY)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: spend_month
+        description: "Activity month: first day of the month of SPEND_DATE."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: month_start
+      - name: channel
+        description: "Channel of the campaign, copied from DIM_CAMPAIGN (many rows to one campaign: no fan-out)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: objective
+        description: "Objective of the campaign, copied from DIM_CAMPAIGN."
+        data_tests:
+          - not_null
+      - name: impressions
+        description: "Impressions delivered on the day. Additive."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: clicks
+        description: "Clicks on the day. Additive. CTR = SUM(CLICKS) / SUM(IMPRESSIONS)."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: spend
+        description: "Media spend on the day. Additive; total 4,523,050.02. CPC = SUM(SPEND) / SUM(CLICKS)."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: budget_prorated
+        description: "Campaign BUDGET / CAMPAIGN_DAYS, rounded once to 6 dp: the budget spread evenly over the window days. For budget totals by month or year only; sums back to each campaign budget within 0.01. An even spread is an assumption, not observed pacing: do not report SPEND / BUDGET_PRORATED below whole campaigns as budget utilisation (by campaign x month it exceeds 1 although no campaign overspends). Use MART_CAMPAIGN_PERFORMANCE.BUDGET_UTILIZATION, or SUM(SPEND) / SUM(BUDGET) over whole campaigns."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+
+  - name: fct_lead_conversions
+    description: "Lead-cohort fact. Grain: one row per LEAD_ID (261,684 rows). Source: int_lead_conversions (ephemeral) = STAGING.STG_LEADS LEFT JOIN STG_CONVERSIONS (1:0..1 on LEAD_ID) + the campaign attributes of STG_CAMPAIGNS (n:1; the same values as DIM_CAMPAIGN, tested). Cohort KPIs group by CREATED_MONTH; CONVERTED_MONTH is the activity month; never mix the two on one axis. Flags are 0/1 so they SUM; REVENUE is 0.00 when not converted. AS_OF_DATE 2025-12-31 is an assumption. Built by dbt (models/marts/fct_lead_conversions.sql, ported from sql/02b_core_models.sql)."
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "is_trial + is_purchase = is_converted"
+      - dbt_utils.expression_is_true:
+          name: fct_lead_conversions_flag_matches_conversion_id
+          arguments:
+            expression: "(is_converted = 1) = (conversion_id is not null)"
+      - dbt_utils.expression_is_true:
+          name: fct_lead_conversions_revenue_only_on_purchases
+          arguments:
+            expression: "revenue = 0"
+          config:
+            where: "is_purchase = 0"
+    columns:
+      - name: lead_id
+        description: "Lead key (PK). One row per lead, converted or not."
+        data_tests:
+          - unique
+          - not_null
+      - name: campaign_id
+        description: "Campaign the lead is attributed to (FK to DIM_CAMPAIGN)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_campaign')
+                field: campaign_id
+      - name: channel
+        description: "Channel of the campaign, from DIM_CAMPAIGN. Use this, not LEAD_SOURCE."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: objective
+        description: "Objective of the campaign, from DIM_CAMPAIGN."
+      - name: created_date
+        description: "Date the lead was created (FK to DIM_DATE.DATE_DAY). The first date column, so Data Studio may use it as the default date-range dimension: a date-range control then filters leads by cohort (creation date), also on a chart of CONVERTED_MONTH. To count conversions by when they happened in a date range, set the date-range dimension to CONVERTED_DATE."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: created_month
+        description: "Lead cohort month: first day of the month of CREATED_DATE. Cohort KPIs (conversion rate of the leads created in a month) group by this."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: month_start
+      - name: lead_source
+        description: "Lead source as delivered by the source system; equals CHANNEL for every lead today. Kept for lineage; use CHANNEL."
+      - name: lead_score
+        description: "Lead score 1-100. How it is produced is undocumented; it is not assumed to predict conversion."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 100
+      - name: lead_score_segment
+        description: "Score band: Low (1-40), Medium (41-70), High (71-100)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [Low, Medium, High]
+      - name: conversion_id
+        description: "Conversion key; NULL if the lead never converted (a lead converts at most once)."
+        data_tests:
+          - unique
+      - name: converted_date
+        description: "Conversion date (FK to DIM_DATE.DATE_DAY); NULL if not converted."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: converted_month
+        description: "Activity month of the conversion; NULL if not converted. Never put it on one axis with CREATED_MONTH."
+      - name: conversion_type
+        description: "trial or purchase; NULL if not converted."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [trial, purchase]
+      - name: is_converted
+        description: "1 if the lead converted (trial or purchase), else 0. SUM = converted leads; SUM / COUNT(LEAD_ID) = lead conversion rate."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: is_trial
+        description: "1 if the lead converted to a trial, else 0."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: is_purchase
+        description: "1 if the lead converted to a purchase, else 0. SUM / COUNT(LEAD_ID) = purchase rate."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: revenue
+        description: "Last-touch attributed revenue; 0.00 for trials and unconverted leads, so it sums. SUM / COUNT(LEAD_ID) = revenue per lead."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: days_to_convert
+        description: "DATEDIFF(day, CREATED_DATE, CONVERTED_DATE), 0-21; NULL if not converted, so AVG covers converted leads only."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 21
+      - name: converted_after_campaign_end
+        description: "1 if CONVERTED_DATE is after the campaign END_DATE (up to 21 days), else 0. A campaign-window filter would drop these conversions."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: as_of_date
+        description: "Assumed as-of date, 2025-12-31 (end of the documented coverage). An assumption: the data alone does not prove the youngest cohorts complete."
+        data_tests:
+          - not_null
+      - name: is_mature
+        description: "1 if CREATED_DATE <= AS_OF_DATE - 21 days (the observed maximum lag), i.e. the lead has had its full conversion window; else 0."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+  - name: mart_campaign_performance
+    description: "Campaign KPI table. Grain: one row per CAMPAIGN_ID (120 rows). Spend (STG_DAILY_SPEND), leads (STG_LEADS) and conversions (STG_CONVERSIONS via their lead) are each aggregated to the campaign FIRST, then joined 1:1 to DIM_CAMPAIGN, so nothing is double counted. Ratio columns are valid only at campaign grain; aggregate with SUM(numerator) / SUM(denominator) of the base columns. The date columns (START_*, END_DATE) are campaign attributes, not activity dates: a date-range control, year filter or time axis on them puts a whole campaign at its start. Use this table without a date-range dimension (fixed full range); time series come from FCT_DAILY_SPEND and FCT_LEAD_CONVERSIONS. Built by dbt (models/marts/mart_campaign_performance.sql, ported from sql/02b_core_models.sql)."
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "trials + purchases = converted_leads"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "converted_leads <= leads"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "spend <= budget"
+    columns:
+      - name: campaign_id
+        description: "Campaign key (PK)."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_campaign')
+                field: campaign_id
+      - name: campaign_name
+        description: "Campaign name (from DIM_CAMPAIGN)."
+      - name: channel
+        description: "Canonical channel (from DIM_CAMPAIGN)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: objective
+        description: "Campaign objective (from DIM_CAMPAIGN)."
+      - name: start_date
+        description: "First day of the campaign window. A campaign attribute, not an activity date: filtering or grouping by it puts the whole campaign at its start. Leave the date-range dimension of this table unset; for time series use FCT_DAILY_SPEND.SPEND_MONTH / FCT_LEAD_CONVERSIONS."
+      - name: end_date
+        description: "Last day of the campaign window. A campaign attribute, not an activity date (see START_DATE)."
+      - name: campaign_days
+        description: "Window length in days, END_DATE - START_DATE + 1."
+      - name: start_year
+        description: "Year of START_DATE. A campaign attribute, not an activity year: filtering by it assigns a whole campaign (spend, leads, revenue) to its start year, and 23 campaigns run into the next year. For activity by year use FCT_DAILY_SPEND.SPEND_DATE / FCT_LEAD_CONVERSIONS."
+      - name: start_month
+        description: "First day of the month of START_DATE. A campaign attribute, not an activity month: a time axis on it puts a whole campaign at its start. For time series use FCT_DAILY_SPEND.SPEND_MONTH / FCT_LEAD_CONVERSIONS."
+      - name: budget
+        description: "Campaign budget for the whole window. Additive across campaigns."
+      - name: spend_days
+        description: "Number of spend rows (active days) of the campaign. Additive."
+      - name: impressions
+        description: "Sum of daily impressions. Additive."
+      - name: clicks
+        description: "Sum of daily clicks. Additive."
+      - name: spend
+        description: "Sum of daily spend. Additive; total 4,523,050.02."
+        data_tests:
+          - not_null
+      - name: leads
+        description: "Number of leads attributed to the campaign. Additive."
+        data_tests:
+          - not_null
+      - name: converted_leads
+        description: "Leads that converted (trial or purchase). Additive."
+      - name: trials
+        description: "Leads that converted to a trial. Additive."
+      - name: purchases
+        description: "Leads that converted to a purchase. Additive."
+      - name: revenue
+        description: "Last-touch attributed revenue of the campaign leads. Additive; total 21,561,839.01."
+        data_tests:
+          - not_null
+      - name: ctr
+        description: "CLICKS / IMPRESSIONS, campaign grain only (6 dp). Aggregate as SUM(CLICKS) / SUM(IMPRESSIONS)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: click_to_lead_rate
+        description: "LEADS / CLICKS, campaign grain only (6 dp). Aggregate as SUM(LEADS) / SUM(CLICKS)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: lead_conversion_rate
+        description: "CONVERTED_LEADS / LEADS, campaign grain only (6 dp). Aggregate as SUM(CONVERTED_LEADS) / SUM(LEADS)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: purchase_rate
+        description: "PURCHASES / LEADS, campaign grain only (6 dp). Aggregate as SUM(PURCHASES) / SUM(LEADS)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: cost_per_lead
+        description: "SPEND / LEADS, campaign grain only (4 dp). Aggregate as SUM(SPEND) / SUM(LEADS)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: cost_per_conversion
+        description: "SPEND / CONVERTED_LEADS, campaign grain only (4 dp). Aggregate as SUM(SPEND) / SUM(CONVERTED_LEADS)."
+      - name: cost_per_purchase
+        description: "SPEND / PURCHASES, campaign grain only (4 dp). Aggregate as SUM(SPEND) / SUM(PURCHASES)."
+      - name: roas
+        description: "REVENUE / SPEND (attributed, not causal), campaign grain only (6 dp). Aggregate as SUM(REVENUE) / SUM(SPEND)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: budget_utilization
+        description: "SPEND / BUDGET, campaign grain only (6 dp). Aggregate as SUM(SPEND) / SUM(BUDGET) over whole campaigns only."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+  - name: fct_campaign_daily_activity
+    description: "Activity fact. Grain: one row per CAMPAIGN_ID x ACTIVITY_DATE on a spine from START_DATE to END_DATE + 21 days (the observed maximum lag), clipped at 2025-12-31 (13,760 rows: 11,240 flight days + 120 x 21 post-flight days). Delivery and budget by spend date, leads by created date, conversions and revenue by converted date: each aggregated to campaign x date first, then joined 1:1 to the spine. IS_IN_FLIGHT = 0 rows carry the 4,716 conversions after a campaign ended, and 0 spend. Activity basis: never divide CONVERSIONS by LEADS here (use MART_MONTHLY_COHORT for conversion rates). Ratios as SUM / SUM. Built by dbt (models/marts/fct_campaign_daily_activity.sql, ported from sql/02c_analysis_marts.sql)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [campaign_id, activity_date]
+      - dbt_utils.expression_is_true:
+          name: fct_campaign_daily_activity_no_delivery_after_flight
+          arguments:
+            expression: "spend = 0 and impressions = 0 and clicks = 0 and budget_prorated = 0"
+          config:
+            where: "is_in_flight = 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "trials + purchases = conversions"
+    columns:
+      - name: campaign_id
+        description: "Campaign (FK to DIM_CAMPAIGN). Grain key with ACTIVITY_DATE."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_campaign')
+                field: campaign_id
+      - name: activity_date
+        description: "Calendar day (FK to DIM_DATE.DATE_DAY), from START_DATE to END_DATE + 21 days of the campaign (clipped at 2025-12-31; nothing is clipped today). Grain key with CAMPAIGN_ID."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: activity_month
+        description: "Activity month: first day of the month of ACTIVITY_DATE."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: month_start
+      - name: channel
+        description: "Channel of the campaign, from DIM_CAMPAIGN."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: objective
+        description: "Objective of the campaign, from DIM_CAMPAIGN."
+      - name: is_in_flight
+        description: "1 if START_DATE <= ACTIVITY_DATE <= END_DATE (a flight day, which always has a spend row), 0 for the 21 days after the flight. 0/1, so SUM = flight days."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: impressions
+        description: "Impressions delivered on the day (by spend date); 0 after the flight. Additive."
+      - name: clicks
+        description: "Clicks on the day (by spend date); 0 after the flight. Additive. CTR = SUM(CLICKS) / SUM(IMPRESSIONS)."
+      - name: spend
+        description: "Media spend on the day (by spend date); 0 after the flight. Additive; total 4,523,050.02."
+      - name: budget_prorated
+        description: "FCT_DAILY_SPEND.BUDGET_PRORATED (campaign BUDGET / CAMPAIGN_DAYS, 6 dp) on flight days, 0 after the flight: the planned budget of the day. Additive across days and campaigns; total 5,418,642.159820. An even spread is an assumption, not observed pacing: not a utilisation base below whole campaigns."
+      - name: leads
+        description: "Leads created on the day for the campaign (by created date). Additive."
+      - name: conversions
+        description: "Conversions (trial or purchase) booked on the day (by converted date) for leads of the campaign; they can land up to 21 days after the flight. Additive. Activity basis: a conversion rate must come from MART_MONTHLY_COHORT, not from CONVERSIONS / LEADS of the same days."
+      - name: trials
+        description: "Conversions to a trial booked on the day. Additive. A parallel outcome to PURCHASES, not a funnel stage before it."
+      - name: purchases
+        description: "Conversions to a purchase booked on the day. Additive."
+      - name: revenue
+        description: "Last-touch attributed revenue booked on the day (by converted date); 0.00 for trials. Additive; total 21,561,839.01. ROAS = SUM(REVENUE) / SUM(SPEND), attributed, not causal."
+
+  - name: mart_monthly_marketing
+    description: "Monthly activity mart. Grain: one row per MONTH_START x CHANNEL, all 36 months (2023-01..2025-12) x 5 channels = 180 rows, zeros where nothing happened. ACTIVITY basis: spend by spend date, leads by created date, conversions and revenue by converted date (a conversion counts in the month it happened). Never blend with MART_MONTHLY_COHORT on one date axis, and never divide CONVERSIONS by LEADS here (not a conversion rate). ACTIVE_CAMPAIGNS = campaigns in flight on at least 1 day of the month: additive across channels, not across months. Additive bases only; ratios as SUM / SUM. Built by dbt (models/marts/mart_monthly_marketing.sql, ported from sql/02c_analysis_marts.sql)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [month_start, channel]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "trials + purchases = conversions"
+    columns:
+      - name: month_start
+        description: "Activity month (first day of the month), 2023-01-01..2025-12-01; FK to DIM_DATE.MONTH_START. Grain key with CHANNEL. Never put on one axis with MART_MONTHLY_COHORT.COHORT_MONTH."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: month_start
+      - name: channel
+        description: "Canonical channel (from DIM_CAMPAIGN). Grain key with MONTH_START."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: active_campaigns
+        description: "Campaigns of the channel in flight on at least 1 day of the month (distinct count). Additive across channels within a month, NOT across months (a campaign counts in every month it runs): SUM over months gives campaign-months. Read every volume next to it."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: spend
+        description: "Spend in the month (by spend date). Additive; total 4,523,050.02."
+      - name: impressions
+        description: "Impressions in the month (by spend date). Additive."
+      - name: clicks
+        description: "Clicks in the month (by spend date). Additive. CTR = SUM(CLICKS) / SUM(IMPRESSIONS), CPC = SUM(SPEND) / SUM(CLICKS)."
+      - name: leads
+        description: "Leads created in the month (by created date). Additive. CPL = SUM(SPEND) / SUM(LEADS)."
+      - name: conversions
+        description: "Conversions (trial or purchase) that happened in the month (by converted date), whenever their lead was created. Additive; total 39,696. NOT a numerator for LEADS of the same month: for conversion rates use MART_MONTHLY_COHORT."
+      - name: trials
+        description: "Conversions to a trial in the month (by converted date). Additive."
+      - name: purchases
+        description: "Conversions to a purchase in the month (by converted date). Additive."
+      - name: revenue
+        description: "Last-touch attributed revenue booked in the month (by converted date). Additive; total 21,561,839.01. SUM(REVENUE) / SUM(SPEND) is activity-basis ROAS (attributed, not causal)."
+      - name: budget_prorated
+        description: "Planned budget of the month: SUM of FCT_DAILY_SPEND.BUDGET_PRORATED over its flight days. Additive across months and channels; total 5,418,642.159820. An even spread is an assumption: SPEND / BUDGET_PRORATED of a month is pacing against that assumption, not budget utilisation."
+
+  - name: mart_monthly_cohort
+    description: "Monthly lead-cohort mart. Grain: one row per COHORT_MONTH x CHANNEL, all 36 months x 5 channels = 180 rows, zeros where no leads were created. LEAD-COHORT basis: the leads created in COHORT_MONTH and what they later did (conversions are counted in the month their lead was created, wherever they landed). Never blend with MART_MONTHLY_MARKETING (activity basis) on one date axis. Cohort conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS); mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS); cross-month share = SUM(CONVERTED_LATER_MONTH) / SUM(CONVERTED_LEADS). Additive bases only. Built by dbt (models/marts/mart_monthly_cohort.sql, ported from sql/02c_analysis_marts.sql)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [cohort_month, channel]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "converted_same_month + converted_later_month = converted_leads"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "converted_leads <= leads"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "mature_leads <= leads"
+    columns:
+      - name: cohort_month
+        description: "Lead cohort month: the month the leads were created (FCT_LEAD_CONVERSIONS.CREATED_MONTH), 2023-01-01..2025-12-01. Grain key with CHANNEL. Never put on one axis with MART_MONTHLY_MARKETING.MONTH_START."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: month_start
+      - name: channel
+        description: "Canonical channel (from DIM_CAMPAIGN). Grain key with COHORT_MONTH."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: leads
+        description: "Leads created in the cohort month. Additive; total 261,684. The denominator of the cohort conversion rate."
+      - name: converted_leads
+        description: "Leads of the cohort that converted (trial or purchase), whenever the conversion happened. Additive; total 39,696. Cohort conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS)."
+      - name: trials
+        description: "Leads of the cohort that converted to a trial. Additive."
+      - name: purchases
+        description: "Leads of the cohort that converted to a purchase. Additive. Purchase rate = SUM(PURCHASES) / SUM(LEADS)."
+      - name: revenue
+        description: "Last-touch attributed revenue of the leads of the cohort. Additive; total 21,561,839.01. Revenue per lead = SUM(REVENUE) / SUM(LEADS)."
+      - name: converted_same_month
+        description: "Converted leads of the cohort whose conversion landed in the cohort month. Additive. CONVERTED_SAME_MONTH + CONVERTED_LATER_MONTH = CONVERTED_LEADS."
+      - name: converted_later_month
+        description: "Converted leads of the cohort whose conversion landed in a later month (13,675 in total). Additive. Cross-month share = SUM(CONVERTED_LATER_MONTH) / SUM(CONVERTED_LEADS): the reason activity and cohort months differ."
+      - name: sum_days_to_convert
+        description: "Sum of DAYS_TO_CONVERT over the converted leads of the cohort (0 if none). Additive. Mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS)."
+      - name: mature_leads
+        description: "Leads of the cohort created at least 21 days before the assumed as-of date 2025-12-31 (SUM of FCT_LEAD_CONVERSIONS.IS_MATURE). Equals LEADS in every row under the assumption; a cohort with MATURE_LEADS < LEADS would still be converting."
+
+  - name: mart_channel_performance
+    description: "Channel scorecard. Grain: one row per CHANNEL (5 rows), full date range 2023-01-01..2025-12-31, no date dimension. Campaigns/budget (DIM_CAMPAIGN), delivery and spend (FCT_DAILY_SPEND) and leads/conversions/revenue (FCT_LEAD_CONVERSIONS) are each aggregated to the channel first, then joined 1:1. Ratio columns are valid at channel grain only (aggregate across channels as SUM / SUM of the bases). ROAS is last-touch attributed revenue / spend, not causal. LCR_CI_LOW / LCR_CI_HIGH: Wilson 95% interval of LEAD_CONVERSION_RATE (sampling noise only). The funnel is an aggregate campaign funnel, not a person journey. Synthetic data. Built by dbt (models/marts/mart_channel_performance.sql, ported from sql/02c_analysis_marts.sql)."
+    data_tests:
+      - dbt_utils.expression_is_true:
+          name: mart_channel_performance_wilson_interval_contains_rate
+          arguments:
+            expression: "lcr_ci_low <= lead_conversion_rate and lead_conversion_rate <= lcr_ci_high"
+    columns:
+      - name: channel
+        description: "Canonical channel (PK): affiliate, display, paid_search, paid_social, video."
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: campaigns
+        description: "Campaigns of the channel (24 each). Additive."
+      - name: budget
+        description: "Sum of the campaign budgets of the channel (whole campaigns). Additive across channels."
+      - name: spend
+        description: "Spend, full range. Additive; equals the publisher reference per channel."
+      - name: impressions
+        description: "Impressions, full range. Additive."
+      - name: clicks
+        description: "Clicks, full range. Additive."
+      - name: leads
+        description: "Leads, full range. Additive."
+      - name: converted_leads
+        description: "Leads that converted (trial or purchase). Additive. TRIALS + PURCHASES = CONVERTED_LEADS."
+      - name: trials
+        description: "Leads that converted to a trial. Additive. Parallel to PURCHASES, not a stage before it (a lead converts once)."
+      - name: purchases
+        description: "Leads that converted to a purchase. Additive."
+      - name: revenue
+        description: "Last-touch attributed revenue, full range. Additive; equals the publisher reference per channel."
+      - name: ctr
+        description: "CLICKS / IMPRESSIONS, channel grain only (6 dp). Across channels: SUM(CLICKS) / SUM(IMPRESSIONS)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: click_to_lead_rate
+        description: "LEADS / CLICKS, channel grain only (6 dp). Aggregate funnel ratio of two different units, not a per-person probability."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: lead_conversion_rate
+        description: "CONVERTED_LEADS / LEADS, channel grain only (6 dp). Across channels: SUM(CONVERTED_LEADS) / SUM(LEADS). Interval: LCR_CI_LOW .. LCR_CI_HIGH."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: purchase_rate
+        description: "PURCHASES / LEADS, channel grain only (6 dp)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: cost_per_lead
+        description: "SPEND / LEADS, channel grain only (4 dp). Across channels: SUM(SPEND) / SUM(LEADS)."
+      - name: cost_per_conversion
+        description: "SPEND / CONVERTED_LEADS, channel grain only (4 dp)."
+      - name: cost_per_purchase
+        description: "SPEND / PURCHASES, channel grain only (4 dp)."
+      - name: roas
+        description: "REVENUE / SPEND, channel grain only (6 dp). Last-touch attributed revenue per unit of spend: describes attribution, not the causal return of the spend."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: budget_utilization
+        description: "SPEND / BUDGET, channel grain only (6 dp); valid because a channel holds whole campaigns over the full range."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: cpc
+        description: "Cost per click, SPEND / CLICKS, channel grain only (4 dp)."
+      - name: cpm
+        description: "Cost per 1,000 impressions, SPEND x 1000 / IMPRESSIONS, channel grain only (4 dp). Near-round per channel: a property of the synthetic generator, not a market price."
+      - name: spend_share
+        description: "SPEND / total SPEND of the 5 channels (6 dp, rounded per row, so the shares need not sum to exactly 1)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: leads_share
+        description: "LEADS / total LEADS of the 5 channels (6 dp, rounded per row)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: revenue_share
+        description: "REVENUE / total REVENUE of the 5 channels (6 dp, rounded per row). Attributed revenue."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: lcr_ci_low
+        description: "Lower bound of the Wilson 95% interval of LEAD_CONVERSION_RATE (z = 1.959964, 6 dp). Channel grain only; not additive, never SUM or AVG across channels (recompute the interval from SUM(CONVERTED_LEADS), SUM(LEADS)). Sampling noise only, assuming independent leads; overlapping intervals are not a formal test."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: lcr_ci_high
+        description: "Upper bound of the Wilson 95% interval of LEAD_CONVERSION_RATE (z = 1.959964, 6 dp). Channel grain only; not additive, never SUM or AVG across channels (recompute the interval from SUM(CONVERTED_LEADS), SUM(LEADS))."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+  - name: mart_lead_quality
+    description: "Lead quality mart. Grain: one row per CHANNEL x SCORE_BAND, 5 channels x 10 bands of 10 score points (01-10 .. 91-100) = 50 rows. Bands align with the segments Low 1-40 / Medium 41-70 / High 71-100 (LEAD_SCORE_SEGMENT), so the table rolls up to segment, band or channel with SUM. Conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS); average score = SUM(SUM_LEAD_SCORE) / SUM(LEADS); mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS). Association only: how the score is produced is undocumented, and it is not assumed to predict conversion. Built by dbt (models/marts/mart_lead_quality.sql, ported from sql/02c_analysis_marts.sql)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [channel, score_band]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "converted_leads <= leads"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "score_band_min <= score_band_max"
+    columns:
+      - name: channel
+        description: "Canonical channel (from DIM_CAMPAIGN). Grain key with SCORE_BAND."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: score_band
+        description: "Lead score band of 10 points, zero-padded so it sorts as text: 01-10, 11-20, ..., 91-100. Grain key with CHANNEL."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['01-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100']
+      - name: score_band_min
+        description: "Lowest score of the band (1, 11, ..., 91). Attribute: group or sort by it, never SUM (a numeric field defaults to SUM in Data Studio; over 5 channels that shows 5 x the edge)."
+      - name: score_band_max
+        description: "Highest score of the band (10, 20, ..., 100). Attribute: group or sort by it, never SUM (a numeric field defaults to SUM in Data Studio)."
+      - name: lead_score_segment
+        description: "Plan segment of the band: Low (1-40), Medium (41-70), High (71-100); bands never straddle a cut-off, so SUM by segment is exact."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [Low, Medium, High]
+      - name: leads
+        description: "Leads of the channel with a score in the band. Additive; total 261,684."
+      - name: sum_lead_score
+        description: "Sum of LEAD_SCORE of those leads. Additive. Average score = SUM(SUM_LEAD_SCORE) / SUM(LEADS)."
+      - name: converted_leads
+        description: "Leads of the band that converted (trial or purchase). Additive. Conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS): association with the score, not evidence that the score predicts conversion."
+      - name: trials
+        description: "Leads of the band that converted to a trial. Additive."
+      - name: purchases
+        description: "Leads of the band that converted to a purchase. Additive."
+      - name: revenue
+        description: "Last-touch attributed revenue of the leads of the band. Additive."
+      - name: sum_days_to_convert
+        description: "Sum of DAYS_TO_CONVERT over the converted leads of the band (0 if none). Additive. Mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS)."
+
+  # Phase 6: the plan's mart_conversion_funnel, added for the Data Studio funnel chart. It has no
+  # hand-written SQL twin, so its descriptions are written here, not copied from sql/02*.sql.
+  - name: mart_conversion_funnel
+    description: "Conversion funnel in long format for the dashboard funnel chart. Grain: one row per CHANNEL x STAGE_ORDER, 5 channels x 5 stages (1 Impressions, 2 Clicks, 3 Leads, 4 Converted leads, 5 Purchases) = 25 rows, full range 2023-01-01..2025-12-31, no date dimension. Built from MART_CHANNEL_PERFORMANCE, so each stage adds up to the known total over the 5 channels (impressions 436,844,819; clicks 7,102,319; leads 261,684; converted leads 39,696; purchases 16,691). Chart it with STAGE as the dimension (or a STAGE filter): STAGE_VALUE is additive across channels, never across stages (different units). PREV_STAGE_VALUE and TOP_OF_FUNNEL_VALUE are additive across channels too, so stage conversion = SUM(STAGE_VALUE) / SUM(PREV_STAGE_VALUE) and share of top of funnel = SUM(STAGE_VALUE) / SUM(TOP_OF_FUNNEL_VALUE) are correct at any channel filter. No ratio is stored and there is no 'ALL' channel row (it would double count every SUM). An aggregate campaign funnel, not a per-person journey: converted leads = trials + purchases (a lead converts at most once), and Purchases is the subset of converted leads that converted to a purchase, not a later step for the same person. Synthetic data. Built by dbt (models/marts/mart_conversion_funnel.sql, added in Phase 6; no hand-written SQL twin)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [channel, stage_order]
+      # Subset stages cannot exceed their previous stage: a click is on an impression (also
+      # tested per day in fct_daily_spend), a converted lead is a lead, a purchase is a
+      # converted lead. Leads <= Clicks is not tested: they are different units.
+      - dbt_utils.expression_is_true:
+          name: mart_conversion_funnel_subset_stage_not_above_previous
+          arguments:
+            expression: "stage_value <= prev_stage_value"
+          config:
+            where: "stage_order in (2, 4, 5)"
+    columns:
+      - name: channel
+        description: "Canonical channel (from MART_CHANNEL_PERFORMANCE, i.e. DIM_CAMPAIGN): affiliate, display, paid_search, paid_social, video. Grain key with STAGE_ORDER. There is no 'ALL' row: the all-channel funnel is the SUM over the 5 channels."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: stage_order
+        description: "Funnel position 1-5: 1 Impressions, 2 Clicks, 3 Leads, 4 Converted leads, 5 Purchases. Grain key with CHANNEL. Attribute: sort the STAGE axis by it with aggregation Min, never SUM (a numeric field defaults to SUM in Data Studio)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+      - name: stage
+        description: "Stage name, one-to-one with STAGE_ORDER: Impressions, Clicks, Leads, Converted leads, Purchases. The chart dimension: STAGE_VALUE adds up only within one stage."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Impressions', 'Clicks', 'Leads', 'Converted leads', 'Purchases']
+      - name: stage_value
+        description: "Value of the stage for the channel over the full range: impressions, clicks, leads, converted leads (trials + purchases) or purchases. Additive across channels within one stage, never across stages. Totals per stage: 436,844,819 / 7,102,319 / 261,684 / 39,696 / 16,691."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: prev_stage_value
+        description: "STAGE_VALUE of the previous stage (STAGE_ORDER - 1) of the same channel; NULL on stage 1 (Impressions). Additive across channels, so stage conversion = SUM(STAGE_VALUE) / SUM(PREV_STAGE_VALUE) at any channel filter: CTR on Clicks, click-to-lead rate on Leads, lead conversion rate on Converted leads, purchase share of conversions on Purchases."
+        data_tests:
+          - not_null:
+              config:
+                where: "stage_order > 1"
+      - name: top_of_funnel_value
+        description: "Impressions of the channel (its stage-1 STAGE_VALUE), repeated on each of its 5 stage rows. Additive across channels, so share of top of funnel = SUM(STAGE_VALUE) / SUM(TOP_OF_FUNNEL_VALUE) at any channel filter (1 on Impressions). Never SUM it across stages."
+        data_tests:
+          - not_null

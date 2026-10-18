@@ -1,0 +1,134 @@
+# dbt unit tests of the staging rules: fixed RAW rows in, exact typed values and DQ codes out.
+# They test the logic on inputs the data does not contain (the clean release only exercises the
+# happy path, and the challenge extract fills its one blank spend date), the dbt replacement of
+# sql/02_data_cleaning_tests.sql block 2.
+# The expected output uses format: sql because DQ_ISSUES is an ARRAY (a dict fixture would be
+# cast with TRY_CAST, which Snowflake does not support for ARRAY); in that format every column
+# of the model is listed.
+
+unit_tests:
+  - name: stg_leads_routes_dates_by_shape_and_flags_each_cell
+    model: stg_leads
+    description: >-
+      Date routing by SHAPE, never by format detection: ISO dates are read, a year-first slash
+      date is read as Y/M/D and flagged slash_ymd, a blank becomes NULL + missing, and an
+      impossible date (2023-02-29) or a drifted shape (2023-1-5) becomes NULL + unparseable.
+      A padded value keeps its value and is flagged untrimmed; ids are upper-cased and codes
+      lower-cased with a recased flag; a score that overflows 3 digits is unparseable.
+    given:
+      - input: source('raw', 'leads')
+        rows:
+          - {lead_id: L00000001, campaign_id: CMP0001, created_at: "2023-05-15",   lead_source: display,         lead_score: "42"}
+          - {lead_id: L00000002, campaign_id: CMP0001, created_at: "2023/7/4",     lead_source: display,         lead_score: "1"}
+          - {lead_id: L00000003, campaign_id: CMP0001, created_at: "",             lead_source: display,         lead_score: "100"}
+          - {lead_id: L00000004, campaign_id: CMP0001, created_at: "2023-02-29",   lead_source: display,         lead_score: "50"}
+          - {lead_id: L00000005, campaign_id: CMP0001, created_at: "2023-1-5",     lead_source: display,         lead_score: "50"}
+          - {lead_id: L00000006, campaign_id: CMP0001, created_at: " 2023-05-15 ", lead_source: display,         lead_score: "50"}
+          - {lead_id: " l00000007", campaign_id: CMP0001, created_at: "2023-05-15", lead_source: " PAID_SEARCH ", lead_score: "1000"}
+    expect:
+      format: sql
+      rows: |
+        select 'L00000001' as lead_id, 'CMP0001' as campaign_id, '2023-05-15'::date as created_date, 'display' as lead_source,
+               42 as lead_score, array_construct() as dq_issues, true as dq_is_valid,
+               null::varchar as _source_file, null::number as _source_row_number, null::timestamp_ltz as _loaded_at
+        union all
+        select 'L00000002', 'CMP0001', '2023-07-04'::date, 'display', 1,
+               array_construct('created_date:slash_ymd'), false, null, null, null
+        union all
+        select 'L00000003', 'CMP0001', null::date, 'display', 100,
+               array_construct('created_date:missing'), false, null, null, null
+        union all
+        select 'L00000004', 'CMP0001', null::date, 'display', 50,
+               array_construct('created_date:unparseable'), false, null, null, null
+        union all
+        select 'L00000005', 'CMP0001', null::date, 'display', 50,
+               array_construct('created_date:unparseable'), false, null, null, null
+        union all
+        select 'L00000006', 'CMP0001', '2023-05-15'::date, 'display', 50,
+               array_construct('created_date:untrimmed'), false, null, null, null
+        union all
+        select 'L00000007', 'CMP0001', '2023-05-15'::date, 'paid_search', null,
+               array_construct('lead_id:untrimmed', 'lead_id:recased', 'lead_source:untrimmed', 'lead_source:recased',
+                               'lead_score:unparseable'), false, null, null, null
+
+  - name: stg_conversions_keeps_most_complete_copy_and_flags_duplicates
+    model: stg_conversions
+    description: >-
+      De-duplication keeps one row per key: the copy with the fewest NULL fields wins, then the
+      first one in the file. The kept row records the number of copies (duplicate_copies=N) and,
+      when the copies disagree after cleaning, duplicate_copies_differ; its lineage columns are
+      those of the kept copy. A money value must have exactly 2 decimals.
+    given:
+      - input: source('raw', 'conversions')
+        rows:
+          - {conversion_id: CV0000001, lead_id: L00000001, converted_at: "2023-06-23", conversion_type: trial,    revenue: "",       _source_file: f.csv, _source_row_number: 1}
+          - {conversion_id: CV0000001, lead_id: L00000001, converted_at: "2023-06-23", conversion_type: trial,    revenue: "0.00",   _source_file: f.csv, _source_row_number: 2}
+          - {conversion_id: CV0000002, lead_id: L00000002, converted_at: "2023-06-30", conversion_type: purchase, revenue: "125.50", _source_file: f.csv, _source_row_number: 3}
+          - {conversion_id: CV0000002, lead_id: L00000002, converted_at: "2023-06-30", conversion_type: purchase, revenue: "125.50", _source_file: f.csv, _source_row_number: 4}
+          - {conversion_id: CV0000003, lead_id: L00000003, converted_at: "2023-07-01", conversion_type: purchase, revenue: "125.5",  _source_file: f.csv, _source_row_number: 5}
+    expect:
+      format: sql
+      rows: |
+        select 'CV0000001' as conversion_id, 'L00000001' as lead_id, '2023-06-23'::date as converted_date,
+               'trial' as conversion_type, 0.00::number(12,2) as revenue,
+               array_construct('row:duplicate_copies=2', 'row:duplicate_copies_differ') as dq_issues, false as dq_is_valid,
+               'f.csv' as _source_file, 2 as _source_row_number, null::timestamp_ltz as _loaded_at
+        union all
+        select 'CV0000002', 'L00000002', '2023-06-30'::date, 'purchase', 125.50,
+               array_construct('row:duplicate_copies=2'), false, 'f.csv', 3, null
+        union all
+        select 'CV0000003', 'L00000003', '2023-07-01'::date, 'purchase', null,
+               array_construct('revenue:unparseable'), false, 'f.csv', 5, null
+
+  - name: stg_challenge_daily_spend_fills_a_blank_date_only_when_one_day_fits
+    model: stg_challenge_daily_spend
+    description: >-
+      SPEND_DATE_FILLED takes a blank spend date from its neighbours in spend_id order within the
+      campaign, and only when exactly one day fits between them: previous + 1 day must equal
+      next - 1 day. CMP0001 has neighbours 2 days apart, so the blank becomes the day between.
+      CMP0002 has neighbours 3 days apart (two candidate days), so it stays NULL. CMP0003's blank
+      is the first row of its campaign (no previous date) and stays NULL; without the campaign
+      partition its neighbours in the whole extract (2023-08-04 and 2023-08-06) would wrongly
+      give 2023-08-05. SPEND_DATE itself stays NULL and flagged missing on every blank, and a
+      row with a date keeps it. The challenge data has one blank spend date, which is filled, so
+      only this test runs the branch that leaves a blank unfilled.
+    given:
+      - input: source('raw', 'challenge_daily_spend')
+        rows:
+          - {spend_id: DSP0000001, campaign_id: CMP0001, spend_date: "2023-07-15", impressions: "100", clicks: "10", spend: "5.00"}
+          - {spend_id: DSP0000002, campaign_id: CMP0001, spend_date: "",           impressions: "100", clicks: "10", spend: "5.00"}
+          - {spend_id: DSP0000003, campaign_id: CMP0001, spend_date: "2023-07-17", impressions: "100", clicks: "10", spend: "5.00"}
+          - {spend_id: DSP0000004, campaign_id: CMP0002, spend_date: "2023-08-01", impressions: "100", clicks: "10", spend: "5.00"}
+          - {spend_id: DSP0000005, campaign_id: CMP0002, spend_date: "",           impressions: "100", clicks: "10", spend: "5.00"}
+          - {spend_id: DSP0000006, campaign_id: CMP0002, spend_date: "2023-08-04", impressions: "100", clicks: "10", spend: "5.00"}
+          - {spend_id: DSP0000007, campaign_id: CMP0003, spend_date: "",           impressions: "100", clicks: "10", spend: "5.00"}
+          - {spend_id: DSP0000008, campaign_id: CMP0003, spend_date: "2023-08-06", impressions: "100", clicks: "10", spend: "5.00"}
+    expect:
+      format: sql
+      rows: |
+        select 'DSP0000001' as spend_id, 'CMP0001' as campaign_id, '2023-07-15'::date as spend_date,
+               100::number(38,0) as impressions, 10::number(38,0) as clicks, 5.00::number(12,2) as spend,
+               array_construct() as dq_issues, true as dq_is_valid,
+               null::varchar as _source_file, null::number as _source_row_number, null::timestamp_ltz as _loaded_at,
+               '2023-07-15'::date as spend_date_filled
+        union all
+        select 'DSP0000002', 'CMP0001', null::date, 100, 10, 5.00,
+               array_construct('spend_date:missing'), false, null, null, null, '2023-07-16'::date
+        union all
+        select 'DSP0000003', 'CMP0001', '2023-07-17'::date, 100, 10, 5.00,
+               array_construct(), true, null, null, null, '2023-07-17'::date
+        union all
+        select 'DSP0000004', 'CMP0002', '2023-08-01'::date, 100, 10, 5.00,
+               array_construct(), true, null, null, null, '2023-08-01'::date
+        union all
+        select 'DSP0000005', 'CMP0002', null::date, 100, 10, 5.00,
+               array_construct('spend_date:missing'), false, null, null, null, null::date
+        union all
+        select 'DSP0000006', 'CMP0002', '2023-08-04'::date, 100, 10, 5.00,
+               array_construct(), true, null, null, null, '2023-08-04'::date
+        union all
+        select 'DSP0000007', 'CMP0003', null::date, 100, 10, 5.00,
+               array_construct('spend_date:missing'), false, null, null, null, null::date
+        union all
+        select 'DSP0000008', 'CMP0003', '2023-08-06'::date, 100, 10, 5.00,
+               array_construct(), true, null, null, null, '2023-08-06'::date

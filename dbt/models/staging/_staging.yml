@@ -1,0 +1,406 @@
+# Staging models: 8 views in MARKETING_CRM.STAGING, one per RAW table, at the RAW grain after
+# de-duplication. Every row is kept; a problem is flagged in DQ_ISSUES, never dropped.
+#
+# Column descriptions become column comments INSIDE each view's DDL (persist_docs on a view),
+# and sql/02_data_cleaning_tests.sql block 2b counts rule texts in that DDL. So these
+# descriptions never quote a rule: no function call with its parenthesis (the case functions,
+# the date and number casts), no quoted issue code, no cast precision, no type shorthand.
+#
+# The challenge views reuse (YAML anchors) only the descriptions that hold for any extract: keys,
+# issue codes, lineage. A clean-view description that quotes a count, total or range of the clean
+# release is written again for the challenge view without it, because persist_docs makes it that
+# view's column comment and the challenge extracts have their own, much smaller numbers.
+
+models:
+  # ------------------------------------------------------------------ clean track
+  - name: stg_campaigns
+    description: >-
+      Typed, cleaned campaigns (clean release). Grain: one row per CAMPAIGN_ID (120 rows).
+      Source: RAW.CAMPAIGNS. CAMPAIGN_DAYS = END_DATE - START_DATE + 1. DQ_ISSUES lists
+      <column>:<issue> codes (empty when clean). Built by dbt (models/staging/stg_campaigns.sql,
+      rules in macros/staging/clean_campaigns.sql, ported from sql/02_data_cleaning.sql).
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "end_date >= start_date"
+    columns:
+      - name: campaign_id
+        description: &desc_campaign_id "Campaign key (PK), upper-cased id, e.g. CMP0001."
+        data_tests: [unique, not_null]
+      - name: campaign_name
+        description: &desc_campaign_name "Display name <Channel Words> <yyyy> <nnn>, e.g. Display 2023 008; unique (alternate key)."
+        data_tests: [unique, not_null]
+      - name: channel
+        description: &desc_channel "Paid media channel, lower-cased code: affiliate, display, paid_search, paid_social, video (24 campaigns each). The canonical channel of MART."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: objective
+        description: &desc_objective "Campaign objective, lower-cased code: acquisition (35), awareness (44), lead_gen (41)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [acquisition, awareness, lead_gen]
+      - name: start_date
+        description: &desc_start_date "First day of the campaign window; 2023-01-04..2025-08-28 in the clean release."
+        data_tests: [not_null]
+      - name: end_date
+        description: &desc_end_date "Last day of the campaign window, inclusive; 2023-03-14..2025-12-02 in the clean release."
+        data_tests: [not_null]
+      - name: budget
+        description: &desc_budget "Budget for the whole campaign window, 2 dp; total 5,418,642.16. Additive across campaigns, not across dates."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: campaign_days
+        description: &desc_campaign_days "Derived: END_DATE - START_DATE + 1, the inclusive window length (46..150 days); equals the campaign's number of spend rows."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+      - name: dq_issues
+        description: &desc_dq_issues "Issue codes of the row, an array of <column>:<issue> strings, empty when the row is clean. Cell issues: missing, untrimmed, recased, nonconforming, slash_ymd, unparseable; row issues: duplicate_copies=N, duplicate_copies_differ (docs/data_dictionary.md, DQ_ISSUES codes)."
+      - name: dq_is_valid
+        description: &desc_dq_is_valid "TRUE when DQ_ISSUES is empty. Every row of the four clean views is valid (tested); MART does not filter on it, the tests fail instead."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true]
+                quote: false
+      - name: _source_file
+        description: &desc_source_file "Lineage of the kept copy: the staged file the RAW row was loaded from."
+      - name: _source_row_number
+        description: &desc_source_row "Lineage of the kept copy: data row in that file, 1 = the first row after the header."
+      - name: _loaded_at
+        description: &desc_loaded_at "Lineage of the kept copy: start time of the RAW load; the source freshness field."
+
+  - name: stg_daily_spend
+    description: >-
+      Typed, cleaned daily delivery (clean release). Grain: one row per SPEND_ID, i.e. one
+      campaign on one active date (11,240 rows); unique on (CAMPAIGN_ID, SPEND_DATE). Source:
+      RAW.DAILY_SPEND. Aggregate to campaign or campaign x date before joining other facts.
+      Built by dbt (models/staging/stg_daily_spend.sql, rules in
+      macros/staging/clean_daily_spend.sql, ported from sql/02_data_cleaning.sql).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [campaign_id, spend_date]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "clicks <= impressions"
+    columns:
+      - name: spend_id
+        description: &desc_spend_id "Delivery key (PK), upper-cased id, e.g. DSP0000001."
+        data_tests: [unique, not_null]
+      - name: campaign_id
+        description: &desc_spend_campaign_id "Delivered campaign (FK to STG_CAMPAIGNS)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_campaigns')
+                field: campaign_id
+      - name: spend_date
+        description: &desc_spend_date "Delivery date; 2023-01-04..2025-12-02, 1,064 distinct dates in the clean release."
+        data_tests: [not_null]
+      - name: impressions
+        description: &desc_impressions "Served impressions, a whole number; total 436,844,819."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: clicks
+        description: &desc_clicks "Recorded clicks, a whole number; total 7,102,319. Never more than the impressions of the day."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: spend
+        description: &desc_spend "Media cost of the day, 2 dp; total 4,523,050.02."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: dq_issues
+        description: *desc_dq_issues
+      - name: dq_is_valid
+        description: *desc_dq_is_valid
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true]
+                quote: false
+      - name: _source_file
+        description: *desc_source_file
+      - name: _source_row_number
+        description: *desc_source_row
+      - name: _loaded_at
+        description: *desc_loaded_at
+
+  - name: stg_leads
+    description: >-
+      Typed, cleaned leads (clean release). Grain: one row per LEAD_ID (261,684 rows). Source:
+      RAW.LEADS; CREATED_AT renamed CREATED_DATE. Channel comes from STG_CAMPAIGNS (LEAD_SOURCE
+      duplicates it). Built by dbt (models/staging/stg_leads.sql, rules in
+      macros/staging/clean_leads.sql, ported from sql/02_data_cleaning.sql).
+    columns:
+      - name: lead_id
+        description: &desc_lead_id "Lead key (PK), upper-cased id, e.g. L00000001."
+        data_tests: [unique, not_null]
+      - name: campaign_id
+        description: &desc_lead_campaign_id "Attributed campaign (FK to STG_CAMPAIGNS)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_campaigns')
+                field: campaign_id
+      - name: created_date
+        description: &desc_created_date "Lead creation date (RAW column CREATED_AT, renamed because it holds a date); 2023-01-04..2025-12-02 in the clean release."
+        data_tests: [not_null]
+      - name: lead_source
+        description: &desc_lead_source "Source channel as delivered, lower-cased code. Equals the campaign channel for every lead today (a warn-level test); use the channel of the campaign."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [affiliate, display, paid_search, paid_social, video]
+      - name: lead_score
+        description: &desc_lead_score "Qualification score, a whole number between 1 and 100; sum 13,233,637. How it is produced is undocumented."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 100
+      - name: dq_issues
+        description: *desc_dq_issues
+      - name: dq_is_valid
+        description: *desc_dq_is_valid
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true]
+                quote: false
+      - name: _source_file
+        description: *desc_source_file
+      - name: _source_row_number
+        description: *desc_source_row
+      - name: _loaded_at
+        description: *desc_loaded_at
+
+  - name: stg_conversions
+    description: >-
+      Typed, cleaned conversions (clean release). Grain: one row per CONVERSION_ID (39,696
+      rows); LEAD_ID is unique (1:0..1 from leads). Source: RAW.CONVERSIONS; CONVERTED_AT
+      renamed CONVERTED_DATE. Revenue is last-touch attributed. Built by dbt
+      (models/staging/stg_conversions.sql, rules in macros/staging/clean_conversions.sql,
+      ported from sql/02_data_cleaning.sql).
+    data_tests:
+      - dbt_utils.expression_is_true:
+          name: stg_conversions_trial_revenue_is_zero
+          arguments:
+            expression: "revenue = 0"
+          config:
+            where: "conversion_type = 'trial'"
+      - dbt_utils.expression_is_true:
+          name: stg_conversions_purchase_revenue_is_positive
+          arguments:
+            expression: "revenue > 0"
+          config:
+            where: "conversion_type = 'purchase'"
+    columns:
+      - name: conversion_id
+        description: &desc_conversion_id "Conversion key (PK), upper-cased id, e.g. CV0000001."
+        data_tests: [unique, not_null]
+      - name: lead_id
+        description: &desc_conversion_lead_id "Converted lead (FK to STG_LEADS); unique, because a lead converts at most once (221,988 leads never convert)."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_leads')
+                field: lead_id
+      - name: converted_date
+        description: &desc_converted_date "Conversion date (RAW column CONVERTED_AT, renamed because it holds a date); 0 to 21 days after the lead."
+        data_tests: [not_null]
+      - name: conversion_type
+        description: &desc_conversion_type "trial (23,005) or purchase (16,691), lower-cased code. A lead converts once, to one of the two."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [trial, purchase]
+      - name: revenue
+        description: &desc_revenue "Last-touch attributed revenue, 2 dp: 0.00 for every trial, above 0 for every purchase; total 21,561,839.01."
+        data_tests: [not_null]
+      - name: dq_issues
+        description: *desc_dq_issues
+      - name: dq_is_valid
+        description: *desc_dq_is_valid
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true]
+                quote: false
+      - name: _source_file
+        description: *desc_source_file
+      - name: _source_row_number
+        description: *desc_source_row
+      - name: _loaded_at
+        description: *desc_loaded_at
+
+  # ------------------------------------------------------------------ cleaning-challenge track
+  # Same rules on the publisher's dirty extracts. Their DQ_ISSUES are expected to be non-empty
+  # on exactly 15 rows: tests/challenge/assert_challenge_defects_flagged.sql checks every code,
+  # and tests/challenge/assert_challenge_reconciliation.sql the row-by-row match with the clean views.
+  - name: stg_challenge_campaigns
+    description: >-
+      Cleaning-challenge track: RAW.CHALLENGE_CAMPAIGNS through the same rules as STG_CAMPAIGNS
+      (120 rows after de-duplication), plus CAMPAIGN_NAME_FILLED (naming-rule fill of a blank
+      name). Reconciliation only; never used by MART. Built by dbt
+      (models/staging/stg_challenge_campaigns.sql, rules in macros/staging/clean_campaigns.sql,
+      ported from sql/02_data_cleaning.sql).
+    columns:
+      - name: campaign_id
+        description: *desc_campaign_id
+        data_tests: [unique, not_null]
+      - name: campaign_name
+        description: "Display name after cleaning; NULL where the extract has a blank (see CAMPAIGN_NAME_FILLED)."
+      - name: channel
+        description: "Paid media channel, lower-cased code: affiliate, display, paid_search, paid_social or video."
+      - name: objective
+        description: "Campaign objective, lower-cased code: acquisition, awareness or lead_gen."
+      - name: start_date
+        description: "First day of the campaign window; a year-first slash date is read as Y/M/D and flagged slash_ymd."
+      - name: end_date
+        description: "Last day of the campaign window, inclusive."
+      - name: budget
+        description: "Budget for the whole campaign window, 2 dp. Additive across campaigns, not across dates."
+      - name: campaign_days
+        description: "Derived: END_DATE - START_DATE + 1, the inclusive window length in days."
+      - name: dq_issues
+        description: *desc_dq_issues
+      - name: dq_is_valid
+        description: "TRUE when DQ_ISSUES is empty. FALSE on the 4 rows that carry a defect of the extract."
+      - name: _source_file
+        description: *desc_source_file
+      - name: _source_row_number
+        description: *desc_source_row
+      - name: _loaded_at
+        description: *desc_loaded_at
+      - name: campaign_name_filled
+        description: "CAMPAIGN_NAME, or for a blank name the campaign naming rule: channel words, start year and the last 3 digits of the id (holds for all 119 named campaigns of the extract). Kept apart from CAMPAIGN_NAME."
+
+  - name: stg_challenge_daily_spend
+    description: >-
+      Cleaning-challenge track: RAW.CHALLENGE_DAILY_SPEND through the same rules as
+      STG_DAILY_SPEND (2,000 rows after de-duplication), plus SPEND_DATE_FILLED (previous + 1
+      day when it also equals next - 1 day, in spend_id order within the campaign).
+      Reconciliation only; never used by MART. Built by dbt
+      (models/staging/stg_challenge_daily_spend.sql, rules in
+      macros/staging/clean_daily_spend.sql, ported from sql/02_data_cleaning.sql).
+    columns:
+      - name: spend_id
+        description: *desc_spend_id
+        data_tests: [unique, not_null]
+      - name: campaign_id
+        description: *desc_spend_campaign_id
+      - name: spend_date
+        description: "Delivery date; NULL where the extract has a blank (see SPEND_DATE_FILLED), a year-first slash date is read as Y/M/D."
+      - name: impressions
+        description: "Served impressions, a whole number."
+      - name: clicks
+        description: "Recorded clicks, a whole number."
+      - name: spend
+        description: "Media cost of the day, 2 dp."
+      - name: dq_issues
+        description: *desc_dq_issues
+      - name: dq_is_valid
+        description: "TRUE when DQ_ISSUES is empty. FALSE on the 3 rows that carry a defect of the extract."
+      - name: _source_file
+        description: *desc_source_file
+      - name: _source_row_number
+        description: *desc_source_row
+      - name: _loaded_at
+        description: *desc_loaded_at
+      - name: spend_date_filled
+        description: "SPEND_DATE, or for a blank date the previous spend date + 1 day when that also equals the next spend date - 1 day (neighbours in spend_id order within the campaign). Kept apart from SPEND_DATE."
+
+  - name: stg_challenge_leads
+    description: >-
+      Cleaning-challenge track: RAW.CHALLENGE_LEADS through the same rules as STG_LEADS (2,000
+      rows after de-duplication). The blank created date stays NULL (2 candidate dates, not
+      provable). Reconciliation only; never used by MART. Built by dbt
+      (models/staging/stg_challenge_leads.sql, rules in macros/staging/clean_leads.sql, ported
+      from sql/02_data_cleaning.sql).
+    columns:
+      - name: lead_id
+        description: *desc_lead_id
+        data_tests: [unique, not_null]
+      - name: campaign_id
+        description: *desc_lead_campaign_id
+      - name: created_date
+        description: "Lead creation date (RAW column CREATED_AT); NULL where the extract has a blank (not recoverable: 2 candidate dates)."
+      - name: lead_source
+        description: "Source channel as delivered, lower-cased code."
+      - name: lead_score
+        description: "Qualification score, a whole number between 1 and 100. How it is produced is undocumented."
+      - name: dq_issues
+        description: *desc_dq_issues
+      - name: dq_is_valid
+        description: "TRUE when DQ_ISSUES is empty. FALSE on the 4 rows that carry a defect of the extract."
+      - name: _source_file
+        description: *desc_source_file
+      - name: _source_row_number
+        description: *desc_source_row
+      - name: _loaded_at
+        description: *desc_loaded_at
+
+  - name: stg_challenge_conversions
+    description: >-
+      Cleaning-challenge track: RAW.CHALLENGE_CONVERSIONS through the same rules as
+      STG_CONVERSIONS (2,000 rows after de-duplication). The blank converted date stays NULL (22
+      candidate dates, not provable). Reconciliation only; never used by MART. Built by dbt
+      (models/staging/stg_challenge_conversions.sql, rules in
+      macros/staging/clean_conversions.sql, ported from sql/02_data_cleaning.sql).
+    columns:
+      - name: conversion_id
+        description: *desc_conversion_id
+        data_tests: [unique, not_null]
+      - name: lead_id
+        description: "Converted lead. 1,687 point to leads outside the leads extract (how the extracts were cut); all of them exist in STG_LEADS."
+      - name: converted_date
+        description: "Conversion date (RAW column CONVERTED_AT); NULL where the extract has a blank (not recoverable: 22 candidate dates)."
+      - name: conversion_type
+        description: "trial or purchase, lower-cased code. A lead converts once, to one of the two."
+      - name: revenue
+        description: "Last-touch attributed revenue, 2 dp: 0.00 for a trial, above 0 for a purchase."
+      - name: dq_issues
+        description: *desc_dq_issues
+      - name: dq_is_valid
+        description: "TRUE when DQ_ISSUES is empty. FALSE on the 4 rows that carry a defect of the extract."
+      - name: _source_file
+        description: *desc_source_file
+      - name: _source_row_number
+        description: *desc_source_row
+      - name: _loaded_at
+        description: *desc_loaded_at

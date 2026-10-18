@@ -1,0 +1,36 @@
+models:
+  - name: int_lead_conversions
+    description: >-
+      Ephemeral (no Snowflake object): one row per lead (261,684), LEFT JOIN its conversion
+      (1:0..1 on LEAD_ID) and its campaign's CHANNEL, OBJECTIVE and END_DATE (n:1). Feeds
+      fct_lead_conversions. Its grain and joins are tested where they land, on
+      fct_lead_conversions: unique and not-null LEAD_ID, as many rows as stg_leads, totals equal
+      to the independent seeds, CHANNEL and OBJECTIVE equal to the independent seed (and so to
+      DIM_CAMPAIGN, which the same test checks against it).
+    columns:
+      - name: lead_id
+        description: "Lead key, one row per lead."
+      - name: campaign_id
+        description: "Campaign the lead is attributed to."
+      - name: channel
+        description: "Channel of the campaign (stg_campaigns, the same values as DIM_CAMPAIGN)."
+      - name: objective
+        description: "Objective of the campaign."
+      - name: campaign_end_date
+        description: "END_DATE of the campaign, for CONVERTED_AFTER_CAMPAIGN_END."
+      - name: created_date
+        description: "Lead creation date."
+      - name: lead_source
+        description: "Lead source as delivered."
+      - name: lead_score
+        description: "Lead score 1-100."
+      - name: has_conversion
+        description: "TRUE when the LEFT JOIN found a conversion row for the lead."
+      - name: conversion_id
+        description: "Conversion key; NULL when not converted."
+      - name: converted_date
+        description: "Conversion date; NULL when not converted."
+      - name: conversion_type
+        description: "trial or purchase; NULL when not converted."
+      - name: revenue
+        description: "Attributed revenue of the conversion; NULL when not converted (fct_lead_conversions turns it into 0.00)."

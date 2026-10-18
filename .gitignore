@@ -1,0 +1,43 @@
+# Secrets and local settings. The .env.example template is tracked.
+.env
+.env.*
+!.env.example
+
+# Key material: never commit private keys (the BI key cannot be passphrase-protected,
+# because the Data Studio connector rejects encrypted keys). Keys live outside the repo
+# by default ($HOME/.snowflake/keys); these patterns catch accidental copies.
+*.p8
+*.pem
+rsa_key*
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Rendered SQL (contains this account's public keys) and load reports
+build/
+
+# Data: the dataset zips and their extracted CSVs are downloaded by `make data`
+# (pinned SHA-256). Only the placeholder is tracked; see data/README.md.
+data/raw/*
+!data/raw/.gitkeep
+
+# dbt (Phase 5): build output (manifest, catalog, the docs site incl. static_index.html),
+# installed packages and logs. Tracked on purpose: dbt/package-lock.yml (the pinned package
+# versions) and dbt/seeds/ (the independent expected values; make expected-seeds-check).
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+logs/
+
+# Phase 6 exports: exports/ (CSVs, the .xlsx workbook, manifest.json) is tracked on purpose: small,
+# synthetic, aggregated, CC BY 4.0 (exports/README.md). Only an interrupted export's temporary
+# directory is ignored.
+exports/.export-*/
+
+# Claude Code: per-user settings
+.claude/settings.local.json
+
+# macOS
+.DS_Store
