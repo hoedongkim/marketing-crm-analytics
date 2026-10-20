@@ -241,10 +241,5 @@ Good places to start: [business_insights.md](docs/business_insights.md) (the ana
 
 ## License
 
-- **Code and documentation:** [MIT](LICENSE), © 2026 Hoedong Kim.
-- **Data:** "Marketing Campaigns & Conversions Dataset v1.0.0" by
-  [Analytics Engineering](https://www.analyticsengineering.com/datasets/marketing-campaigns),
-  licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), not MIT. The source
-  files are not in the repository (`make data` downloads them); [`exports/`](exports/README.md)
-  holds summary tables derived from them. Cleaned, reformatted and summarised by Hoedong Kim; not
-  endorsed by the publisher ([source details](docs/data_source.md)).
+[MIT](LICENSE). The dataset keeps its own license, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+([details](docs/data_source.md)).
