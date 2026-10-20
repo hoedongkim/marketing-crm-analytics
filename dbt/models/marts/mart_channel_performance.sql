@@ -1,6 +1,5 @@
 {#-
     MART_CHANNEL_PERFORMANCE: one row per channel (5 rows), full date range, no date dimension.
-    Ported from sql/02c_analysis_marts.sql block 4.
       STEP 1  each source aggregated to one row per channel ON ITS OWN: campaigns and budget
               (DIM_CAMPAIGN, whole campaigns), delivery and spend (FCT_DAILY_SPEND), leads,
               conversions and revenue (FCT_LEAD_CONVERSIONS);

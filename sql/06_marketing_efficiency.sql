@@ -72,7 +72,7 @@
 -- Read-only
 --   Only USE and SELECT/WITH statements. Nothing is created or changed.
 -- How to run
---   From the repository root, after sql/02c_analysis_marts.sql (and its tests):
+--   From the repository root, after `make dbt-build` (it builds and tests every MART table):
 --     .venv/bin/python scripts/run_sql.py --role CRM_TRANSFORMER --max-rows 300 sql/06_marketing_efficiency.sql
 --   run_sql.py prints every result and exits 1 if any row has STATUS = 'FAIL'. 40 statements,
 --   well under a minute on the X-Small MARKETING_WH. Output of the last run:
@@ -81,9 +81,9 @@
 --   CRM_TRANSFORMER, which owns the MART tables. (CRM_REPORTER can read the same tables.)
 -- Inputs
 --   MARKETING_CRM.MART: DIM_DATE, DIM_CAMPAIGN, FCT_DAILY_SPEND, FCT_LEAD_CONVERSIONS,
---   MART_CAMPAIGN_PERFORMANCE (Phase 3 core, sql/02b_core_models.sql) and
---   FCT_CAMPAIGN_DAILY_ACTIVITY, MART_MONTHLY_MARKETING, MART_CHANNEL_PERFORMANCE (Phase 4 marts,
---   sql/02c_analysis_marts.sql). Block 0 checks their row counts first.
+--   MART_CAMPAIGN_PERFORMANCE (Phase 3 core) and FCT_CAMPAIGN_DAILY_ACTIVITY,
+--   MART_MONTHLY_MARKETING, MART_CHANNEL_PERFORMANCE (Phase 4 marts), each built by dbt from
+--   dbt/models/marts/<table name in lower case>.sql. Block 0 checks their row counts first.
 -- Reading the results: every analysis query is followed by its check
 --   Each analysis query prints its result. The statement right after it is a check that reads
 --   exactly those printed rows with RESULT_SCAN(LAST_QUERY_ID()) and compares them with
@@ -95,28 +95,37 @@
 --   in every compared column, next to the number of rows printed, so a missing, extra or wrong
 --   row is a FAIL and DETAIL names it. (Mixed measures share one NUMBER column in the checks, so
 --   counts print as e.g. 5.000000.)
---   Rounding: as in 02b_core_models.sql ("Rounding"), every division casts its dividend to
---   NUMBER(32,18), so the one ROUND to the printed scale is the only rounding (ROAS, rates and
---   shares 6 dp; cost per unit and indexes 4 dp; money per unit 2 dp). Values derived from
---   ratios are taken from the unrounded ratios: block 4's year-over-year change is a
---   difference of unrounded ROAS, block 10's quartiles interpolate the unrounded campaign
---   utilisation. CORR returns FLOAT; it is rounded once to 4 dp (blocks 10 and 15 correlate
---   the stored 6-dp campaign columns; [D] finds the same 4 dp from the unrounded ratios).
+--   Rounding: as in the dbt MART models, every division casts its dividend to NUMBER(32,18), so
+--   the one ROUND to the printed scale is the only rounding (ROAS, rates and shares 6 dp; cost
+--   per unit and indexes 4 dp; money per unit 2 dp). Why: the "Rounding" note of the first,
+--   plain-SQL version of the marts (at commit dbe41f7,
+--   https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02b_core_models.sql#L100-L117).
+--   Values derived from ratios are taken from the unrounded ratios: block 4's year-over-year
+--   change is a difference of unrounded ROAS, block 10's quartiles interpolate the unrounded
+--   campaign utilisation. CORR returns FLOAT; it is rounded once to 4 dp (blocks 10 and 15
+--   correlate the stored 6-dp campaign columns; [D] finds the same 4 dp from the unrounded
+--   ratios).
 -- Where the expected values come from (never from the query under test)
 --   [KT]   Known totals, reproduced to the cent by the Phase 3 and Phase 4 tests
---          (02b_core_models_tests.sql block 9, 02c_analysis_marts_tests.sql block 5): spend
---          4,523,050.02; revenue 21,561,839.01; leads 261,684; purchases 16,691; campaigns
---          120; budget 5,418,642.16; flight days 11,240; 1,096 calendar days of DIM_DATE;
---          13,760 / 180 / 5 rows of the marts.
+--          (02b_core_models_tests.sql block 9, 02c_analysis_marts_tests.sql block 5; both in
+--          the git history at commit dbe41f7,
+--          https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02b_core_models_tests.sql,
+--          https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02c_analysis_marts_tests.sql):
+--          spend 4,523,050.02; revenue 21,561,839.01; leads 261,684; purchases 16,691;
+--          campaigns 120; budget 5,418,642.16; flight days 11,240; 1,096 calendar days of
+--          DIM_DATE; 13,760 / 180 / 5 rows of the marts.
 --   [PUB]  The publisher's reference output: spend and attributed revenue by channel.
 --   [P3]   The local KPI reconciliation (2026-10-13, before Snowflake existed), as carried by
---          02b_core_models_tests.sql: kpi_channel_ratios (ROAS, COST_PER_LEAD, PURCHASE_RATE,
---          COST_PER_PURCHASE by channel; block 14 there) and campaign_top10_roas /
---          campaign_bottom10_roas (block 16 there).
---   [E02c] docs/evidence/02c_analysis_marts_tests.txt, statement number in brackets: [14] the
---          36 activity months (active campaigns, spend, revenue), [18] the three years,
---          [20] the channel ratios (BUDGET_UTILIZATION), [21] the channel spend and revenue
---          shares.
+--          02b_core_models_tests.sql (at commit dbe41f7,
+--          https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02b_core_models_tests.sql):
+--          kpi_channel_ratios (ROAS, COST_PER_LEAD, PURCHASE_RATE, COST_PER_PURCHASE by
+--          channel; block 14 there) and campaign_top10_roas / campaign_bottom10_roas (block 16
+--          there).
+--   [E02c] docs/evidence/02c_analysis_marts_tests.txt (at commit dbe41f7,
+--          https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02c_analysis_marts_tests.txt),
+--          statement number in brackets: [14] the 36 activity months (active campaigns, spend,
+--          revenue), [18] the three years, [20] the channel ratios (BUDGET_UTILIZATION), [21] the
+--          channel spend and revenue shares.
 --   [D]    Python 3 csv + decimal (ROUND_HALF_UP, 60-digit precision), 2026-10-14, outside
 --          Snowflake, from data/raw/source/campaigns.csv, daily_spend.csv, leads.csv and
 --          conversions.csv: every other value (it also reproduces every [KT], [PUB], [P3] and

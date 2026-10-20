@@ -6,10 +6,11 @@
     python scripts/export_marts.py --check --offline   # the files only, no Snowflake (works after the trial)
 
 Why: the Snowflake trial ends about 2026-11-12. From then on the public dashboard serves a frozen
-Google Sheets snapshot of the same MART tables (docs/architecture.md, decision 8; the steps are in
-docs/sheets_snapshot.md). This script produces that snapshot from exactly what the dashboard reads:
-it connects as SVC_CRM_BI with role CRM_REPORTER (key pair, settings from .env), the identity the
-Data Studio connector uses, which can read MART and nothing else.
+Google Sheets snapshot of the same MART tables (docs/architecture.md, decision 8; the build log of
+the Google Sheets copy is in docs/dashboard_validation.md). This script produces that snapshot
+from exactly what the dashboard reads: it connects as SVC_CRM_BI with role CRM_REPORTER (key
+pair, settings from .env), the identity the Data Studio connector uses, which can read MART and
+nothing else.
 
 Export (default) into exports/. All or nothing: every file is written to a temporary directory
 inside exports/ first, checked, and only then moved into place.
@@ -599,7 +600,7 @@ def build_manifest(tables: list[ExportedTable], context: dict[str, Any], workboo
     return {
         "manifest_version": MANIFEST_VERSION,
         "description": "Frozen export of the MART tables the Data Studio dashboard reads "
-                       "(Google Sheets snapshot, docs/sheets_snapshot.md).",
+                       "(Google Sheets snapshot, docs/dashboard_validation.md).",
         "exported_at_utc": context["exported_at_utc"],
         "source": {
             "platform": "Snowflake",

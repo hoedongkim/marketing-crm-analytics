@@ -1,5 +1,5 @@
 {#-
-    DIM_CAMPAIGN: one row per campaign (120 rows). Ported from sql/02b_core_models.sql block 2.
+    DIM_CAMPAIGN: one row per campaign (120 rows).
     Every fact takes CHANNEL and OBJECTIVE from here: CHANNEL is the canonical channel
     dimension (LEAD_SOURCE only duplicates it). stg_campaigns is unique on CAMPAIGN_ID (tested),
     so a join from any fact to this table is n:1 and cannot fan out.

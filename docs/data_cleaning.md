@@ -3,18 +3,23 @@
 **Goal of Phase 3:** create analysis-ready, cleaned data: typed and tested STAGING views, and the
 core MART models built on them. **Status: done (2026-10-14).** This page covers the cleaning half
 (STAGING): the rules, why they look the way they do, what the cleaning-challenge track showed,
-and what the tests guarantee. The objects and their columns are listed in the
-[data dictionary](data_dictionary.md).
+and what the tests guarantee. dbt builds and tests the views ([dbt.md](dbt.md)); the objects and
+their columns are listed in the [data dictionary](data_dictionary.md).
 
 Every number on this page is copied from the evidence files, cited as *file [statement]* in the
 style of [data_profile.md](data_profile.md):
 
 | Tag | Evidence file | Produced by |
 |---|---|---|
-| `02` | [`evidence/02_data_cleaning.txt`](evidence/02_data_cleaning.txt) | [`sql/02_data_cleaning.sql`](../sql/02_data_cleaning.sql), 13 statements: builds the 8 views |
-| `02T` | [`evidence/02_data_cleaning_tests.txt`](evidence/02_data_cleaning_tests.txt) | [`sql/02_data_cleaning_tests.sql`](../sql/02_data_cleaning_tests.sql), 25 statements: read-only tests |
-| `02bT` | [`evidence/02b_core_models_tests.txt`](evidence/02b_core_models_tests.txt) | [`sql/02b_core_models_tests.sql`](../sql/02b_core_models_tests.sql), 22 statements: MART tests |
+| `02` | [`evidence/02_data_cleaning.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02_data_cleaning.txt) | [`sql/02_data_cleaning.sql`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02_data_cleaning.sql), 13 statements: builds the 8 views |
+| `02T` | [`evidence/02_data_cleaning_tests.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02_data_cleaning_tests.txt) | [`sql/02_data_cleaning_tests.sql`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02_data_cleaning_tests.sql), 25 statements: read-only tests |
+| `02bT` | [`evidence/02b_core_models_tests.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02b_core_models_tests.txt) | [`sql/02b_core_models_tests.sql`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02b_core_models_tests.sql), 22 statements: MART tests |
+| `B` | [`evidence/05_dbt_build.txt`](evidence/05_dbt_build.txt) | `make dbt-build`: the dbt build and every dbt test (full log) |
 | `01 §x [n]`, `01b x [n]` | [`evidence/01_data_profiling.txt`](evidence/01_data_profiling.txt), [`evidence/01b_challenge_profiling.txt`](evidence/01b_challenge_profiling.txt) | Phase 2 profiling (block, statement) |
+
+The `02`, `02T` and `02bT` files come from the first version of the build. The models were first
+written as plain SQL and moved to dbt with identical results (parity check); that version is in
+the git history at commit dbe41f7, where the links above point.
 
 Nothing here answers a business question; that is Phase 4.
 
@@ -53,7 +58,7 @@ Sources: RAW rows `02T [9]`, `[21]`; STAGING rows and flagged rows `02 [13]`.
   row and reproduce the Phase 2 control totals exactly, and the challenge views reproduce the
   clean views except for 2 cells no evidence can recover.
 - **Why views.** The dbt staging convention: always in sync with RAW, nothing stored, no refresh
-  step. Since Phase 5 dbt builds them under the same names ([dbt.md](dbt.md)).
+  step. dbt builds them from [`dbt/models/staging/`](../dbt/models/staging/) ([dbt.md](dbt.md)).
 - **Why the tracks never mix.** Every challenge key also exists in the clean release
   (`02T [23]`), so a union would double-count. MART reads only the clean views
   (architecture decision 5).
@@ -62,23 +67,28 @@ Sources: RAW rows `02T [9]`, `[21]`; STAGING rows and flagged rows `02 [13]`.
 
 | | Build | Tests |
 |---|---|---|
-| SQL | `sql/02_data_cleaning.sql` (13 statements) | `sql/02_data_cleaning_tests.sql` (25 statements, read-only) |
-| Command | `make staging` runs both, in this order (`make models` runs it before `make marts`) | |
-| Run as | `SVC_CRM_PIPELINE`, role `CRM_TRANSFORMER`, no secondary roles, warehouse `MARKETING_WH` | same; last run 2026-10-14 06:05 UTC (`02T [5]`) |
-| Result | 8 views created, exit 0 (`02`) | **194 PASS rows, 0 FAIL, 0 WARN**, exit 0 (`02T`) |
+| dbt | the 8 models in [`dbt/models/staging/`](../dbt/models/staging/), one macro call each; the rules are in [`dbt/macros/staging/clean_*.sql`](../dbt/macros/staging/), one macro per entity | generic tests in [`_staging.yml`](../dbt/models/staging/_staging.yml), unit tests in [`_staging_unit_tests.yml`](../dbt/models/staging/_staging_unit_tests.yml), singular tests in [`dbt/tests/staging/`](../dbt/tests/staging/) and [`dbt/tests/challenge/`](../dbt/tests/challenge/) |
+| Command | `make dbt-build` builds and tests every STAGING view and MART table | `make dbt-test` re-runs the tests on the deployed views, no rebuild |
+| Run as | `SVC_CRM_PIPELINE`, role `CRM_TRANSFORMER`, warehouse `MARKETING_WH` (from `.env`, read by [`dbt/profiles.yml`](../dbt/profiles.yml)) | same |
+| Result | 8 views created (`B`) | the full build ends `PASS=273 WARN=0 ERROR=0` (`B`) |
 
-- **Evidence rule.** As for the Phase 2 targets, each file's output goes to `build/` first
-  (`tee`, with `set -o pipefail` keeping `run_sql.py`'s exit code), and both evidence files are
-  replaced only after the build and its tests exit 0. A failed run cannot overwrite the evidence.
-- **Expected values never come from the view under test.** They come from the Phase 3 contract,
-  the Phase 2 evidence, the Phase 2 conventions in the header of `sql/01b_challenge_profiling.sql`
-  and the local baselines computed from the CSV files before Snowflake existed. The header of the
-  test file tags the source of every block (`[C]`, `[E01]`, `[E01b]`, `[D01b]`, `[P1]`, `[P3]`).
-  "The Phase 2 baseline" on this page means those local pre-load values (`[P3]`, e.g. 120
-  campaigns × 12 bases, 36 months); the test files carry them inline as `VALUES` lists.
-- **No vacuous passes.** Every comparison with an expected list uses a `FULL OUTER JOIN`, so a
-  missing or unexpected view, column, value or defect is its own FAIL row; zero counts are checked
-  next to the number of rows they were evaluated on, or rely on row counts checked in the same run.
+The first version's test file ran as the same user and role, with no secondary roles, last on
+2026-10-14 06:05 UTC (`02T [5]`): **194 PASS rows, 0 FAIL, 0 WARN**, exit 0 (`02T`).
+
+- **Evidence rule.** As for the Phase 2 targets, `make dbt-build` writes its log to `build/` first
+  (`tee`, with `set -o pipefail` keeping dbt's exit code), and the evidence file is replaced only
+  after every step exits 0. A failed run cannot overwrite the evidence.
+- **Expected values never come from the view under test.** They come from the Phase 2 evidence,
+  the Phase 2 conventions in the header of `sql/01b_challenge_profiling.sql` and the local
+  baselines computed from the CSV files without Snowflake: in dbt, the seeds written by
+  [`scripts/independent_check.py`](../scripts/independent_check.py)
+  ([dbt.md](dbt.md#seeds-independent-expected-values)) and literal `VALUES` lists in the singular
+  tests. "The Phase 2 baseline" on this page means those local pre-load values (e.g. 120
+  campaigns × 12 bases, 36 months).
+- **No vacuous passes.** Every comparison with an expected list or seed uses a `FULL OUTER JOIN`
+  or `IS DISTINCT FROM`, so a missing or unexpected value, row or defect is its own failing row; a
+  test that finds 0 bad rows relies on the row counts checked in the same run
+  (`assert_staging_keeps_every_raw_row`).
 
 ## The rules
 
@@ -151,9 +161,9 @@ dropped. So the natural money pattern `'^[0-9]+\.[0-9]{2}$'` reaches the regex e
 `^[0-9]+.[0-9]{2}$`, where `.` matches any character: it accepts `1250x40`, and worse `125040`,
 which the cast would turn into 125040.00. `02T [7]` shows this in its `TRAP_GATE` column. Every
 pattern therefore writes a literal dot as `[.]` and a digit as `[0-9]`, so no pattern needs a
-backslash, and `02T [8]` (block 2b) checks that the deployed view definitions contain exactly the
-tested rule texts and no naive backslash-dot, `AUTO` or `::DATE` (29 rule texts per view, 8 views
-PASS).
+backslash, and `02T [8]` (block 2b) checked that the deployed view definitions contained exactly
+the tested rule texts and no naive backslash-dot, `AUTO` or `::DATE` (29 rule texts per view, 8
+views PASS).
 
 ### 6. De-duplication with ROW_NUMBER + QUALIFY
 
@@ -197,7 +207,9 @@ the Phase 2 results):
 
 Raw values are from Phase 2 (`01b 7 [30]`, [data_profile.md](data_profile.md#cleaning-challenge-extracts));
 everything to the right of them is from `02T [22]`, which maps the DQ codes to the Phase 2 defect
-list with a `FULL OUTER JOIN` and checks codes and values.
+list with a `FULL OUTER JOIN` and checks codes and values. The dbt test
+[`assert_challenge_defects_flagged`](../dbt/tests/challenge/assert_challenge_defects_flagged.sql)
+checks the same codes and values on every build.
 
 | # | Class | Cell | Raw value | STAGING value | `*_FILLED` | DQ codes | Outcome |
 |---:|---|---|---|---|---|---|---|
@@ -268,7 +280,9 @@ The cell-level check (`02T [25]`) names the only differing cells:
 | CV0000030 `CONVERTED_DATE` | NULL | NULL | 2023-07-13 | residual mismatch |
 
 So with the fills, **6,118 of 6,120 rows** reproduce the clean release exactly, as Phase 2
-predicted (architecture decision 5), and the 2 residual cells are NULL, never a wrong value.
+predicted (architecture decision 5), and the 2 residual cells are NULL, never a wrong value. The
+dbt test [`assert_challenge_reconciliation`](../dbt/tests/challenge/assert_challenge_reconciliation.sql)
+checks both row counts and the 2 residual cells on every build.
 
 Two more facts from `02T [23]`: every challenge key exists in the clean views (0 missing in each
 of the 4 views), and 1,687 challenge conversions point to leads outside the leads extract, all of
@@ -278,10 +292,12 @@ from a defect.
 ## What the main pipeline guarantees
 
 The main pipeline is the clean release: `RAW.{CAMPAIGNS, DAILY_SPEND, LEADS, CONVERSIONS}` →
-`STG_*` → MART. Each guarantee below is a test that runs on every `make models`, with the number
-of PASS rows in the last run.
+`STG_*` → MART. dbt tests it on every `make dbt-build`, all passing (`B`; the tests are listed in
+[dbt.md](dbt.md#tests)). The tables below give each guarantee as a block of the first version's
+test files, with the number of PASS rows in their last run.
 
-**STAGING** (`sql/02_data_cleaning_tests.sql`, 194 PASS rows in total):
+**STAGING** (`02T`, 194 PASS rows in total; in dbt: the tests in `_staging.yml`,
+`_staging_unit_tests.yml`, `dbt/tests/staging/` and `dbt/tests/challenge/`):
 
 | Block | Guarantee | PASS rows | Evidence |
 |---|---|---:|---|
@@ -303,12 +319,13 @@ of PASS rows in the last run.
 | 14 | `LEAD_SOURCE` equals the campaign `CHANNEL` (warning level: WARN, never FAIL); 0 mismatches, clean and challenge | 2 | `02T [20]` |
 | 15-19 | Challenge track: de-duplication, the 15 defects, keys in the clean views, reconciliation by row and by cell ([above](#challenge-track-results)) | 43 | `02T [21-25]` |
 
-**MART core** (`sql/02b_core_models_tests.sql`, 245 PASS rows; the tables are described in the
+**MART core** (`02bT`, 245 PASS rows; in dbt: the tests in `_marts.yml`, `_marts_unit_tests.yml`
+and `dbt/tests/marts/`; the tables are described in the
 [data dictionary](data_dictionary.md#mart-core)):
 
 | Block | Guarantee | PASS rows | Evidence |
 |---|---|---:|---|
-| 0-1 | Run context; MART holds exactly the 5 core tables with the contract columns, order, types and comments, plus Phase 1 `CONNECTION_TEST` and the 5 Phase 4 analysis marts (their columns are tested in `02c`) | 12 | `02bT [5-6]` |
+| 0-1 | Run context; MART holds exactly the 5 core tables with the contract columns, order, types and comments, plus the Phase 1 connection-test table and the 5 Phase 4 analysis marts (their columns were tested in [`02c`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02c_analysis_marts_tests.txt)) | 12 | `02bT [5-6]` |
 | 2-3 | Built from complete, unflagged STAGING rows; each table has exactly the rows of its grain (1,096 / 120 / 11,240 / 261,684 / 120) | 10 | `02bT [7-8]` |
 | 4-6 | Keys unique and not NULL; 0 NULLs where a value is required; every foreign key (campaigns and dates) finds its dimension row, in both directions | 29 | `02bT [9-11]` |
 | 7-8 | `DIM_DATE` is a gap-free calendar 2023-01-01..2025-12-31 with correct attributes | 22 | `02bT [12-13]` |
@@ -332,8 +349,7 @@ of PASS rows in the last run.
 - **Business rules are tested on the clean views.** On the challenge rows, Phase 2 found 0
   violations of its 10 rule checks (`01b 6b [29]`); Phase 3 re-tests `lead_source` = channel there
   (`02T [20]`).
-- **Rules are inline SQL**, repeated in each view, because `CRM_TRANSFORMER` cannot create UDFs.
-  Block 2b of the tests keeps the copies in line with the unit tests. Since Phase 5 the dbt build
-  takes them from one shared macro per entity (`dbt/macros/staging/clean_*.sql`), so a clean view
-  and its challenge view compile from the same rules; block 2b still passes on the dbt-built views
-  ([dbt.md](dbt.md#parity-with-the-hand-written-sql-build)).
+- **Rules are inline SQL**, not UDFs, because `CRM_TRANSFORMER` cannot create UDFs. They live in
+  one shared macro per entity (`dbt/macros/staging/clean_*.sql`), so a clean view and its
+  challenge view compile from the same rules, and the unit tests in `_staging_unit_tests.yml` pin
+  them on edge-case inputs ([dbt.md](dbt.md#unit-tests)).

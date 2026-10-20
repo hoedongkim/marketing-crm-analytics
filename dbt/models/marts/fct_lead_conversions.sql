@@ -1,8 +1,7 @@
 {#-
-    FCT_LEAD_CONVERSIONS: one row per lead (261,684 rows), the lead-cohort fact. Ported from
-    sql/02b_core_models.sql block 4. The joins (lead LEFT JOIN conversion, 1:0..1, and the
-    campaign attributes, n:1) are in the ephemeral int_lead_conversions; this model adds the
-    derived columns:
+    FCT_LEAD_CONVERSIONS: one row per lead (261,684 rows), the lead-cohort fact. The joins (lead
+    LEFT JOIN conversion, 1:0..1, and the campaign attributes, n:1) are in the ephemeral
+    int_lead_conversions; this model adds the derived columns:
     - CREATED_MONTH (cohort month) and CONVERTED_MONTH (activity month): 34% of conversions land
       in a later month than their lead, so the two must never share one date axis.
     - LEAD_SCORE_SEGMENT: the plan's bands Low 1-40 / Medium 41-70 / High 71-100; a missing or

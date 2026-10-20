@@ -1,6 +1,5 @@
 {#-
-    The cleaning challenge's own acceptance test (the dbt port of
-    sql/02_data_cleaning_tests.sql blocks 15-16). On the publisher's dirty extracts the staging
+    The cleaning challenge's own acceptance test. On the publisher's dirty extracts the staging
     rules must flag EXACTLY the 15 defects that Phase 2 located, with exactly these 18 codes,
     and give each defective cell the value Phase 2 argued for:
       4 duplicate rows      one row kept per key, duplicate_copies=2

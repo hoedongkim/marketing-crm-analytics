@@ -6,12 +6,10 @@
 # `make dbt-build` wraps it. This is dbt Core v1 (dbt-core ~=1.12.5 + dbt-snowflake ~=1.12.2):
 # never `pip install dbt`, which installs the separate v2 (Fusion) engine.
 #
-# Layers (the same object names and schemas as the Phase 3-4 SQL build, which dbt replaces in
-# place, so the analyses in sql/03-06 and the Data Studio sources of Phase 6 read the same names):
+# Layers (the analyses in sql/03-06 and the Data Studio sources of Phase 6 read these names):
 #   models/staging       8 views in MARKETING_CRM.STAGING (STG_*, STG_CHALLENGE_*)
 #   models/intermediate  ephemeral: compiled into the marts as CTEs, creates no object
-#   models/marts         11 permanent tables in MARKETING_CRM.MART (10 ported from the SQL
-#                        build, plus mart_conversion_funnel, added in Phase 6)
+#   models/marts         11 permanent tables in MARKETING_CRM.MART
 #   seeds                3 small tables of independent expected values, in STAGING (test inputs,
 #                        never read by a model)
 
@@ -33,11 +31,11 @@ flags:
   send_anonymous_usage_stats: false
 
 vars:
-  # The documented assumptions of the Phase 3-4 models, in one place (values unchanged). The tests
-  # that check model output do not read them back: scripts/independent_check.py, the unit tests and
-  # the singular tests pin the same values on their own, so changing one here makes those tests
-  # fail until they agree. (tests/staging/assert_campaign_windows.sql reads post_window_days on
-  # purpose: it checks that the data still fits the assumption.)
+  # The documented assumptions of the models, in one place. The tests that check model output do
+  # not read them back: scripts/independent_check.py, the unit tests and the singular tests pin
+  # the same values on their own, so changing one here makes those tests fail until they agree.
+  # (tests/staging/assert_campaign_windows.sql reads post_window_days on purpose: it checks that
+  # the data still fits the assumption.)
   coverage_start: "2023-01-01"   # documented dataset coverage = the DIM_DATE spine
   coverage_end: "2025-12-31"
   as_of_date: "2025-12-31"       # FCT_LEAD_CONVERSIONS.AS_OF_DATE (an assumption)
@@ -46,8 +44,8 @@ vars:
 
 models:
   marketing_crm:
-    # Every table, view and column keeps a Snowflake COMMENT (the SQL contract tests and the
-    # Data Studio field descriptions rely on them).
+    # Every table, view and column keeps a Snowflake COMMENT (the Data Studio field descriptions
+    # rely on them).
     +persist_docs:
       relation: true
       columns: true
@@ -59,7 +57,7 @@ models:
     marts:
       +schema: MART
       +materialized: table
-      # Permanent tables, as in the SQL build (dbt-snowflake defaults to transient).
+      # Permanent tables (dbt-snowflake defaults to transient).
       +transient: false
 
 seeds:

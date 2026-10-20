@@ -12,7 +12,7 @@ Pipeline user (SVC_CRM_PIPELINE, role CRM_LOADER, key pair):
   CRM_TRANSFORMER can be used and sees RAW, STAGING and MART, and that RAW tables
   created by the loader are readable by the transformer (future grants).
 --bi additionally connects as SVC_CRM_BI with CRM_REPORTER and confirms it can see MART
-  but NOT RAW (a SELECT on RAW must fail).
+  and read MART.DIM_CAMPAIGN (built by make dbt-build), but NOT RAW (a SELECT on RAW must fail).
 
 Prints PASS / FAIL / WARN / INFO lines and exits 1 if any check failed (2 if the
 configuration is missing or the connection is refused).
@@ -31,6 +31,8 @@ import sfconn  # noqa: E402  (stdlib-only at import time)
 ADMIN_ROLES = {"ACCOUNTADMIN", "ORGADMIN", "SECURITYADMIN", "SYSADMIN", "USERADMIN"}
 DATABASE = "MARKETING_CRM"
 WAREHOUSE_MONITOR = "RM_MARKETING_WH"
+# The MART table the BI check reads (SELECT COUNT(*) only): every `make dbt-build` creates it.
+BI_PROBE_TABLE = "DIM_CAMPAIGN"
 # A small query that needs a running warehouse and has an exact, deterministic answer.
 WAREHOUSE_QUERY = (
     "SELECT COUNT(*), MAX(RN) FROM ("
@@ -285,7 +287,7 @@ def check_pipeline(rep: Report, skip_warehouse_query: bool) -> dict[str, object]
                       f"{transformer} can read all {len(loader_tables)} RAW tables",
                       f"not readable by {transformer}: {sorted(loader_tables - visible)}")
         mart_tables = table_names(cur, "MART") if "MART" in schemas else set()
-        facts["connection_test_exists"] = "CONNECTION_TEST" in mart_tables
+        facts["bi_probe_exists"] = BI_PROBE_TABLE in mart_tables
         rep.info("MART tables", ", ".join(sorted(mart_tables)) or "none yet")
     finally:
         conn.close()
@@ -342,14 +344,14 @@ def check_bi(rep: Report, facts: dict[str, object]) -> None:
                 rep.warn("BI blocked from RAW", f"SELECT failed with an unexpected error: {exc.errno} {exc.raw_msg}")
 
         try:
-            n = cur.execute(f"SELECT COUNT(*) FROM {DATABASE}.MART.CONNECTION_TEST").fetchone()[0]
-            rep.ok("BI reads MART", f"MART.CONNECTION_TEST has {n} rows")
+            n = cur.execute(f"SELECT COUNT(*) FROM {DATABASE}.MART.{BI_PROBE_TABLE}").fetchone()[0]
+            rep.ok("BI reads MART", f"MART.{BI_PROBE_TABLE} has {n} rows")
         except SnowflakeError as exc:
-            if facts.get("connection_test_exists"):
-                rep.fail("BI reads MART", f"MART.CONNECTION_TEST exists but {reporter} cannot read it "
+            if facts.get("bi_probe_exists"):
+                rep.fail("BI reads MART", f"MART.{BI_PROBE_TABLE} exists but {reporter} cannot read it "
                                           f"({exc.errno}); check the MART future grants (bootstrap section 4)")
             else:
-                rep.info("BI reads MART", "MART.CONNECTION_TEST not built yet: run make connection-test-table")
+                rep.info("BI reads MART", f"MART.{BI_PROBE_TABLE} not built yet: run make dbt-build")
     finally:
         conn.close()
 

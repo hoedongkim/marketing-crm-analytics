@@ -1,8 +1,7 @@
 {#-
-    Reconciliation of the cleaning-challenge track with the clean release (the dbt port of
-    sql/02_data_cleaning_tests.sql blocks 18-19). The extracts are dirty copies of the first
-    keys of the clean release, so after cleaning each row must equal its clean row in every
-    contract column (EQUAL_NULL), compared twice:
+    Reconciliation of the cleaning-challenge track with the clean release. The extracts are dirty
+    copies of the first keys of the clean release, so after cleaning each row must equal its
+    clean row in every contract column (EQUAL_NULL), compared twice:
       blanks NULL  the challenge view as it is                      6,116 of 6,120 rows match
       with fills   CAMPAIGN_NAME_FILLED / SPEND_DATE_FILLED used    6,118 of 6,120 rows match
     The cells that still differ after the fills must be EXACTLY the 2 blank dates that no

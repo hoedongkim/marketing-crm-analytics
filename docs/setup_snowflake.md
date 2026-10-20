@@ -1,9 +1,9 @@
 # Snowflake setup: Day-1 runbook (Phase 1)
 
 This runbook takes the project from "new Snowflake trial account" to "RAW loaded and reconciled,
-MART connection-test table ready for Data Studio". Every SQL statement and command it refers to is
-in this repository. The account was created on 2026-10-13; as of that date none of the tooling has
-been run against it yet. The first run is the real test, so the troubleshooting section at the end
+BI user checked for Data Studio". Every SQL statement and command it refers to is in this
+repository. The account was created on 2026-10-13; as of that date none of the tooling has been
+run against it yet. The first run is the real test, so the troubleshooting section at the end
 matters.
 
 Facts below were checked against docs.snowflake.com and Google's Data Studio docs on 2026-10-13.
@@ -16,7 +16,7 @@ Claims that could not be verified are marked **(unverified)**.
 | Sign up, choose cloud/region/edition, set the admin password, enrol MFA | **You** | Account creation and passwords are personal; no script or assistant should handle them. |
 | `make setup`, `make data`, `make keys`, `make bootstrap-sql` | You (or an assistant) on your laptop | Local only, no Snowflake access needed. Exception: with `ENCRYPT_PIPELINE_KEY=1`, **you** run `make keys` and type the passphrase (see the note below). |
 | Paste `build/snowflake_bootstrap.sql` into Snowsight and **Run All**, then step 5b | **You**, as the admin user | Needs ACCOUNTADMIN. This is the only time the *tooling* needs an admin role; later admin use is for monitoring and break-glass only (raising a monitor quota, the Data Studio test queries, disabling a user). |
-| Fill `.env`, `make sf-check`, `make load`, `make load-challenge`, `make connection-test-table` | You (or an assistant) | Uses the key-pair service user. No password; the optional key passphrase is entered by you only. |
+| Fill `.env`, `make sf-check`, `make load`, `make load-challenge`, `make sf-check-bi` | You (or an assistant) | Uses the key-pair service user. No password; the optional key passphrase is entered by you only. |
 | Authorise the Data Studio connector, paste the BI key | **You** | Google-account consent and a credential paste. |
 
 **The key passphrase is yours alone.** If you choose `ENCRYPT_PIPELINE_KEY=1`, you run `make keys`
@@ -68,7 +68,7 @@ make data
 - Downloads the two zips only if they are missing, and checks their pinned SHA-256.
 - Extracts them only after checking the member names: no absolute paths, no `..`, no symlinks.
 - Then checks the SHA-256 of every CSV. Re-running only verifies.
-- Details: [data/README.md](../data/README.md).
+- Details: [data_source.md](data_source.md).
 
 ## 3. Key pairs: `make keys`
 
@@ -225,17 +225,15 @@ Open [sql/setup/02_raw_load_checks.sql](../sql/setup/02_raw_load_checks.sql) in 
 The same file also runs from the terminal: `.venv/bin/python scripts/run_sql.py --role CRM_LOADER sql/setup/02_raw_load_checks.sql`
 exits 1 if any row says FAIL. It cannot judge blocks 4 and 6, so read those two yourself.
 
-## 11. `make connection-test-table`, then the Data Studio test
+## 11. `make sf-check-bi`, then the Data Studio connection
 
 ```bash
-make connection-test-table   # MART.CONNECTION_TEST as CRM_TRANSFORMER; exits 1 unless the check row says PASS
 make sf-check-bi             # SVC_CRM_BI / CRM_REPORTER: sees MART, cannot read RAW
 ```
 
-The last result printed by `make connection-test-table` must read
-`159 | 4523050.02 | 436844819 | 7102319 | 2023-01-01 | 2025-12-01 | PASS`; on any mismatch its
-STATUS is FAIL and the command exits 1. Then follow
-[phase1_connection_test.md](phase1_connection_test.md) and fill in its results table.
+The MART tables that Data Studio reads come from `make dbt-build` ([dbt.md](dbt.md#how-to-run)).
+The connector sign-in that worked on 2026-10-13 (key pair, no password fallback needed) is in
+[dashboard_spec.md](dashboard_spec.md) section 0.2.
 
 ## Cost notes
 
@@ -263,7 +261,7 @@ STATUS is FAIL and the command exits 1. Then follow
 |---|---|
 | `250001` *Could not connect to Snowflake backend* | `SNOWFLAKE_ACCOUNT` is wrong or contains `https://` / `.snowflakecomputing.com`. Use the org-account value from step 5. |
 | `390144` *JWT token is invalid* | Three causes, in order of likelihood. (1) The account identifier is not this account's. (2) The `.p8` does not match the registered public key: `make sf-check` prints the local fingerprint, so compare it with `DESC USER ... RSA_PUBLIC_KEY_FP`, and if they differ re-run `make bootstrap-sql` and the bootstrap with the right `KEY_DIR` (safe: the bootstrap is idempotent, including the resource monitors). (3) The computer clock is off: JWTs are short-lived, so enable automatic time. |
-| *JWT token has expired* / `JWT_TOKEN_INAVLID_EXPIRATION_TIME` (sic, the misspelling is in the reported error; seen in Data Studio) | Clock skew on the client side, or the connector's reported flakiness with key-pair (Dec 2025 forum report). See the fallback in phase1_connection_test.md. |
+| *JWT token has expired* / `JWT_TOKEN_INAVLID_EXPIRATION_TIME` (sic, the misspelling is in the reported error; seen in Data Studio) | Clock skew on the client side, or the connector's reported flakiness with key-pair (Dec 2025 forum report). The trial-only fallback, a separate password user for the connector, is described in the [Phase 1 connection test](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/phase1_connection_test.md#fallback-if-key-pair-fails-trial-only); Phase 1 did not need it. |
 | `390189` *Role ... is not granted to this user* | Section 5 of the bootstrap did not finish. Run All again. |
 | *Password was not given but private key is encrypted* / *encrypted but SNOWFLAKE_PRIVATE_KEY_PASSPHRASE is empty* | Set the passphrase in `.env`, or regenerate the pipeline key unencrypted (move the old files away first). |
 | `PUT` fails in a Snowsight worksheet | Expected: `PUT` only runs from a driver or the Snowflake CLI. Use `make load`. |

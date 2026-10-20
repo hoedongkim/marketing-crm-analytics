@@ -1,4 +1,4 @@
-# Data
+# Data source
 
 ## Source
 
@@ -14,10 +14,10 @@
   (`make load` proves it). `STAGING`, `MART`, the Data Studio dashboard and its Google Sheets
   snapshot are **typed, cleaned and aggregated** by Hoedong Kim and are not endorsed by the
   publisher. Every public report page and every Sheet carries the attribution, the license link
-  and this change notice (see [docs/architecture.md](../docs/architecture.md), decision 8).
+  and this change notice (see [architecture.md](architecture.md#design-decisions), decision 8).
 
-The data files are **not committed**: `make data` downloads them into `data/raw/`, which is
-git-ignored except for `.gitkeep`. What is committed is derived data: [`exports/`](../exports/README.md)
+The data files are **not committed**: `make data` creates `data/raw/` and downloads them into it;
+the folder is git-ignored. What is committed is derived data: [`exports/`](../exports/README.md)
 holds the aggregated MART tables the dashboard is built on (Phase 6, `make export-marts`). It is under
 the same CC BY 4.0 terms and carries the attribution and change notice.
 
@@ -89,7 +89,7 @@ The publisher also ships intentionally dirty extracts for a cleaning exercise. T
 | `conversions.csv` | 2,001 | 2,000 | `ccf2deff63314e5b27f616020176c4dceb755adecd0dc6779c4e879c0078a03a` |
 
 - **How they relate to the clean release.** Each extract is the first N keys of the clean release. Its first data row is repeated as the last line.
-- **Purpose.** `make load-challenge` loads them into `RAW.CHALLENGE_*` (not run yet); they are **never unioned with the clean release** and feed the Phase 3 cleaning track only.
+- **Purpose.** `make load-challenge` loads them into `RAW.CHALLENGE_*` (loaded on 2026-10-13); they are **never unioned with the clean release** and feed the Phase 3 cleaning track only.
 - **Reconciliation target.** The clean release remains the only one.
 - **Defects.** The publisher's `KNOWN_ISSUES.md` lists the defect classes as acceptance criteria. Our profiling found 15 injected defects: 4 duplicate rows and 11 bad cells.
 

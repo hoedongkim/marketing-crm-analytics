@@ -847,9 +847,10 @@ touched), and every value was re-read after the change.
 ## Build log, pass 2: the Google Sheets copy
 
 The public version is a copy of the final report in a personal Google account (the university
-Workspace does not allow "Anyone with the link"), moved onto the seven `<TABLE> (Sheets snapshot)`
-data sources of [sheets_snapshot.md](sheets_snapshot.md) (export of 2026-10-14). The final
-Snowflake report was only read, never edited.
+Workspace does not allow "Anyone with the link"), moved onto seven reusable Google Sheets data
+sources named `<TABLE> (Sheets snapshot)`, one per report table, on the
+[exports/](../exports/README.md) workbook converted to Google Sheets (export of 2026-10-14). The
+final Snowflake report was only read, never edited.
 
 - **What the copy broke.** The *Make a copy* dialog mapped all seven sources correctly, but the
   Snowflake and Sheets connectors give fields different IDs, so Data Studio "repaired" each chart
@@ -868,7 +869,8 @@ Snowflake report was only read, never edited.
   read `32.1` for video); all rate and money-ratio cards now carry their format on the chip. The
   copy was renamed `Marketing CRM & Conversion Funnel Analytics Report`.
 - **Snapshot note.** A report-level text box between the date control and the Channel drop-down
-  ([sheets_snapshot.md](sheets_snapshot.md), step 8).
+  ([step 8 of the Sheets runbook](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/sheets_snapshot.md#step-8-provenance-note-and-attribution),
+  in the git history at commit dbe41f7).
 - **Checks (2026-10-18), all matching.**
   - Default state: the rendered text of all four pages is identical to the final Snowflake
     report, value by value, labels and captions included.
@@ -892,8 +894,10 @@ Snowflake report was only read, never edited.
 ## Sign-off
 
 Fill in one column per pass. Pass 1 is the live Snowflake connector. Pass 2 repeats the whole
-checklist on the Google Sheets snapshot ([sheets_snapshot.md](sheets_snapshot.md), spec section 9).
-The numbers must be identical in both passes.
+checklist on the Google Sheets snapshot (spec
+[section 9](dashboard_spec.md#9-later-the-snowflake--google-sheets-swap);
+[build log, pass 2](#build-log-pass-2-the-google-sheets-copy)). The numbers must be identical in
+both passes.
 
 | Item | Pass 1: live Snowflake | Pass 2: Sheets snapshot |
 |---|---|---|

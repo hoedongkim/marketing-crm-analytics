@@ -1,8 +1,7 @@
 {#-
     STAGING flags problems instead of dropping rows, and the clean release has no duplicates, so
     each clean view has exactly one row per RAW row (120 / 11,240 / 261,684 / 39,696; the
-    independent counts of seed expected_totals). The dbt port of
-    sql/02_data_cleaning_tests.sql block 3. Returns one row per view whose count differs.
+    independent counts of seed expected_totals). Returns one row per view whose count differs.
 -#}
 WITH counts AS (
             SELECT 'stg_campaigns' AS MODEL_NAME, 'campaigns' AS METRIC,

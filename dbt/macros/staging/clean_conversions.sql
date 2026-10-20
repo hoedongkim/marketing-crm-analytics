@@ -2,8 +2,7 @@
   clean_conversions(source_relation)
 
   The cleaning rules for a conversions extract, shared by stg_conversions (clean release) and
-  stg_challenge_conversions (cleaning-challenge extract). Ported unchanged from
-  sql/02_data_cleaning.sql blocks 4 and 8; the steps are those of clean_campaigns.
+  stg_challenge_conversions (cleaning-challenge extract). The steps are those of clean_campaigns.
   CONVERTED_AT is renamed CONVERTED_DATE, and its codes say converted_date. No fill: a blank
   converted date cannot be proven (22 candidate dates in the challenge extract), so it stays NULL.
 -#}

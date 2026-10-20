@@ -19,9 +19,8 @@ __pycache__/
 build/
 
 # Data: the dataset zips and their extracted CSVs are downloaded by `make data`
-# (pinned SHA-256). Only the placeholder is tracked; see data/README.md.
-data/raw/*
-!data/raw/.gitkeep
+# (pinned SHA-256) into data/raw/; nothing under data/ is tracked. See docs/data_source.md.
+/data/
 
 # dbt (Phase 5): build output (manifest, catalog, the docs site incl. static_index.html),
 # installed packages and logs. Tracked on purpose: dbt/package-lock.yml (the pinned package

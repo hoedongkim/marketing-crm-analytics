@@ -49,7 +49,8 @@
 **Citations.** `03 [8]` means [`evidence/03_overview.txt`](evidence/03_overview.txt), statement
 [8]; the statement map in each SQL file's header names the block. Tags: `01` =
 [`01_data_profiling.txt`](evidence/01_data_profiling.txt), `02cT` =
-[`02c_analysis_marts_tests.txt`](evidence/02c_analysis_marts_tests.txt), `03` =
+[`02c_analysis_marts_tests.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02c_analysis_marts_tests.txt)
+(commit dbe41f7), `03` =
 [`03_overview.txt`](evidence/03_overview.txt), `04` = [`04_funnel.txt`](evidence/04_funnel.txt),
 `05` = [`05_lead.txt`](evidence/05_lead.txt), `06` = [`06_efficiency.txt`](evidence/06_efficiency.txt).
 Every analysis query is followed by checks against independent expected values; all check rows
@@ -451,9 +452,11 @@ Each pitfall is computed on purpose in the evidence, labelled as wrong, so it is
 
 ## Next steps
 
-- **Phase 5 (dbt), done 2026-10-14:** dbt Core now builds the STAGING and MART models, the five
-  analysis marts included, under the same names and with identical rows; the analysis files behind
-  this page print identical output on the dbt build ([dbt.md](dbt.md)).
+- **Phase 5 (dbt), done 2026-10-14:** dbt Core builds and tests every STAGING and MART model, the
+  five analysis marts included ([dbt.md](dbt.md)). It replaced a first, plain-SQL build with
+  identical rows, and the analysis files behind this page print identical output on the dbt build
+  ([parity check](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/05_dbt_parity.txt),
+  commit dbe41f7).
 - **Phase 6 (dashboard):** build the four Data Studio pages from the MART tables with the calculated
   fields of [kpi_definitions.md](kpi_definitions.md), and re-check each chart against the numbers
   above.

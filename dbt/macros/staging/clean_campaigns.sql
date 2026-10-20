@@ -2,11 +2,10 @@
   clean_campaigns(source_relation, fill_campaign_name=false)
 
   The cleaning rules for a campaigns extract, shared by stg_campaigns (clean release) and
-  stg_challenge_campaigns (cleaning-challenge extract). Ported unchanged from
-  sql/02_data_cleaning.sql blocks 1 and 5: the same CTE steps, expressions, DQ codes and output
-  column order, so both views keep the Phase 3 contract.
+  stg_challenge_campaigns (cleaning-challenge extract): the same CTE steps, expressions, DQ
+  codes and output column order, so both views keep one contract.
 
-  Steps (one CTE each; the rule header of sql/02_data_cleaning.sql explains every choice):
+  Steps (one CTE each; docs/data_cleaning.md, "The rules", explains every choice):
     source   the RAW table, untouched
     trimmed  step 1: NULLIF(TRIM(x, space/tab/CR/LF), '') per column; the raw value is kept
              next to the trimmed one, so step 3 can say what changed
@@ -18,10 +17,11 @@
 
   fill_campaign_name (challenge track only) appends CAMPAIGN_NAME_FILLED: the provable fill of a
   blank name by the naming rule '<Channel words> <start year> <last 3 id digits>', kept apart
-  from CAMPAIGN_NAME (02_data_cleaning.sql block 5).
+  from CAMPAIGN_NAME.
 
-  Comments stay in Jinja on purpose: the deployed view text must contain exactly the rule
-  texts that sql/02_data_cleaning_tests.sql block 2b counts, and nothing else.
+  Comments stay in Jinja on purpose: the deployed view text then contains exactly the rule
+  texts and nothing else (block 2b of the earlier plain-SQL tests counted them there:
+  https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02_data_cleaning_tests.sql#L291).
 -#}
 {% macro clean_campaigns(source_relation, fill_campaign_name=false) -%}
 WITH source AS (

@@ -1457,8 +1457,9 @@ ORDER BY TYPE_ORD, DEFECT_NO, CLASS_ORD;
 -- =============================================================================
 -- 8. PREVIEW OF THE PHASE 3 RECONCILIATION (read-only)
 -- -----------------------------------------------------------------------------
---    PREVIEW ONLY. Phase 3 implements these rules as STAGING.STG_CHALLENGE__* models with dbt
---    tests; here they run inline, so the reconciliation can be seen before any model exists.
+--    PREVIEW ONLY. The dbt models STAGING.STG_CHALLENGE_* implement these rules (macros in
+--    dbt/macros/staging/clean_*.sql), and dbt/tests/challenge/assert_challenge_reconciliation.sql
+--    tests this reconciliation; here the rules run inline, so it can be seen without any model.
 --    Rules applied to the challenge extracts (only those found above):
 --      ids        UPPER(TRIM())          codes   LOWER(NULLIF(TRIM(), ''))
 --      name       INITCAP(NULLIF(TRIM(), '')), never on codes (3d)

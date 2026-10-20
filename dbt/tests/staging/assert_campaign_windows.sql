@@ -1,5 +1,5 @@
 {#-
-    The time logic MART builds on (sql/02_data_cleaning_tests.sql block 11):
+    The time logic MART builds on:
     - every campaign has exactly one spend row per window day (spend rows = distinct spend
       dates = CAMPAIGN_DAYS), which is what makes BUDGET / CAMPAIGN_DAYS a valid daily share;
     - no spend row and no lead falls outside its campaign window;

@@ -7,23 +7,22 @@ added by dbt in Phase 6). For each object: grain, row count,
 primary key, and every column with its type and meaning. The KPIs built on these columns, with
 their Data Studio formulas, are in [kpi_definitions.md](kpi_definitions.md).
 
-Since Phase 5, dbt builds every STAGING view and MART table under the same name
-(`make dbt-build`, project in [`dbt/`](../dbt/), described in [dbt.md](dbt.md)); the
-hand-written SQL of Phases 3-4 built the same objects first. The rebuild changed no row, column,
-type or column order: 18 of 18 objects have the same row count and row hash, and 245 of 245
-columns the same position, type and nullability (`05P` A.1-A.2). So everything below holds for the
-dbt-built objects; the evidence tags still point at the Phase 3-4 runs that first printed each
-number. `MART_CONVERSION_FUNNEL` is the exception: dbt built it first, in Phase 6, and it has no
-hand-written SQL twin ([below](#mart-conversion-funnel-phase-6)).
+dbt builds and tests every STAGING view and MART table (`make dbt-build`, project in
+[`dbt/`](../dbt/), described in [dbt.md](dbt.md)). The models were first written as plain SQL
+and moved to dbt with identical results (18 of 18 objects with the same row count and row hash,
+245 of 245 columns with the same position, type and nullability, `05P` A.1-A.2); most evidence
+tags below point at the runs of that first version, which is in the git history at commit
+dbe41f7. `MART_CONVERSION_FUNNEL` was built in dbt from the start, in Phase 6
+([below](#mart-conversion-funnel-phase-6)).
 
 How to read this page:
 
 - **Types** are the deployed types, read from `MARKETING_CRM.INFORMATION_SCHEMA.COLUMNS` on
-  2026-10-14 with a read-only query run as `CRM_TRANSFORMER` through `scripts/run_sql.py`: after
-  `make models` for RAW, STAGING and the MART core, and after `make analysis-marts` for the
-  analysis marts. The contract tests check the same names, positions and types on every run
-  (`02T [6]` for STAGING, `02bT [6]` for the MART core, `02cT [6]` for the analysis marts). To
-  re-read them (run once per schema):
+  2026-10-14 with a read-only query run as `CRM_TRANSFORMER` through `scripts/run_sql.py`, on the
+  first (plain SQL) build; dbt keeps every position and type (`05P` A.2). The SQL contract tests
+  checked the same names, positions and types (`02T [6]` for STAGING, `02bT [6]` for the MART
+  core, `02cT [6]` for the analysis marts), the MART ones again on the dbt-built tables in Phase 6
+  (`06F` steps 4-5). No dbt test checks the types, so to re-read them (run once per schema):
 
   ```sql
   SELECT TABLE_NAME, ORDINAL_POSITION, COLUMN_NAME,
@@ -34,28 +33,29 @@ How to read this page:
   ORDER BY TABLE_NAME, ORDINAL_POSITION;
   ```
 - **Row counts** are copied from the evidence files. Sources are given as *file [statement]*,
-  like [data_profile.md](data_profile.md):
+  like [data_profile.md](data_profile.md). The `02*` and `05P` files are runs of the first (plain
+  SQL) build, kept in the git history; their links open them at commit dbe41f7:
 
   | Tag | Evidence file | Produced by |
   |---|---|---|
-  | `02` | [`evidence/02_data_cleaning.txt`](evidence/02_data_cleaning.txt) | `sql/02_data_cleaning.sql` (builds STAGING) |
-  | `02T` | [`evidence/02_data_cleaning_tests.txt`](evidence/02_data_cleaning_tests.txt) | `sql/02_data_cleaning_tests.sql` |
-  | `02b` | [`evidence/02b_core_models.txt`](evidence/02b_core_models.txt) | `sql/02b_core_models.sql` (builds MART) |
-  | `02bT` | [`evidence/02b_core_models_tests.txt`](evidence/02b_core_models_tests.txt) | `sql/02b_core_models_tests.sql` |
-  | `02c` | [`evidence/02c_analysis_marts.txt`](evidence/02c_analysis_marts.txt) | `sql/02c_analysis_marts.sql` (builds the analysis marts) |
-  | `02cT` | [`evidence/02c_analysis_marts_tests.txt`](evidence/02c_analysis_marts_tests.txt) | `sql/02c_analysis_marts_tests.sql` |
-  | `05P` | [`evidence/05_dbt_parity.txt`](evidence/05_dbt_parity.txt) | the Phase 5 parity report (dbt build vs SQL build, seeds) |
+  | `02` | [`evidence/02_data_cleaning.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02_data_cleaning.txt) | `sql/02_data_cleaning.sql` (built STAGING) |
+  | `02T` | [`evidence/02_data_cleaning_tests.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02_data_cleaning_tests.txt) | `sql/02_data_cleaning_tests.sql` |
+  | `02b` | [`evidence/02b_core_models.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02b_core_models.txt) | `sql/02b_core_models.sql` (built MART) |
+  | `02bT` | [`evidence/02b_core_models_tests.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02b_core_models_tests.txt) | `sql/02b_core_models_tests.sql` |
+  | `02c` | [`evidence/02c_analysis_marts.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02c_analysis_marts.txt) | `sql/02c_analysis_marts.sql` (built the analysis marts) |
+  | `02cT` | [`evidence/02c_analysis_marts_tests.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02c_analysis_marts_tests.txt) | `sql/02c_analysis_marts_tests.sql` |
+  | `05P` | [`evidence/05_dbt_parity.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/05_dbt_parity.txt) | the Phase 5 parity report (dbt build vs SQL build, seeds) |
   | `06F` | [`evidence/06_funnel_mart.txt`](evidence/06_funnel_mart.txt) | Phase 6: `make dbt-build-select DBT_SELECT=mart_conversion_funnel+`, `make dbt-test`, the 02b / 02c object checks, the deployed types |
 
 - **Descriptions** come from the code: the RAW column comments in
-  [`sql/setup/01_raw_objects.sql`](../sql/setup/01_raw_objects.sql), the rules in
-  [`sql/02_data_cleaning.sql`](../sql/02_data_cleaning.sql) and the MART column comments that
-  [`sql/02b_core_models.sql`](../sql/02b_core_models.sql) and
-  [`sql/02c_analysis_marts.sql`](../sql/02c_analysis_marts.sql) set (visible in Snowsight and in
-  `INFORMATION_SCHEMA.COLUMNS.COMMENT`). Since Phase 5 the comments come from the dbt YAML
-  descriptions (`persist_docs`): the MART column comments are the Phase 3-4 ones, unchanged, and
-  the STAGING view columns now have comments too, from `dbt/models/staging/_staging.yml`
-  (`05P` B). The cleaning rules and their reasons are in [data_cleaning.md](data_cleaning.md).
+  [`sql/setup/01_raw_objects.sql`](../sql/setup/01_raw_objects.sql), the rules in the staging
+  models [`dbt/models/staging/`](../dbt/models/staging/) and their macros
+  [`dbt/macros/staging/clean_*.sql`](../dbt/macros/staging/), and the column descriptions in
+  [`dbt/models/staging/_staging.yml`](../dbt/models/staging/_staging.yml) and
+  [`dbt/models/marts/_marts.yml`](../dbt/models/marts/_marts.yml), which dbt writes to Snowflake
+  as table and column comments (`persist_docs`; visible in Snowsight and in
+  `INFORMATION_SCHEMA.COLUMNS.COMMENT`). The cleaning rules and their reasons are in
+  [data_cleaning.md](data_cleaning.md).
 
 Type conventions:
 
@@ -129,11 +129,13 @@ Keys: RAW in Phase 2 (`01 §3.1 [8]`, [data_profile.md](data_profile.md#data-qua
 STAGING `02T [11]` (block 5) and `02T [21]` (block 15, challenge views); MART core `02bT [9]`
 (block 4); analysis marts `02cT [7]` (no NULL and no duplicated grain key, and exactly the rows
 their dimension spines produce); `MART_CONVERSION_FUNNEL` by dbt tests (`06F` steps 2-3).
-`CONNECTION_TEST` is the Phase 1 Data Studio test table
-([`sql/setup/03_connection_test.sql`](../sql/setup/03_connection_test.sql)): it is not part of
-the model, the Phase 3 and Phase 4 files and dbt leave it untouched, and the dashboard and the
-export do not use it. It stays for the Phase 1 checks deferred to Phase 6
-([phase1_connection_test.md](phase1_connection_test.md), sections D-F).
+`CONNECTION_TEST` is the Phase 1 Data Studio test table, built before any model by
+[`sql/setup/03_connection_test.sql`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/setup/03_connection_test.sql)
+(in the git history at commit dbe41f7): it is not part of the model, dbt leaves it untouched, and
+the dashboard and the export do not use it. It was kept for the Phase 1 connector checks deferred
+to Phase 6 (query pushdown, public link, Google Sheets swap;
+[phase1_connection_test.md](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/phase1_connection_test.md),
+sections D-F).
 
 Who can read what ([architecture.md](architecture.md#security-model)): `CRM_LOADER` writes RAW;
 `CRM_TRANSFORMER` reads RAW and owns every STAGING view and MART table; `CRM_REPORTER` (the role
@@ -214,11 +216,10 @@ One row per converted lead. 39,696 rows (challenge: 2,001, including 1 exact dup
 
 ## STAGING
 
-Eight views, one per RAW table, at the RAW table's grain after de-duplication: built by
-`make staging` (`sql/02_data_cleaning.sql`) in Phase 3 and by dbt since Phase 5 (the models
-`dbt/models/staging/stg_*.sql`, rules in `dbt/macros/staging/`), with the same names, columns and
-rows. Views follow the dbt staging convention: always in sync with RAW, nothing stored, no
-refresh step. Since Phase 5 STAGING also holds three small seed tables, test inputs only
+Eight views, one per RAW table, at the RAW table's grain after de-duplication: built by dbt
+(the models `dbt/models/staging/stg_*.sql`, rules in `dbt/macros/staging/clean_*.sql`). Views
+follow the dbt staging convention: always in sync with RAW, nothing stored, no refresh step.
+Since Phase 5 STAGING also holds three small seed tables, test inputs only
 ([Seeds (Phase 5)](#seeds-phase-5)).
 
 - **Clean track:** `STG_CAMPAIGNS`, `STG_DAILY_SPEND`, `STG_LEADS`, `STG_CONVERSIONS`. The only
@@ -421,8 +422,7 @@ Three tables that `dbt build` loads from the CSV files in [`dbt/seeds/`](../dbt/
 expected values the dbt tests compare the models with. **No model reads them**, so they are not
 part of the data model; `CRM_REPORTER` (Data Studio) cannot see STAGING at all. They are
 transient tables (dbt's seed default; no Fail-safe), owned by `CRM_TRANSFORMER`
-(`05P` A.2), and `sql/02_data_cleaning_tests.sql` block 1 lists them as allowed non-contract
-objects of STAGING (`05P` D). Each table and column has a comment from
+(`05P` A.2). Each table and column has a comment from
 [`dbt/seeds/_seeds.yml`](../dbt/seeds/_seeds.yml). How they are made and checked:
 [dbt.md](dbt.md#seeds-independent-expected-values).
 
@@ -433,17 +433,17 @@ objects of STAGING (`05P` D). Each table and column has a comment from
 | `PUBLISHER_CHANNEL_REFERENCE` | 5 | `CHANNEL` (`TEXT`), `SPEND`, `ATTRIBUTED_REVENUE` (`NUMBER(18,2)`) | typed in by hand from the publisher's dataset page; `make expected-seeds-check` compares it with the CSV roll-up | 1 singular test: the channel roll-up of MART |
 
 The types are the `column_types` that `dbt/dbt_project.yml` sets for the seeds. Which test reads
-which seed: [lineage.md](lineage.md#seeds-and-singular-tests).
+which seed: the lineage graph of the dbt docs site (`make dbt-docs`).
 
 ## MART core
 
-Five tables built from the four clean `STG_*` views only, never from `STG_CHALLENGE_*`: by
-`make marts` (`sql/02b_core_models.sql`) in Phase 3 and by dbt since Phase 5
-(`dbt/models/marts/`, permanent tables with the same names, columns and rows). They are tables,
-not views, because Data Studio queries them repeatedly; each one rebuilds from STAGING in seconds.
-In the dbt build `FCT_LEAD_CONVERSIONS` reads the campaign attributes from `STG_CAMPAIGNS` through
-the ephemeral `int_lead_conversions` instead of from `DIM_CAMPAIGN`; the values are identical
-(tested against the independent seed, [dbt.md](dbt.md#tests)).
+Five tables built from the four clean `STG_*` views only, never from `STG_CHALLENGE_*`: by dbt
+(`dbt/models/marts/`, permanent tables). They are tables, not views, because Data Studio
+queries them repeatedly; each one rebuilds from STAGING in seconds.
+`FCT_LEAD_CONVERSIONS` reads the campaign attributes from `STG_CAMPAIGNS` through the ephemeral
+`int_lead_conversions` (`dbt/models/intermediate/int_lead_conversions.sql`), not from
+`DIM_CAMPAIGN`, which copies `STG_CAMPAIGNS` 1:1; the values are identical (tested against the
+independent seed, [dbt.md](dbt.md#tests)).
 
 - **Grain rule.** A fact is only ever joined to something with one row per join key: a fact to a
   dimension (n:1), or two inputs each aggregated to the same grain first (1:1). Two facts are
@@ -527,7 +527,8 @@ The delivery fact: one row per campaign per active day; 11,240 rows. PK `SPEND_I
 The lead-cohort fact: one row per lead, converted or not; 261,684 rows. PK `LEAD_ID`;
 `CONVERSION_ID` is unique where it is not NULL (221,988 NULLs = unconverted leads, `02bT [9]`).
 Source: `STG_LEADS` LEFT JOIN `STG_CONVERSIONS` on `LEAD_ID` (1:0..1, because `LEAD_ID` is unique in
-conversions), plus `DIM_CAMPAIGN` (n:1). Cohort KPIs group by `CREATED_MONTH`; `CONVERTED_MONTH`
+conversions), plus the campaign attributes of `STG_CAMPAIGNS` (n:1, the same values as
+`DIM_CAMPAIGN`), joined in the ephemeral `int_lead_conversions`. Cohort KPIs group by `CREATED_MONTH`; `CONVERTED_MONTH`
 is the activity month; the two are never put on one date axis
 ([architecture.md](architecture.md#design-decisions), decision 7).
 
@@ -620,7 +621,7 @@ division error or a fake 0.
   channel and for the total.
 - **Rounding.** Each ratio is rounded once, half away from zero, from the exact quotient: the
   dividend is cast to `NUMBER(32,18)` before the division, so `ROUND` to the stored scale is the
-  only rounding (header of `sql/02b_core_models.sql`, "Rounding").
+  only rounding (header of `dbt/models/marts/mart_campaign_performance.sql`, STEP 3).
 - **Budget.** Budget is additive across campaigns but not across dates, so budget utilisation
   exists only at campaign grain (architecture decision 9). For budget by month or year, use
   `FCT_DAILY_SPEND.BUDGET_PRORATED`.
@@ -653,13 +654,11 @@ for cohort rates over time, `MART_MONTHLY_COHORT`. The two bases never share a d
 
 ## MART analysis marts (Phase 4)
 
-Five tables built by `make analysis-marts` (`sql/02c_analysis_marts.sql`) from the MART core
+Five tables built by dbt (`dbt/models/marts/`) from the MART core
 (`DIM_DATE`, `DIM_CAMPAIGN`, `FCT_DAILY_SPEND`, `FCT_LEAD_CONVERSIONS`), never from STAGING
 directly, so they share the tested Phase 3 definitions (canonical `CHANNEL`, `BUDGET_PRORATED`,
-the 0/1 flags, `DAYS_TO_CONVERT`). In the SQL build they were snapshots of the core, rebuilt by
-`make analysis-marts` after every `make marts`; since Phase 5 dbt builds them (same names) after
-the core tables they depend on, in one run. 13,760 / 180 / 180 / 5 / 50 rows, every column
-commented (`02c [15]`).
+the 0/1 flags, `DAYS_TO_CONVERT`). dbt builds them after the core tables they depend on, in one
+run. 13,760 / 180 / 180 / 5 / 50 rows, every column commented (`02c [15]`).
 
 - **Grain rule.** Each input is aggregated to the target grain in its own CTE and only then joined
   1:1 to a spine of dimension members (campaign × date, month × channel, channel × score band),
@@ -689,8 +688,9 @@ commented (`02c [15]`).
   because each is a SUM over source rows (so the daily `SPEND` here is `NUMBER(18,2)`, while
   `FCT_DAILY_SPEND.SPEND` is `NUMBER(12,2)`); `BUDGET_PRORATED` `NUMBER(18,6)`; rates, ROAS,
   shares and interval bounds `NUMBER(18,6)`; cost per unit `NUMBER(18,4)`; score band edges
-  `NUMBER(3,0)`; months are `DATE`s (first day of the month). Read from `INFORMATION_SCHEMA` after
-  `make analysis-marts` on 2026-10-14; the contract test checks them on every run (`02cT [6]`).
+  `NUMBER(3,0)`; months are `DATE`s (first day of the month). Read from `INFORMATION_SCHEMA` on
+  2026-10-14; the SQL contract test checked them (`02cT [6]`), again on the dbt-built tables in
+  Phase 6 (`06F` step 5).
 - **Roles** as in the [MART core](#mart-core), plus *semi-additive*: additive across some
   dimensions only.
 
@@ -849,13 +849,13 @@ undocumented, and it is not assumed to predict conversion.
 One table added in Phase 6 for the dashboard's funnel chart (Conversion Funnel page), the
 `mart_conversion_funnel` that the plan's dbt sketch named ([dbt.md](dbt.md#plan-names-and-the-models-that-serve-them)).
 dbt builds it (`dbt/models/marts/mart_conversion_funnel.sql`) from `MART_CHANNEL_PERFORMANCE`;
-there is no hand-written SQL twin, so neither `make parity-check` nor the Phase 3-4 contract
-blocks cover its columns. Its contract is in dbt: the column descriptions and 12 data tests in
+it never had a plain SQL version, so the `02*` contract checks do not cover its columns. Its
+contract is in dbt: the column descriptions and 12 data tests in
 `dbt/models/marts/_marts.yml` and the singular test
 `dbt/tests/marts/assert_conversion_funnel_reconciles.sql`, which compares every stage total with
 `expected_totals` and every one of the 25 cells with `expected_campaign_kpi` rolled up to channels
-(both independent seeds). `sql/02b_core_models_tests.sql` and `sql/02c_analysis_marts_tests.sql`
-block 1 list it as an expected MART table with a table comment (`06F` steps 4-5).
+(both independent seeds). Its table comment was checked with the other MART tables in Phase 6
+(`06F` steps 4-5).
 
 ### MART_CONVERSION_FUNNEL
 

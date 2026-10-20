@@ -2,9 +2,11 @@
 # de-duplication. Every row is kept; a problem is flagged in DQ_ISSUES, never dropped.
 #
 # Column descriptions become column comments INSIDE each view's DDL (persist_docs on a view),
-# and sql/02_data_cleaning_tests.sql block 2b counts rule texts in that DDL. So these
-# descriptions never quote a rule: no function call with its parenthesis (the case functions,
-# the date and number casts), no quoted issue code, no cast precision, no type shorthand.
+# next to the rule texts that block 2b of the earlier plain-SQL tests counted in that DDL
+# (https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02_data_cleaning_tests.sql#L291).
+# So these descriptions never quote a rule: no function call with its parenthesis (the case
+# functions, the date and number casts), no quoted issue code, no cast precision, no type
+# shorthand.
 #
 # The challenge views reuse (YAML anchors) only the descriptions that hold for any extract: keys,
 # issue codes, lineage. A clean-view description that quotes a count, total or range of the clean
@@ -18,7 +20,7 @@ models:
       Typed, cleaned campaigns (clean release). Grain: one row per CAMPAIGN_ID (120 rows).
       Source: RAW.CAMPAIGNS. CAMPAIGN_DAYS = END_DATE - START_DATE + 1. DQ_ISSUES lists
       <column>:<issue> codes (empty when clean). Built by dbt (models/staging/stg_campaigns.sql,
-      rules in macros/staging/clean_campaigns.sql, ported from sql/02_data_cleaning.sql).
+      rules in macros/staging/clean_campaigns.sql).
     data_tests:
       - dbt_utils.expression_is_true:
           arguments:
@@ -88,7 +90,7 @@ models:
       campaign on one active date (11,240 rows); unique on (CAMPAIGN_ID, SPEND_DATE). Source:
       RAW.DAILY_SPEND. Aggregate to campaign or campaign x date before joining other facts.
       Built by dbt (models/staging/stg_daily_spend.sql, rules in
-      macros/staging/clean_daily_spend.sql, ported from sql/02_data_cleaning.sql).
+      macros/staging/clean_daily_spend.sql).
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -157,7 +159,7 @@ models:
       Typed, cleaned leads (clean release). Grain: one row per LEAD_ID (261,684 rows). Source:
       RAW.LEADS; CREATED_AT renamed CREATED_DATE. Channel comes from STG_CAMPAIGNS (LEAD_SOURCE
       duplicates it). Built by dbt (models/staging/stg_leads.sql, rules in
-      macros/staging/clean_leads.sql, ported from sql/02_data_cleaning.sql).
+      macros/staging/clean_leads.sql).
     columns:
       - name: lead_id
         description: &desc_lead_id "Lead key (PK), upper-cased id, e.g. L00000001."
@@ -210,8 +212,7 @@ models:
       Typed, cleaned conversions (clean release). Grain: one row per CONVERSION_ID (39,696
       rows); LEAD_ID is unique (1:0..1 from leads). Source: RAW.CONVERSIONS; CONVERTED_AT
       renamed CONVERTED_DATE. Revenue is last-touch attributed. Built by dbt
-      (models/staging/stg_conversions.sql, rules in macros/staging/clean_conversions.sql,
-      ported from sql/02_data_cleaning.sql).
+      (models/staging/stg_conversions.sql, rules in macros/staging/clean_conversions.sql).
     data_tests:
       - dbt_utils.expression_is_true:
           name: stg_conversions_trial_revenue_is_zero
@@ -277,8 +278,7 @@ models:
       Cleaning-challenge track: RAW.CHALLENGE_CAMPAIGNS through the same rules as STG_CAMPAIGNS
       (120 rows after de-duplication), plus CAMPAIGN_NAME_FILLED (naming-rule fill of a blank
       name). Reconciliation only; never used by MART. Built by dbt
-      (models/staging/stg_challenge_campaigns.sql, rules in macros/staging/clean_campaigns.sql,
-      ported from sql/02_data_cleaning.sql).
+      (models/staging/stg_challenge_campaigns.sql, rules in macros/staging/clean_campaigns.sql).
     columns:
       - name: campaign_id
         description: *desc_campaign_id
@@ -317,7 +317,7 @@ models:
       day when it also equals next - 1 day, in spend_id order within the campaign).
       Reconciliation only; never used by MART. Built by dbt
       (models/staging/stg_challenge_daily_spend.sql, rules in
-      macros/staging/clean_daily_spend.sql, ported from sql/02_data_cleaning.sql).
+      macros/staging/clean_daily_spend.sql).
     columns:
       - name: spend_id
         description: *desc_spend_id
@@ -350,8 +350,7 @@ models:
       Cleaning-challenge track: RAW.CHALLENGE_LEADS through the same rules as STG_LEADS (2,000
       rows after de-duplication). The blank created date stays NULL (2 candidate dates, not
       provable). Reconciliation only; never used by MART. Built by dbt
-      (models/staging/stg_challenge_leads.sql, rules in macros/staging/clean_leads.sql, ported
-      from sql/02_data_cleaning.sql).
+      (models/staging/stg_challenge_leads.sql, rules in macros/staging/clean_leads.sql).
     columns:
       - name: lead_id
         description: *desc_lead_id
@@ -381,7 +380,7 @@ models:
       STG_CONVERSIONS (2,000 rows after de-duplication). The blank converted date stays NULL (22
       candidate dates, not provable). Reconciliation only; never used by MART. Built by dbt
       (models/staging/stg_challenge_conversions.sql, rules in
-      macros/staging/clean_conversions.sql, ported from sql/02_data_cleaning.sql).
+      macros/staging/clean_conversions.sql).
     columns:
       - name: conversion_id
         description: *desc_conversion_id

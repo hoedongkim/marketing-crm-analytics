@@ -1,16 +1,13 @@
 # Mart models: 11 permanent tables in MARKETING_CRM.MART, the tables Data Studio and the
-# Phase 4 analyses (sql/03-06) read. For the 10 tables of the Phase 3-4 SQL build, every column
-# description is that build's column COMMENT, copied verbatim; mart_conversion_funnel (Phase 6,
-# last below) has no SQL twin. persist_docs writes every description back to Snowflake.
-# Model descriptions are the table comments of the SQL build, with the last sentence naming
-# the dbt model that now builds the table (and, for fct_lead_conversions, the Source sentence
-# naming the ephemeral int_lead_conversions). Tests: keys, grain, relationships to dim_campaign
-# and dim_date, accepted values, rates in 0..1; unit tests in _marts_unit_tests.yml, singular
-# tests against the independent seeds in tests/marts/.
+# Phase 4 analyses (sql/03-06) read. persist_docs writes every description back to Snowflake as
+# the table or column COMMENT; each model description ends with the dbt model that builds the
+# table. Tests: keys, grain, relationships to dim_campaign and dim_date, accepted values, rates
+# in 0..1; unit tests in _marts_unit_tests.yml, singular tests against the independent seeds in
+# tests/marts/.
 
 models:
   - name: dim_date
-    description: "Calendar dimension. Grain: one row per DATE_DAY, gap-free 2023-01-01..2025-12-31 = the documented dataset coverage (1,096 days, incl. 32 days without spend). ISO weeks start on Monday. Built by dbt (models/marts/dim_date.sql, ported from sql/02b_core_models.sql)."
+    description: "Calendar dimension. Grain: one row per DATE_DAY, gap-free 2023-01-01..2025-12-31 = the documented dataset coverage (1,096 days, incl. 32 days without spend). ISO weeks start on Monday. Built by dbt (models/marts/dim_date.sql)."
     columns:
       - name: date_day
         description: "Calendar day (PK). Gap-free 2023-01-01..2025-12-31, the documented dataset coverage. Join key for SPEND_DATE, CREATED_DATE, CONVERTED_DATE."
@@ -57,7 +54,7 @@ models:
           - not_null
 
   - name: dim_campaign
-    description: "Campaign dimension. Grain: one row per CAMPAIGN_ID (120 rows). Source: STAGING.STG_CAMPAIGNS (clean release). CHANNEL here is the canonical channel dimension. BUDGET is per campaign window: additive across campaigns, not across dates. Built by dbt (models/marts/dim_campaign.sql, ported from sql/02b_core_models.sql)."
+    description: "Campaign dimension. Grain: one row per CAMPAIGN_ID (120 rows). Source: STAGING.STG_CAMPAIGNS (clean release). CHANNEL here is the canonical channel dimension. BUDGET is per campaign window: additive across campaigns, not across dates. Built by dbt (models/marts/dim_campaign.sql)."
     data_tests:
       - dbt_utils.expression_is_true:
           arguments:
@@ -116,7 +113,7 @@ models:
         description: "First day of the month of START_DATE."
 
   - name: fct_daily_spend
-    description: "Delivery fact. Grain: one row per campaign per active day = SPEND_ID (11,240 rows), unique on (CAMPAIGN_ID, SPEND_DATE). Source: STAGING.STG_DAILY_SPEND + DIM_CAMPAIGN (n:1). Additive: IMPRESSIONS, CLICKS, SPEND, BUDGET_PRORATED (= BUDGET / CAMPAIGN_DAYS, rounded once to 6 dp; a planned budget, not a utilisation base below whole campaigns). Ratios must be SUM / SUM. Built by dbt (models/marts/fct_daily_spend.sql, ported from sql/02b_core_models.sql)."
+    description: "Delivery fact. Grain: one row per campaign per active day = SPEND_ID (11,240 rows), unique on (CAMPAIGN_ID, SPEND_DATE). Source: STAGING.STG_DAILY_SPEND + DIM_CAMPAIGN (n:1). Additive: IMPRESSIONS, CLICKS, SPEND, BUDGET_PRORATED (= BUDGET / CAMPAIGN_DAYS, rounded once to 6 dp; a planned budget, not a utilisation base below whole campaigns). Ratios must be SUM / SUM. Built by dbt (models/marts/fct_daily_spend.sql)."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -199,7 +196,7 @@ models:
                 inclusive: false
 
   - name: fct_lead_conversions
-    description: "Lead-cohort fact. Grain: one row per LEAD_ID (261,684 rows). Source: int_lead_conversions (ephemeral) = STAGING.STG_LEADS LEFT JOIN STG_CONVERSIONS (1:0..1 on LEAD_ID) + the campaign attributes of STG_CAMPAIGNS (n:1; the same values as DIM_CAMPAIGN, tested). Cohort KPIs group by CREATED_MONTH; CONVERTED_MONTH is the activity month; never mix the two on one axis. Flags are 0/1 so they SUM; REVENUE is 0.00 when not converted. AS_OF_DATE 2025-12-31 is an assumption. Built by dbt (models/marts/fct_lead_conversions.sql, ported from sql/02b_core_models.sql)."
+    description: "Lead-cohort fact. Grain: one row per LEAD_ID (261,684 rows). Source: int_lead_conversions (ephemeral) = STAGING.STG_LEADS LEFT JOIN STG_CONVERSIONS (1:0..1 on LEAD_ID) + the campaign attributes of STG_CAMPAIGNS (n:1; the same values as DIM_CAMPAIGN, tested). Cohort KPIs group by CREATED_MONTH; CONVERTED_MONTH is the activity month; never mix the two on one axis. Flags are 0/1 so they SUM; REVENUE is 0.00 when not converted. AS_OF_DATE 2025-12-31 is an assumption. Built by dbt (models/marts/fct_lead_conversions.sql)."
     data_tests:
       - dbt_utils.expression_is_true:
           arguments:
@@ -349,7 +346,7 @@ models:
                 quote: false
 
   - name: mart_campaign_performance
-    description: "Campaign KPI table. Grain: one row per CAMPAIGN_ID (120 rows). Spend (STG_DAILY_SPEND), leads (STG_LEADS) and conversions (STG_CONVERSIONS via their lead) are each aggregated to the campaign FIRST, then joined 1:1 to DIM_CAMPAIGN, so nothing is double counted. Ratio columns are valid only at campaign grain; aggregate with SUM(numerator) / SUM(denominator) of the base columns. The date columns (START_*, END_DATE) are campaign attributes, not activity dates: a date-range control, year filter or time axis on them puts a whole campaign at its start. Use this table without a date-range dimension (fixed full range); time series come from FCT_DAILY_SPEND and FCT_LEAD_CONVERSIONS. Built by dbt (models/marts/mart_campaign_performance.sql, ported from sql/02b_core_models.sql)."
+    description: "Campaign KPI table. Grain: one row per CAMPAIGN_ID (120 rows). Spend (STG_DAILY_SPEND), leads (STG_LEADS) and conversions (STG_CONVERSIONS via their lead) are each aggregated to the campaign FIRST, then joined 1:1 to DIM_CAMPAIGN, so nothing is double counted. Ratio columns are valid only at campaign grain; aggregate with SUM(numerator) / SUM(denominator) of the base columns. The date columns (START_*, END_DATE) are campaign attributes, not activity dates: a date-range control, year filter or time axis on them puts a whole campaign at its start. Use this table without a date-range dimension (fixed full range); time series come from FCT_DAILY_SPEND and FCT_LEAD_CONVERSIONS. Built by dbt (models/marts/mart_campaign_performance.sql)."
     data_tests:
       - dbt_utils.expression_is_true:
           arguments:
@@ -471,7 +468,7 @@ models:
                 max_value: 1
 
   - name: fct_campaign_daily_activity
-    description: "Activity fact. Grain: one row per CAMPAIGN_ID x ACTIVITY_DATE on a spine from START_DATE to END_DATE + 21 days (the observed maximum lag), clipped at 2025-12-31 (13,760 rows: 11,240 flight days + 120 x 21 post-flight days). Delivery and budget by spend date, leads by created date, conversions and revenue by converted date: each aggregated to campaign x date first, then joined 1:1 to the spine. IS_IN_FLIGHT = 0 rows carry the 4,716 conversions after a campaign ended, and 0 spend. Activity basis: never divide CONVERSIONS by LEADS here (use MART_MONTHLY_COHORT for conversion rates). Ratios as SUM / SUM. Built by dbt (models/marts/fct_campaign_daily_activity.sql, ported from sql/02c_analysis_marts.sql)."
+    description: "Activity fact. Grain: one row per CAMPAIGN_ID x ACTIVITY_DATE on a spine from START_DATE to END_DATE + 21 days (the observed maximum lag), clipped at 2025-12-31 (13,760 rows: 11,240 flight days + 120 x 21 post-flight days). Delivery and budget by spend date, leads by created date, conversions and revenue by converted date: each aggregated to campaign x date first, then joined 1:1 to the spine. IS_IN_FLIGHT = 0 rows carry the 4,716 conversions after a campaign ended, and 0 spend. Activity basis: never divide CONVERSIONS by LEADS here (use MART_MONTHLY_COHORT for conversion rates). Ratios as SUM / SUM. Built by dbt (models/marts/fct_campaign_daily_activity.sql)."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -547,7 +544,7 @@ models:
         description: "Last-touch attributed revenue booked on the day (by converted date); 0.00 for trials. Additive; total 21,561,839.01. ROAS = SUM(REVENUE) / SUM(SPEND), attributed, not causal."
 
   - name: mart_monthly_marketing
-    description: "Monthly activity mart. Grain: one row per MONTH_START x CHANNEL, all 36 months (2023-01..2025-12) x 5 channels = 180 rows, zeros where nothing happened. ACTIVITY basis: spend by spend date, leads by created date, conversions and revenue by converted date (a conversion counts in the month it happened). Never blend with MART_MONTHLY_COHORT on one date axis, and never divide CONVERSIONS by LEADS here (not a conversion rate). ACTIVE_CAMPAIGNS = campaigns in flight on at least 1 day of the month: additive across channels, not across months. Additive bases only; ratios as SUM / SUM. Built by dbt (models/marts/mart_monthly_marketing.sql, ported from sql/02c_analysis_marts.sql)."
+    description: "Monthly activity mart. Grain: one row per MONTH_START x CHANNEL, all 36 months (2023-01..2025-12) x 5 channels = 180 rows, zeros where nothing happened. ACTIVITY basis: spend by spend date, leads by created date, conversions and revenue by converted date (a conversion counts in the month it happened). Never blend with MART_MONTHLY_COHORT on one date axis, and never divide CONVERSIONS by LEADS here (not a conversion rate). ACTIVE_CAMPAIGNS = campaigns in flight on at least 1 day of the month: additive across channels, not across months. Additive bases only; ratios as SUM / SUM. Built by dbt (models/marts/mart_monthly_marketing.sql)."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -598,7 +595,7 @@ models:
         description: "Planned budget of the month: SUM of FCT_DAILY_SPEND.BUDGET_PRORATED over its flight days. Additive across months and channels; total 5,418,642.159820. An even spread is an assumption: SPEND / BUDGET_PRORATED of a month is pacing against that assumption, not budget utilisation."
 
   - name: mart_monthly_cohort
-    description: "Monthly lead-cohort mart. Grain: one row per COHORT_MONTH x CHANNEL, all 36 months x 5 channels = 180 rows, zeros where no leads were created. LEAD-COHORT basis: the leads created in COHORT_MONTH and what they later did (conversions are counted in the month their lead was created, wherever they landed). Never blend with MART_MONTHLY_MARKETING (activity basis) on one date axis. Cohort conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS); mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS); cross-month share = SUM(CONVERTED_LATER_MONTH) / SUM(CONVERTED_LEADS). Additive bases only. Built by dbt (models/marts/mart_monthly_cohort.sql, ported from sql/02c_analysis_marts.sql)."
+    description: "Monthly lead-cohort mart. Grain: one row per COHORT_MONTH x CHANNEL, all 36 months x 5 channels = 180 rows, zeros where no leads were created. LEAD-COHORT basis: the leads created in COHORT_MONTH and what they later did (conversions are counted in the month their lead was created, wherever they landed). Never blend with MART_MONTHLY_MARKETING (activity basis) on one date axis. Cohort conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS); mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS); cross-month share = SUM(CONVERTED_LATER_MONTH) / SUM(CONVERTED_LEADS). Additive bases only. Built by dbt (models/marts/mart_monthly_cohort.sql)."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -648,7 +645,7 @@ models:
         description: "Leads of the cohort created at least 21 days before the assumed as-of date 2025-12-31 (SUM of FCT_LEAD_CONVERSIONS.IS_MATURE). Equals LEADS in every row under the assumption; a cohort with MATURE_LEADS < LEADS would still be converting."
 
   - name: mart_channel_performance
-    description: "Channel scorecard. Grain: one row per CHANNEL (5 rows), full date range 2023-01-01..2025-12-31, no date dimension. Campaigns/budget (DIM_CAMPAIGN), delivery and spend (FCT_DAILY_SPEND) and leads/conversions/revenue (FCT_LEAD_CONVERSIONS) are each aggregated to the channel first, then joined 1:1. Ratio columns are valid at channel grain only (aggregate across channels as SUM / SUM of the bases). ROAS is last-touch attributed revenue / spend, not causal. LCR_CI_LOW / LCR_CI_HIGH: Wilson 95% interval of LEAD_CONVERSION_RATE (sampling noise only). The funnel is an aggregate campaign funnel, not a person journey. Synthetic data. Built by dbt (models/marts/mart_channel_performance.sql, ported from sql/02c_analysis_marts.sql)."
+    description: "Channel scorecard. Grain: one row per CHANNEL (5 rows), full date range 2023-01-01..2025-12-31, no date dimension. Campaigns/budget (DIM_CAMPAIGN), delivery and spend (FCT_DAILY_SPEND) and leads/conversions/revenue (FCT_LEAD_CONVERSIONS) are each aggregated to the channel first, then joined 1:1. Ratio columns are valid at channel grain only (aggregate across channels as SUM / SUM of the bases). ROAS is last-touch attributed revenue / spend, not causal. LCR_CI_LOW / LCR_CI_HIGH: Wilson 95% interval of LEAD_CONVERSION_RATE (sampling noise only). The funnel is an aggregate campaign funnel, not a person journey. Synthetic data. Built by dbt (models/marts/mart_channel_performance.sql)."
     data_tests:
       - dbt_utils.expression_is_true:
           name: mart_channel_performance_wilson_interval_contains_rate
@@ -771,7 +768,7 @@ models:
                 max_value: 1
 
   - name: mart_lead_quality
-    description: "Lead quality mart. Grain: one row per CHANNEL x SCORE_BAND, 5 channels x 10 bands of 10 score points (01-10 .. 91-100) = 50 rows. Bands align with the segments Low 1-40 / Medium 41-70 / High 71-100 (LEAD_SCORE_SEGMENT), so the table rolls up to segment, band or channel with SUM. Conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS); average score = SUM(SUM_LEAD_SCORE) / SUM(LEADS); mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS). Association only: how the score is produced is undocumented, and it is not assumed to predict conversion. Built by dbt (models/marts/mart_lead_quality.sql, ported from sql/02c_analysis_marts.sql)."
+    description: "Lead quality mart. Grain: one row per CHANNEL x SCORE_BAND, 5 channels x 10 bands of 10 score points (01-10 .. 91-100) = 50 rows. Bands align with the segments Low 1-40 / Medium 41-70 / High 71-100 (LEAD_SCORE_SEGMENT), so the table rolls up to segment, band or channel with SUM. Conversion rate = SUM(CONVERTED_LEADS) / SUM(LEADS); average score = SUM(SUM_LEAD_SCORE) / SUM(LEADS); mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS). Association only: how the score is produced is undocumented, and it is not assumed to predict conversion. Built by dbt (models/marts/mart_lead_quality.sql)."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -823,8 +820,7 @@ models:
       - name: sum_days_to_convert
         description: "Sum of DAYS_TO_CONVERT over the converted leads of the band (0 if none). Additive. Mean lag = SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS)."
 
-  # Phase 6: the plan's mart_conversion_funnel, added for the Data Studio funnel chart. It has no
-  # hand-written SQL twin, so its descriptions are written here, not copied from sql/02*.sql.
+  # Phase 6: the plan's mart_conversion_funnel, added for the Data Studio funnel chart.
   - name: mart_conversion_funnel
     description: "Conversion funnel in long format for the dashboard funnel chart. Grain: one row per CHANNEL x STAGE_ORDER, 5 channels x 5 stages (1 Impressions, 2 Clicks, 3 Leads, 4 Converted leads, 5 Purchases) = 25 rows, full range 2023-01-01..2025-12-31, no date dimension. Built from MART_CHANNEL_PERFORMANCE, so each stage adds up to the known total over the 5 channels (impressions 436,844,819; clicks 7,102,319; leads 261,684; converted leads 39,696; purchases 16,691). Chart it with STAGE as the dimension (or a STAGE filter): STAGE_VALUE is additive across channels, never across stages (different units). PREV_STAGE_VALUE and TOP_OF_FUNNEL_VALUE are additive across channels too, so stage conversion = SUM(STAGE_VALUE) / SUM(PREV_STAGE_VALUE) and share of top of funnel = SUM(STAGE_VALUE) / SUM(TOP_OF_FUNNEL_VALUE) are correct at any channel filter. No ratio is stored and there is no 'ALL' channel row (it would double count every SUM). An aggregate campaign funnel, not a per-person journey: converted leads = trials + purchases (a lead converts at most once), and Purchases is the subset of converted leads that converted to a purchase, not a later step for the same person. Synthetic data. Built by dbt (models/marts/mart_conversion_funnel.sql, added in Phase 6; no hand-written SQL twin)."
     data_tests:

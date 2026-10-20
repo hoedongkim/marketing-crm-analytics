@@ -24,9 +24,8 @@ ENCRYPT_PIPELINE_KEY ?= 0
 DATA_DIR ?= data/raw
 # Extra flags for load_raw.py, e.g. LOAD_ARGS=--dry-run
 LOAD_ARGS ?=
-# Phase 2 profiling, the Phase 3 models and the Phase 4 marts and analyses: SQL run as
-# CRM_TRANSFORMER (it owns every STAGING and MART object); the full output of each file is its
-# evidence file.
+# Phase 2 profiling and the Phase 4 analyses: SQL run as CRM_TRANSFORMER (it owns every STAGING
+# and MART object); the full output of each file is its evidence file.
 EVIDENCE_DIR := docs/evidence
 TRANSFORMER_SQL := $(VENV_BIN)/python scripts/run_sql.py --role CRM_TRANSFORMER --max-rows 200
 # Phase 4 files: the command their headers document. The largest Phase 4 result has 120 rows,
@@ -44,24 +43,21 @@ DBT_PARSE_STRICT := --no-partial-parse --show-all-deprecations --warn-error-opti
 # syntax, e.g. DBT_SELECT=stg_leads+ or DBT_SELECT="test_type:unit". Every dbt run writes the
 # live STAGING and MART objects (one target), so select instead of rebuilding everything.
 DBT_SELECT ?=
-# Parity snapshot label: build/parity_$(PARITY).txt (make parity-snapshot PARITY=before|after)
-PARITY ?= after
 # Phase 6: where export-marts writes the dashboard tables (CSV, .xlsx, manifest.json), and extra
 # flags for export-check, e.g. EXPORT_CHECK_ARGS=--offline (the files only, no Snowflake).
 EXPORT_DIR ?= exports
 EXPORT_CHECK_ARGS ?=
 
 .PHONY: help setup data keys bootstrap-sql sf-check sf-check-bi load load-challenge \
-	load-dry-run connection-test-table profile profile-challenge staging marts analysis-marts \
-	models analyses expected-seeds expected-seeds-check seeds seeds-check dbt-deps dbt-debug \
-	dbt-parse dbt-build dbt-build-select dbt-test dbt-freshness dbt-docs dbt-lineage dbt-parity \
-	parity-snapshot parity-diff parity-check sql-checks export-marts export-check clean _require-venv
+	load-dry-run profile profile-challenge analyses expected-seeds expected-seeds-check seeds \
+	seeds-check dbt-deps dbt-debug dbt-parse dbt-build dbt-build-select dbt-test dbt-freshness \
+	dbt-docs export-marts export-check clean _require-venv
 
 help: ## List the available targets
 	@echo "Marketing CRM analytics - make targets:"
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  %-22s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo "Overridable: PYTHON=$(PYTHON)  KEY_DIR=$(KEY_DIR)  DATA_DIR=$(DATA_DIR)  ENCRYPT_PIPELINE_KEY=$(ENCRYPT_PIPELINE_KEY)"
-	@echo "             DBT_SELECT=<dbt selector> (dbt-test, dbt-build-select)  PARITY=$(PARITY) (parity-snapshot)"
+	@echo "             DBT_SELECT=<dbt selector> (dbt-test, dbt-build-select)"
 	@echo "             EXPORT_DIR=$(EXPORT_DIR) (export-marts, export-check)  EXPORT_CHECK_ARGS=--offline (export-check)"
 
 setup: ## Create .venv (Python 3.10-3.13), install requirements.txt, print dbt + connector versions
@@ -101,9 +97,6 @@ load-dry-run: ## Offline: local CSV checks + control totals for both datasets, a
 	$(PY) scripts/load_raw.py --dataset source --data-dir "$(DATA_DIR)" --dry-run
 	$(PY) scripts/load_raw.py --dataset challenge --data-dir "$(DATA_DIR)" --dry-run
 
-connection-test-table: _require-venv ## Build MART.CONNECTION_TEST (channel x month) as CRM_TRANSFORMER for the Data Studio test
-	$(VENV_BIN)/python scripts/run_sql.py --role CRM_TRANSFORMER sql/setup/03_connection_test.sql
-
 # tee keeps the output on screen and writes it to build/ (git-ignored); pipefail keeps
 # run_sql.py's exit code (1 if any STATUS row says FAIL, 2 if it cannot connect), so a failed
 # check still fails make. Only a run that exits 0 is copied over the evidence file: a failed
@@ -118,53 +111,10 @@ profile-challenge: _require-venv ## Phase 2: profile the dirty RAW.CHALLENGE_* e
 	set -o pipefail; $(TRANSFORMER_SQL) sql/01b_challenge_profiling.sql | tee build/01b_challenge_profiling.txt
 	cp build/01b_challenge_profiling.txt $(EVIDENCE_DIR)/01b_challenge_profiling.txt
 
-# Phase 3: build, then test. The same evidence rule as above, per target: each file's output
-# goes to build/ first (tee + pipefail, so make stops at the first file that fails or has a
-# FAIL row), and both evidence files are replaced only after the build AND its tests exit 0,
-# so docs/evidence/ never pairs a new build log with an old test log. The build files are
-# idempotent (CREATE OR REPLACE) and the test files are read-only.
-#
-# LEGACY since Phase 5: staging, marts, analysis-marts and models are the hand-written Phase 3-4
-# build, kept as the record of those phases and as the reference that `make parity-check`
-# rebuilds in a query. dbt (`make dbt-build`) now owns the same objects. Running one of these
-# four targets REPLACES the dbt-built views and tables of the same names with the SQL-built ones
-# (the STAGING column comments disappear and the relation comments revert) until the next
-# dbt build. To re-run the Phase 3-4 checks without rebuilding anything, use `make sql-checks`.
-staging: _require-venv ## LEGACY Phase 3 SQL build (overwrites the dbt-built STAGING views): build + test -> docs/evidence/02_data_cleaning*.txt
-	@mkdir -p build $(EVIDENCE_DIR)
-	set -o pipefail; $(TRANSFORMER_SQL) sql/02_data_cleaning.sql | tee build/02_data_cleaning.txt
-	set -o pipefail; $(TRANSFORMER_SQL) sql/02_data_cleaning_tests.sql | tee build/02_data_cleaning_tests.txt
-	cp build/02_data_cleaning.txt $(EVIDENCE_DIR)/02_data_cleaning.txt
-	cp build/02_data_cleaning_tests.txt $(EVIDENCE_DIR)/02_data_cleaning_tests.txt
-
-marts: _require-venv ## LEGACY Phase 3 SQL build (overwrites the dbt-built core MART tables): build + test -> docs/evidence/02b_core_models*.txt
-	@mkdir -p build $(EVIDENCE_DIR)
-	set -o pipefail; $(TRANSFORMER_SQL) sql/02b_core_models.sql | tee build/02b_core_models.txt
-	set -o pipefail; $(TRANSFORMER_SQL) sql/02b_core_models_tests.sql | tee build/02b_core_models_tests.txt
-	cp build/02b_core_models.txt $(EVIDENCE_DIR)/02b_core_models.txt
-	cp build/02b_core_models_tests.txt $(EVIDENCE_DIR)/02b_core_models_tests.txt
-
-# Phase 4: the analysis marts are snapshots of the core MART tables, so they are rebuilt after
-# every marts run. Same rule as the Phase 3 targets: build and tests go to build/ first, and
-# both evidence files are replaced only after both exit 0.
-analysis-marts: _require-venv ## LEGACY Phase 4 SQL build (overwrites the dbt-built analysis marts): build + test -> docs/evidence/02c_analysis_marts*.txt
-	@mkdir -p build $(EVIDENCE_DIR)
-	set -o pipefail; $(ANALYSIS_SQL) sql/02c_analysis_marts.sql | tee build/02c_analysis_marts.txt
-	set -o pipefail; $(ANALYSIS_SQL) sql/02c_analysis_marts_tests.sql | tee build/02c_analysis_marts_tests.txt
-	cp build/02c_analysis_marts.txt $(EVIDENCE_DIR)/02c_analysis_marts.txt
-	cp build/02c_analysis_marts_tests.txt $(EVIDENCE_DIR)/02c_analysis_marts_tests.txt
-
-# Sub-makes, not prerequisites: the order holds even under make -j, and a layer never starts
-# when the one below it failed.
-models: _require-venv ## LEGACY Phase 3-4 SQL build (overwrites every dbt-built object): staging, then marts, then analysis-marts
-	$(MAKE) --no-print-directory staging
-	$(MAKE) --no-print-directory marts
-	$(MAKE) --no-print-directory analysis-marts
-
 # Phase 4 analyses (read-only: USE and SELECT only), one per dashboard page. Each file checks
 # its own printed numbers (STATUS rows), so run_sql.py exits 1 on any FAIL. All four outputs
 # go to build/ first; the four evidence files are replaced together, only after all four exit
-# 0, so docs/evidence/ never mixes runs. Run after `make dbt-build` (or the legacy analysis-marts).
+# 0, so docs/evidence/ never mixes runs. Run after `make dbt-build`.
 analyses: _require-venv ## Phase 4: run the 4 analysis files (03-06) -> docs/evidence/03_overview.txt, 04_funnel.txt, 05_lead.txt, 06_efficiency.txt
 	@mkdir -p build $(EVIDENCE_DIR)
 	set -o pipefail; $(ANALYSIS_SQL) sql/03_marketing_overview.sql | tee build/03_overview.txt
@@ -184,7 +134,8 @@ expected-seeds: ## Phase 5: regenerate dbt/seeds/expected_*.csv from data/raw/so
 expected-seeds-check: ## Phase 5: regenerate the seeds in a temp dir and fail on any difference from the committed ones (offline)
 	$(PY) scripts/independent_check.py --check
 
-# The previous names of the two targets above (docs/evidence/05_dbt_parity.txt uses them).
+# The previous names of the two targets above, kept as aliases (the Phase 5 parity report used
+# them: https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/05_dbt_parity.txt).
 seeds: expected-seeds
 seeds-check: expected-seeds-check
 
@@ -241,78 +192,14 @@ dbt-freshness: _require-venv ## Phase 5: dbt source freshness of the RAW tables 
 
 # dbt docs: manifest.json, catalog.json (column types read from Snowflake) and index.html in
 # dbt/target/, and with --static also static_index.html: the same site in one file with the
-# manifest and catalog embedded, which opens straight from disk. dbt/target/ is git-ignored;
-# the committed, GitHub-rendered lineage is docs/lineage.md (make dbt-lineage).
+# manifest and catalog embedded, which opens straight from disk. The site's lineage graph shows
+# the whole dbt DAG. dbt/target/ is git-ignored.
 dbt-docs: _require-venv ## Phase 5: dbt docs generate --static -> dbt/target/index.html + catalog.json and the single-file dbt/target/static_index.html (git-ignored)
 	$(DBT) docs generate $(DBT_FLAGS) --static
 	@echo "Open dbt/target/static_index.html in a browser, or serve the site: $(DBT) docs serve $(DBT_FLAGS)"
 
-# docs/lineage.md: Mermaid diagrams (GitHub renders them) and tables of the dbt DAG, generated
-# from dbt/target/manifest.json by scripts/dbt_lineage.py (standard library only). dbt parse
-# writes the manifest without querying Snowflake.
-dbt-lineage: _require-venv ## Phase 5: dbt parse, then write docs/lineage.md (Mermaid lineage from dbt/target/manifest.json)
-	$(DBT) parse $(DBT_FLAGS)
-	$(PY) scripts/dbt_lineage.py
-
-# All read-only parity checks of the deployed (dbt-built) objects against the hand-written SQL
-# build, in one target. Every step writes to build/ and none creates an object:
-#   1. parity-snapshot PARITY=after   fingerprint every STAGING and MART object
-#   2. parity-diff                    compare it with build/parity_before.txt, the snapshot of the
-#                                     SQL build; skipped (with a note) when that file is missing,
-#                                     because it can only be taken while the SQL build is deployed
-#   3. parity-check                   the hand-written bodies rebuilt from RAW in a query vs the
-#                                     deployed objects; needs no earlier state
-#   4. sql-checks                     the 7 Phase 3-4 check files on the deployed objects
-# docs/evidence/05_dbt_parity.txt is the curated report of these outputs (2026-10-14).
-dbt-parity: _require-venv ## Phase 5, read-only: parity snapshot + diff vs the SQL build, parity-check, the 7 SQL check files -> build/
-	$(MAKE) --no-print-directory parity-snapshot PARITY=after
-	@if [ -f build/parity_before.txt ]; then \
-	  $(MAKE) --no-print-directory parity-diff; \
-	else \
-	  echo "parity-diff skipped: no build/parity_before.txt (take it with 'make parity-snapshot PARITY=before'"; \
-	  echo "while the legacy SQL build is deployed); parity-check below needs no snapshot."; \
-	fi
-	$(MAKE) --no-print-directory parity-check
-	$(MAKE) --no-print-directory sql-checks
-
-# Parity of the dbt build with the hand-written SQL build: fingerprint every STAGING and MART
-# object (row count, HASH_AGG of all rows, columns, types, comment fingerprints), read-only.
-# A "before" snapshot of the SQL build only exists while the SQL build is deployed; parity-check
-# below needs no such state.
-parity-snapshot: _require-venv ## Phase 5: fingerprint STAGING and MART -> build/parity_<PARITY>.txt (PARITY=before|after, default after)
-	@mkdir -p build
-	set -o pipefail; $(VENV_BIN)/python scripts/run_sql.py --role CRM_TRANSFORMER --max-rows 1000 \
-	  sql/parity/parity_snapshot.sql > build/parity_$(PARITY).txt
-	@echo "wrote build/parity_$(PARITY).txt"
-
-parity-diff: ## Phase 5: compare build/parity_before.txt with build/parity_after.txt field by field (exit 1 if parity breaks)
-	$(PY) scripts/parity_diff.py build/parity_before.txt build/parity_after.txt
-
-# Read-only parity of whatever is deployed with the hand-written SQL: scripts/parity_minus.py
-# turns the CREATE bodies of sql/02*.sql into one CTE chain from RAW per object and compares it
-# with the deployed object (COUNT, MINUS both ways, HASH_AGG; plus 2 control rows that must
-# detect a planted difference). Creates nothing, so it never disturbs the dbt build.
-parity-check: _require-venv ## Phase 5: read-only: rebuild the 18 hand-written objects as CTEs from RAW and compare with the deployed ones -> build/parity_check.txt
-	@mkdir -p build
-	$(VENV_BIN)/python scripts/parity_minus.py --out build/parity_minus.sql
-	set -o pipefail; $(VENV_BIN)/python scripts/run_sql.py --role CRM_TRANSFORMER build/parity_minus.sql \
-	  | tee build/parity_check.txt
-
-# The Phase 3-4 check files, read-only (USE, SELECT and WITH only), against whatever is deployed
-# (the dbt build since Phase 5), with no build step. Output goes to build/sql_checks/ only: the
-# Phase 3-4 evidence files pair each test log with its SQL build log, so they are not replaced.
-SQL_CHECK_FILES := 02_data_cleaning_tests 02b_core_models_tests 02c_analysis_marts_tests \
-	03_marketing_overview 04_conversion_funnel 05_lead_analysis 06_marketing_efficiency
-sql-checks: _require-venv ## Phase 5: read-only: run the 7 SQL check files (02*_tests, 03-06) on the deployed objects -> build/sql_checks/
-	@mkdir -p build/sql_checks
-	set -o pipefail; for f in $(SQL_CHECK_FILES); do \
-	  rows=200; case $$f in 02_*|02b_*) ;; *) rows=300;; esac; \
-	  $(VENV_BIN)/python scripts/run_sql.py --role CRM_TRANSFORMER --max-rows $$rows sql/$$f.sql \
-	    > build/sql_checks/$$f.txt || { tail -3 build/sql_checks/$$f.txt; exit 1; }; \
-	  tail -1 build/sql_checks/$$f.txt; \
-	done
-
-# Phase 6: the frozen data of the dashboard (architecture decision 8; docs/sheets_snapshot.md).
+# Phase 6: the frozen data of the dashboard (architecture decision 8; the Google Sheets copy is
+# recorded in docs/dashboard_validation.md, build log pass 2).
 # export-marts reads every MART table the dashboard uses (EXPORT_TABLES in scripts/export_marts.py)
 # as SVC_CRM_BI / CRM_REPORTER, the identity of the Data Studio connector, and writes $(EXPORT_DIR)/:
 # one CSV per table, marketing_crm_dashboard_snapshot.xlsx (one sheet per table, for Google Sheets)

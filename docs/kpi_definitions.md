@@ -6,13 +6,15 @@ MART table and columns it comes from, the exact Data Studio calculated field, it
 full range, and its caveats. The [coverage matrix](#coverage-matrix) at the end maps each dashboard
 page to its KPIs and MART tables, with the SQL output that computes and checks each one.
 
-Status (2026-10-14): written in Phase 4, after `make analysis-marts analyses` ran with 0 FAIL rows.
-Phase 5 rebuilt every MART table with dbt under the same names, with identical rows, and the files
-behind the MART values on this page (`02cT`, `03` to `06`) print identical output on the dbt build
-([dbt.md](dbt.md#parity-with-the-hand-written-sql-build)). Phase 6 builds the Data Studio fields
-listed here; Phase 7 does a final pass. Phase 6 also added one dbt table for the funnel chart,
-`MART_CONVERSION_FUNNEL` ([Funnel stages and stage conversion](#funnel-stages-and-stage-conversion),
-evidence `06F`).
+Status (2026-10-14): dbt builds and tests every MART table on this page (`make dbt-build`,
+[dbt.md](dbt.md)), and `make analyses` runs the files behind its values (`03` to `06`) with 0 FAIL
+rows. The page was written in Phase 4 on a first, plain-SQL build of the marts, which dbt replaced
+with identical rows: the files behind its MART values (`02cT`, `03` to `06`) print identical output
+on the dbt build
+([parity check](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/05_dbt_parity.txt),
+commit dbe41f7). Phase 6 builds the Data Studio fields listed here; Phase 7 does a final pass.
+Phase 6 also added one dbt table for the funnel chart, `MART_CONVERSION_FUNNEL`
+([Funnel stages and stage conversion](#funnel-stages-and-stage-conversion), evidence `06F`).
 
 How to read this page:
 
@@ -24,7 +26,7 @@ How to read this page:
   | Tag | Evidence file | Produced by |
   |---|---|---|
   | `01` | [`evidence/01_data_profiling.txt`](evidence/01_data_profiling.txt) | `sql/01_data_profiling.sql` (Phase 2 profile of RAW) |
-  | `02cT` | [`evidence/02c_analysis_marts_tests.txt`](evidence/02c_analysis_marts_tests.txt) | `sql/02c_analysis_marts_tests.sql` (tests of the Phase 4 marts) |
+  | `02cT` | [`evidence/02c_analysis_marts_tests.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02c_analysis_marts_tests.txt) (commit dbe41f7) | [`sql/02c_analysis_marts_tests.sql`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02c_analysis_marts_tests.sql) (tests of the Phase 4 marts, commit dbe41f7) |
   | `03` | [`evidence/03_overview.txt`](evidence/03_overview.txt) | `sql/03_marketing_overview.sql` (page 1) |
   | `04` | [`evidence/04_funnel.txt`](evidence/04_funnel.txt) | `sql/04_conversion_funnel.sql` (page 2) |
   | `05` | [`evidence/05_lead.txt`](evidence/05_lead.txt) | `sql/05_lead_analysis.sql` (page 3) |
@@ -35,7 +37,8 @@ How to read this page:
   ratio columns of `MART_CAMPAIGN_PERFORMANCE` are defined there too
   ([KPI definitions: MART_CAMPAIGN_PERFORMANCE](data_dictionary.md#kpi-definitions-mart_campaign_performance)).
 - **Rounding** of stored ratios: rates, ROAS and shares 6 dp, cost per unit 4 dp, each rounded once
-  from the exact quotient (`sql/02b_core_models.sql`, "Rounding").
+  from the exact quotient (`dbt/models/marts/mart_campaign_performance.sql` and
+  `mart_channel_performance.sql`, STEP 3).
 
 ## Contents
 
@@ -382,7 +385,7 @@ The Marketing Overview's "conversion rate" and the funnel's "lead conversion rat
 
 | | |
 |---|---|
-| Formula | For p = `CONVERTED_LEADS / LEADS`, n = `LEADS`, z = 1.959964 (the two-sided 95% normal quantile, a constant in `sql/02c_analysis_marts.sql`): centre = (p + z²/(2n)) / (1 + z²/n); half-width = z / (1 + z²/n) x √(p(1 − p)/n + z²/(4n²)); interval = centre ± half-width. |
+| Formula | For p = `CONVERTED_LEADS / LEADS`, n = `LEADS`, z = 1.959964 (the two-sided 95% normal quantile, a constant in `dbt/models/marts/mart_channel_performance.sql`): centre = (p + z²/(2n)) / (1 + z²/n); half-width = z / (1 + z²/n) x √(p(1 − p)/n + z²/(4n²)); interval = centre ± half-width. |
 | Basis | Lead cohort. |
 | Stored ratio valid at | Channel only (`LCR_CI_LOW`, `LCR_CI_HIGH` in `MART_CHANNEL_PERFORMANCE`). |
 | Data Studio | No calculated field (not a thin ratio of sums, decision 9). For another grouping recompute it in SQL, from `SUM(CONVERTED_LEADS)` and `SUM(LEADS)` of that group (monthly cohorts: `04 [16]`; score segments: `05 [6]`; campaigns: `04 [11]`). Never `SUM` or `AVG` the bounds. |

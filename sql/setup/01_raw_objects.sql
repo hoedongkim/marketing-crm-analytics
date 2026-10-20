@@ -8,7 +8,7 @@
 --   RAW is a lossless landing zone: every business column is VARCHAR in source column
 --   order, so the COPY can never fail or silently coerce a value ('2023/05/15',
 --   ' TRIAL ', '' all land exactly as written). Typing, trimming, de-duplication and
---   date repair happen in STAGING (Phase 3, then dbt in Phase 5), where every rule is
+--   date repair happen in STAGING (the dbt models in dbt/models/staging), where every rule is
 --   versioned SQL with tests. Declared VARCHAR length has no storage or performance
 --   cost in Snowflake, so the columns are unbounded.
 -- Lineage columns (filled by the COPY from the stage metadata)

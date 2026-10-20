@@ -53,7 +53,8 @@ CAMPAIGN_FILE = "expected_campaign_kpi.csv"
 TOTALS_FILE = "expected_totals.csv"
 PUBLISHER_FILE = "publisher_channel_reference.csv"
 
-# Assumptions shared with the models (documented in sql/02b_core_models.sql and 02c):
+# Assumptions shared with the models (the vars in dbt/dbt_project.yml, documented in
+# dbt/models/marts/dim_date.sql, fct_lead_conversions.sql and fct_campaign_daily_activity.sql):
 POST_WINDOW_DAYS = 21                 # observed maximum lead-to-conversion lag, 0..21 days
 COVERAGE_START = date(2023, 1, 1)     # documented coverage start = first DIM_DATE day
 COVERAGE_END = date(2025, 12, 31)     # documented coverage end = last DIM_DATE day

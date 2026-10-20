@@ -2,7 +2,7 @@
     Every campaign of MART_CAMPAIGN_PERFORMANCE equals the independent per-campaign baseline
     (seed expected_campaign_kpi: Python csv + decimal from the CSV files) in every base column:
     channel, objective, budget, spend days, spend, impressions, clicks, leads, converted leads,
-    trials, purchases, revenue. The dbt port of sql/02b_core_models_tests.sql block 12 (bases).
+    trials, purchases, revenue.
     FULL OUTER JOIN: a campaign missing on either side is its own failing row. Returns one row
     per campaign with at least one differing column, naming the columns.
 -#}

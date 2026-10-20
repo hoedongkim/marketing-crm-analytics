@@ -1,6 +1,6 @@
 {#-
   Schema naming: a model or seed lands in EXACTLY the schema it names (upper-cased), so dbt
-  builds MARKETING_CRM.STAGING and MARKETING_CRM.MART, the schemas of the Phase 3-4 SQL build.
+  builds MARKETING_CRM.STAGING and MARKETING_CRM.MART, the schemas the admin bootstrap created.
   dbt's default would prefix the target schema (STAGING_MART). A node without a custom schema
   falls back to target.schema; with flags.require_valid_schema_from_generate_schema_name a
   null result would be a parse error.

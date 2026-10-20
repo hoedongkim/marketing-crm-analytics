@@ -16,7 +16,7 @@
 -- Read-only
 --   Only USE and SELECT/WITH statements. Nothing is created or changed.
 -- How to run
---   From the repository root, after sql/02c_analysis_marts.sql:
+--   From the repository root, after `make dbt-build` (it builds every MART table read here):
 --     .venv/bin/python scripts/run_sql.py --role CRM_TRANSFORMER --max-rows 300 sql/03_marketing_overview.sql
 --   run_sql.py prints every result and exits 1 if any row has STATUS = 'FAIL'. 15 statements,
 --   seconds on the X-Small MARKETING_WH. Output of the last run: docs/evidence/03_overview.txt.
@@ -25,9 +25,10 @@
 --   dashboard's role, can run the same queries.
 -- Inputs
 --   MARKETING_CRM.MART: DIM_DATE, DIM_CAMPAIGN, FCT_DAILY_SPEND, FCT_LEAD_CONVERSIONS,
---   MART_CAMPAIGN_PERFORMANCE (Phase 3, sql/02b_core_models.sql); FCT_CAMPAIGN_DAILY_ACTIVITY,
---   MART_MONTHLY_MARKETING, MART_CHANNEL_PERFORMANCE (Phase 4, sql/02c_analysis_marts.sql).
--- Guard rails (the user plan; numbered as in 02c_analysis_marts.sql) and where they show
+--   MART_CAMPAIGN_PERFORMANCE (Phase 3); FCT_CAMPAIGN_DAILY_ACTIVITY, MART_MONTHLY_MARKETING,
+--   MART_CHANNEL_PERFORMANCE (Phase 4). dbt builds each of them from
+--   dbt/models/marts/<table name in lower case>.sql.
+-- Guard rails (the user plan; numbered as in 04, 05 and 06) and where they show
 --   G1 Grain. A fact is never joined row by row to a fact of another grain: the naive
 --      daily_spend x leads join on CAMPAIGN_ID inflates spend 2,495x (4.52 M -> 11.3 B,
 --      docs/data_profile.md "The grain trap"). Blocks 1-3 aggregate every fact to the target
@@ -70,7 +71,9 @@
 --   (Totals of mixed measures share one NUMBER column, so counts print as e.g. 120.000000.)
 -- Where the expected values come from (never from the query under test)
 --   [P3]   The local pre-load KPI profile (2026-10-13, DuckDB and Python Decimal, before any
---          Snowflake object existed), carried inline by the 02b and 02c tests:
+--          Snowflake object existed), carried inline by the 02b and 02c tests (at commit dbe41f7,
+--          https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02b_core_models_tests.sql,
+--          https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02c_analysis_marts_tests.sql):
 --          kpi_channel_bases, kpi_channel_ratios (incl. the TOTAL row), the 36 rows of
 --          monthly_activity_vs_cohort, campaign_top10_roas / campaign_bottom10_roas.
 --   [PUB]  The publisher's reference output: spend and attributed revenue by channel and in total.
@@ -245,7 +248,8 @@ ORDER BY e.ORD NULLS LAST;
 --      would show 0 instead of disappearing. ACTIVE_CAMPAIGNS comes from a range join of two
 --      dimensions: the campaigns whose START_DATE..END_DATE window overlaps the month. The
 --      same 36 months are then read from MART_MONTHLY_MARKETING, the dashboard's monthly table
---      (built from the daily activity spine, 02c), and both must equal the baseline.
+--      (built from the daily activity spine, dbt/models/marts/mart_monthly_marketing.sql), and
+--      both must equal the baseline.
 --    HOW TO READ: one row per calendar month. Spend peaks in 2024-10 (219,378.73), leads in
 --      2024-09 (11,825), the month with the most campaigns in flight (20). The ends of the
 --      range are thin because few campaigns ran: 3 in 2023-01, and 11 / 5 / 3 / 1 in
@@ -911,9 +915,10 @@ ORDER BY 1;
 -- 9. Campaign performance table (the dashboard's campaign list): all 120 campaigns
 --    BUSINESS QUESTION: where did the money go, campaign by campaign, and what did each
 --      campaign return?
---    METHOD: MART_CAMPAIGN_PERFORMANCE is already one row per campaign, with spend, leads and
---      conversions aggregated per campaign before they were joined (02b), and its ratio
---      columns are valid at exactly this grain. Window functions add the rankings:
+--    METHOD: MART_CAMPAIGN_PERFORMANCE (dbt/models/marts/mart_campaign_performance.sql) is
+--      already one row per campaign, with spend, leads and conversions aggregated per campaign
+--      before they were joined, and its ratio columns are valid at exactly this grain. Window
+--      functions add the rankings:
 --      ROW_NUMBER() by spend (ties broken by CAMPAIGN_ID, so the order is deterministic), a
 --      running SUM of spend over that order for the cumulative share, RANK() OVER (PARTITION
 --      BY CHANNEL ORDER BY COST_PER_LEAD) to compare a campaign with its own channel, and

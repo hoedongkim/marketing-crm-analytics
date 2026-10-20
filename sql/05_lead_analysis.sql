@@ -85,7 +85,7 @@
 -- Read-only
 --   Only USE and SELECT / WITH statements. Nothing is created or changed.
 -- How to run
---   From the repository root, after sql/02c_analysis_marts.sql:
+--   From the repository root, after `make dbt-build` (it builds every MART table read here):
 --     .venv/bin/python scripts/run_sql.py --role CRM_TRANSFORMER --max-rows 300 sql/05_lead_analysis.sql
 --   run_sql.py prints every result and exits 1 if any row has STATUS = 'FAIL'. 19 statements,
 --   well under a minute on the X-Small MARKETING_WH (every query reads at most the 261,684-row
@@ -99,8 +99,9 @@
 --   - Expected lists are FULL OUTER JOINed, so a missing or an unexpected group is its own FAIL.
 --   - No result is compared with itself. Expected values come from the sources below. Where a
 --     result is compared with a MART table, it is a different path: the analysis recomputes
---     from FCT_LEAD_CONVERSIONS with its own CASE WHEN, the dashboard marts were built in 02c
---     (MART_LEAD_QUALITY from 10-point bands, MART_CHANNEL_PERFORMANCE from channel sums).
+--     from FCT_LEAD_CONVERSIONS with its own CASE WHEN, the dashboard marts are built by dbt
+--     (MART_LEAD_QUALITY from 10-point bands, dbt/models/marts/mart_lead_quality.sql;
+--     MART_CHANNEL_PERFORMANCE from channel sums, dbt/models/marts/mart_channel_performance.sql).
 --   - Rounding: rates divide a dividend cast to NUMBER(32,18), so ROUND is the only rounding
 --     (the NUMBER(p,2) / NUMBER gotcha rounds to 8 dp first). Wilson bounds, chi-square and F
 --     statistics, p-values, correlations, standard deviations, the regression slope and
@@ -112,16 +113,22 @@
 --     midpoint, so the 6-dp intermediate cannot change the 4th decimal (block 4a).
 --   (Check lists put mixed measures in one NUMBER(38,6) column, so counts print as 120.000000.)
 -- Where the expected values come from (never from the query under check)
---   [K]   Known totals, Phase 3 tests (docs/evidence/02b_core_models_tests.txt): 261,684 leads,
---         39,696 converted leads (23,005 trials, 16,691 purchases), revenue 21,561,839.01.
+--   [K]   Known totals, the dbt seed dbt/seeds/expected_totals.csv (scripts/independent_check.py;
+--         dbt/tests/marts/assert_control_totals_in_every_mart.sql checks every mart against it,
+--         PASS in docs/evidence/05_dbt_build.txt): 261,684 leads, 39,696 converted leads (23,005
+--         trials, 16,691 purchases), revenue 21,561,839.01.
 --   [P3]  The local pre-load profile "KPI reconciliation" (2026-10-13), section
 --         lead_score_segments: leads, converted leads, purchases, revenue and conversion rate of
---         Low / Medium / High (carried inline in 02b_core_models_tests.sql block 11).
+--         Low / Medium / High (carried inline in block 11 of 02b_core_models_tests.sql, in the
+--         git history at commit dbe41f7:
+--         https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02b_core_models_tests.sql).
 --   [E01] docs/evidence/01_data_profiling.txt (Phase 2, RAW): [18] leads per 10-point band,
 --         [24] the 4,716 conversions after their campaign ended, [25] lag percentiles and means
 --         by conversion type and channel, [26] the last conversion date 2025-12-21 and the 65
 --         leads whose 21-day window passes it.
---   [D]   02c_analysis_marts_tests.sql [D]: converted leads and conversion rate per 10-point band.
+--   [D]   02c_analysis_marts_tests.sql [D] (at commit dbe41f7,
+--         https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02c_analysis_marts_tests.sql):
+--         converted leads and conversion rate per 10-point band.
 --   [D5]  Python 3 csv + decimal + fractions (60-digit precision, ROUND_HALF_UP), 2026-10-14,
 --         outside Snowflake, from data/raw/source/campaigns.csv, leads.csv and conversions.csv:
 --         segment trials, purchase rates, revenue per lead / purchase and Wilson bounds; the
@@ -244,7 +251,7 @@ scorecard AS (
                                                                                     AS CONVERSION_LIFT
   FROM inputs
 ),
-dashboard_source AS (       -- the same roll-up from MART_LEAD_QUALITY (02c), the table the dashboard reads
+dashboard_source AS (       -- the same roll-up from MART_LEAD_QUALITY (built by dbt), the table the dashboard reads
   SELECT IFF(GROUPING(LEAD_SCORE_SEGMENT) = 1, 'All leads', LEAD_SCORE_SEGMENT) AS SEGMENT_NAME,
          SUM(LEADS) AS LEADS, SUM(CONVERTED_LEADS) AS CONVERTED_LEADS, SUM(PURCHASES) AS PURCHASES,
          SUM(REVENUE) AS REVENUE
@@ -382,8 +389,9 @@ ORDER BY 1;
 --        26,169 and 5-10 hold 26,168). The score has only 100 values, so a tile boundary cuts
 --        through one score value; LEAD_ID decides which of its leads go to the lower tile, which
 --        makes the result deterministic (without it, reruns could move leads between tiles).
---      - 10-point bands: MART_LEAD_QUALITY (02c), the table the dashboard charts. Bands follow
---        score values, so their sizes vary (25,748-26,396) and they never split a score.
+--      - 10-point bands: MART_LEAD_QUALITY (dbt/models/marts/mart_lead_quality.sql), the table
+--        the dashboard charts. Bands follow score values, so their sizes vary (25,748-26,396)
+--        and they never split a score.
 --      LAG(rate) OVER (PARTITION BY CUT ORDER BY GRP) gives the step from the previous group;
 --      LEAD(MIN_SCORE) shows whether a group shares its top score with the next one.
 --    HOW TO READ: every cut rises at every step: quartiles 7.65% -> 22.68% (3 of 3 steps up),
@@ -558,7 +566,8 @@ ORDER BY ORD;
 --      SUM(LEADS) of MART_LEAD_QUALITY; medians and quartiles are not additive, so they live here
 --      only.
 --    Checks: every value [D5]; LEADS, CONVERSION_RATE and the Wilson bounds also equal
---      MART_CHANNEL_PERFORMANCE (02c, built from channel sums, its interval checked there).
+--      MART_CHANNEL_PERFORMANCE (dbt/models/marts/mart_channel_performance.sql, built from
+--      channel sums; its interval formula has a dbt unit test).
 -- -----------------------------------------------------------------------------
 WITH leads AS (
   SELECT CHANNEL, LEAD_SCORE, IS_CONVERTED,
@@ -945,7 +954,8 @@ ORDER BY 1;
 --    HOW TO READ: 4,716 conversions (11.88%) and 2,532,266.74 of attributed revenue (11.74%)
 --      arrive 1-21 days after the campaign ended: 2,583 in the first week, 1,568 in the second,
 --      565 in the third. A campaign report closed on its end date understates its conversions
---      by about one in eight; this is why the activity spine of 02c runs to END_DATE + 21.
+--      by about one in eight; this is why the activity spine of FCT_CAMPAIGN_DAILY_ACTIVITY
+--      (dbt/models/marts/fct_campaign_daily_activity.sql) runs to END_DATE + 21.
 --    CAVEATS: attributed revenue (last touch, G4). The share depends on campaign length (a lead
 --      created near the end has most of its 21-day window after it).
 --    Checks: counts, shares, revenue and maximum [E01 24]; the buckets [D5]; 0 rows where

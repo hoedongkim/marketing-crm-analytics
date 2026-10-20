@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a multi-statement .sql file in Snowflake as the pipeline user with a given role.
 
-    python scripts/run_sql.py --role CRM_TRANSFORMER sql/setup/03_connection_test.sql
+    python scripts/run_sql.py --role CRM_TRANSFORMER sql/07_dashboard_validation.sql
     python scripts/run_sql.py --role CRM_LOADER sql/setup/02_raw_load_checks.sql
     python scripts/run_sql.py --dry-run sql/setup/01_raw_objects.sql   # offline: show the split
 
@@ -14,8 +14,8 @@ that statement on, exactly as in a Snowsight worksheet.
 Check rows: any result column named STATUS (case-insensitive) whose value is exactly
 'FAIL' counts as a failed check. After all statements ran, the script prints
 "FAIL  <file>: N check row(s) FAIL" and exits 1 if there was at least one, so a
-reconciliation file such as 02_raw_load_checks.sql or the check at the end of
-03_connection_test.sql fails the command, not just its printed output. Other STATUS
+reconciliation file such as 02_raw_load_checks.sql or a check file such as
+07_dashboard_validation.sql fails the command, not just its printed output. Other STATUS
 values (PASS, LOADED, "Statement executed successfully.") are not judged.
 """
 

@@ -77,6 +77,8 @@
 --   [E03] [E04] [E05] [E06] [E02cT]  Phase 4 evidence numbers, copied mechanically from
 --           docs/evidence/03_overview.txt, 04_funnel.txt, 05_lead.txt, 06_efficiency.txt and
 --           02c_analysis_marts_tests.txt (statement in brackets) into the VALUES lists below.
+--           02c_analysis_marts_tests.txt is in the git history (commit dbe41f7):
+--           https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02c_analysis_marts_tests.txt
 --           Those statements passed their own checks against [P3]/[D] (the local pre-load
 --           profile and Python decimal). They carry the date-dependent references (2024,
 --           2025, the monthly series) and the score, lag and interval figures.

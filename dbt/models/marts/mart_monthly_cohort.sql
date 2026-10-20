@@ -1,8 +1,8 @@
 {#-
     MART_MONTHLY_COHORT: one row per channel x lead cohort month, LEAD-COHORT basis (36 x 5 =
-    180 rows). Ported from sql/02c_analysis_marts.sql block 3. For the leads created in each
-    month: how many converted (whenever), to what, with what revenue, in the cohort month or a
-    later one, the summed lag, and how many have had their full 21-day window by AS_OF_DATE.
+    180 rows). For the leads created in each month: how many converted (whenever), to what,
+    with what revenue, in the cohort month or a later one, the summed lag, and how many have
+    had their full 21-day window by AS_OF_DATE.
     FCT_LEAD_CONVERSIONS aggregated to CREATED_MONTH x CHANNEL in one CTE, then joined 1:1 to the
     same spine as MART_MONTHLY_MARKETING. The cohort conversion rate SUM(CONVERTED_LEADS) /
     SUM(LEADS) stays between 13.9% and 16.9% in every month, while the activity ratio swings from

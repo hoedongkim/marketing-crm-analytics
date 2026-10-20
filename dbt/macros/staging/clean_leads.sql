@@ -2,8 +2,7 @@
   clean_leads(source_relation)
 
   The cleaning rules for a leads extract, shared by stg_leads (clean release) and
-  stg_challenge_leads (cleaning-challenge extract). Ported unchanged from
-  sql/02_data_cleaning.sql blocks 3 and 7; the steps are those of clean_campaigns.
+  stg_challenge_leads (cleaning-challenge extract). The steps are those of clean_campaigns.
   CREATED_AT is renamed CREATED_DATE (the values are dates), and its codes say created_date.
   LEAD_SCORE is cast to NUMBER(3,0): a score of 1000 would overflow and become NULL with an
   unparseable code instead of breaking the view. No fill: a blank created date cannot be proven

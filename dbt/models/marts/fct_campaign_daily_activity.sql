@@ -1,7 +1,6 @@
 {#-
     FCT_CAMPAIGN_DAILY_ACTIVITY: one row per campaign per day, START_DATE .. END_DATE + 21
-    (13,760 rows: 11,240 flight days + 120 x 21 post-flight days), the activity fact. Ported from
-    sql/02c_analysis_marts.sql block 1.
+    (13,760 rows: 11,240 flight days + 120 x 21 post-flight days), the activity fact.
       STEP 1  the spine: DIM_CAMPAIGN x DIM_DATE, each campaign joined to the dates of
               START_DATE .. LEAST(END_DATE + post_window_days, coverage_end). DATE_DAY is unique
               in DIM_DATE, so each (campaign, date) appears once.

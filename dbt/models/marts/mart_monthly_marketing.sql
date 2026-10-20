@@ -1,6 +1,6 @@
 {#-
     MART_MONTHLY_MARKETING: one row per channel x month, ACTIVITY basis (36 months x 5 channels
-    = 180 rows). Ported from sql/02c_analysis_marts.sql block 2.
+    = 180 rows).
     - The spine is every month of DIM_DATE x every channel of DIM_CAMPAIGN (two small
       dimensions, not facts), so a channel-month without activity shows as 0.
     - The measures are the daily activity fact rolled up to channel x month in one CTE, then

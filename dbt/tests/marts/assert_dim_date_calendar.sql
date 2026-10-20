@@ -3,10 +3,10 @@
     as the independent calendar (seed calendar_days 1,096 and calendar_weekend_days 313, Python
     datetime), first day 2023-01-01 and last day 2025-12-31, no gap (distinct days = span), and
     WEEK_START always a Monday. Returns one row per failed check.
-    The two bounds are literals, the dataset's documented coverage (data/README.md), on purpose
-    NOT the vars coverage_start / coverage_end that dim_date.sql is built from: a test that read
-    the same vars would pass whatever they were set to. Changing the coverage therefore means
-    changing this test and scripts/independent_check.py too.
+    The two bounds are literals, the dataset's documented coverage (docs/data_source.md), on
+    purpose NOT the vars coverage_start / coverage_end that dim_date.sql is built from: a test that
+    read the same vars would pass whatever they were set to. Changing the coverage therefore
+    means changing this test and scripts/independent_check.py too.
 -#}
 WITH d AS (
   SELECT COUNT(*) AS N_DAYS, COUNT(DISTINCT DATE_DAY) AS N_DISTINCT,

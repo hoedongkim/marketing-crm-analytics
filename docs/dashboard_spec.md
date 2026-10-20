@@ -103,8 +103,9 @@ How to read the component specs:
 ### 0.1 Before you start
 
 - [ ] Use the **personal Gmail account** that ran the Phase 1 test. Never use LionMail or another
-  Workspace account, and never transfer ownership of anything later
-  ([phase1_connection_test.md](phase1_connection_test.md), section A).
+  Workspace account, and never transfer ownership of anything later: a Workspace admin can block
+  sharing outside the organisation or community connectors, and a university account is
+  deprovisioned after graduation.
 - [ ] The MART tables are the deployed dbt build: the Phase 5 full build plus the Phase 6 funnel
   mart, exactly as exported to [exports/](../exports/README.md) and checked by
   [dashboard_validation.md](dashboard_validation.md). Do **not** rebuild them while you build the
@@ -123,7 +124,7 @@ source reuses them, so you may not see the sign-in step again. If it asks, use e
 
 | Field | Value |
 |---|---|
-| Connector | Under **Partner Connectors**, the **Snowflake** card **with the Snowflake logo**, published by Snowflake. Not "Snowflake by Supermetrics" or "by Windsor.ai" (paid third parties). Write the publisher label shown on the card into [phase1_connection_test.md](phase1_connection_test.md#results-fill-in-do-not-invent), row 1. |
+| Connector | Under **Partner Connectors**, the **Snowflake** card **with the Snowflake logo**, published by Snowflake. Not "Snowflake by Supermetrics" or "by Windsor.ai" (paid third parties). |
 | Username | `SVC_CRM_BI` |
 | Password or private key | The **base64 body only** of the key: no BEGIN/END lines, no newlines. Copy it with `grep -v -- '-----' "$HOME/.snowflake/keys/svc_crm_bi.p8" \| tr -d '\n' \| pbcopy`, paste, then clear the clipboard with `pbcopy < /dev/null`. The full PEM was rejected ("Incorrect username or password"). |
 | Account URL | `<org>-<account>.snowflakecomputing.com`, **without** `https://` (with it the connector refuses: "Account URL should not start with 'https://'"). Take it from Snowsight » account menu » View account details. Never write the real value into the repository or a screenshot. |
@@ -148,9 +149,7 @@ For each row of the table below:
 5. Rename the source at the top left ("Untitled data source" or similar) to the row's **Name**.
 6. In the top bar:
    - **Data credentials** → **Owner's credentials**.
-   - **Data freshness** → the **longest** interval offered (probably 12 hours). Write the options
-     you see into [phase1_connection_test.md](phase1_connection_test.md#results-fill-in-do-not-invent),
-     row 6.
+   - **Data freshness** → the **longest** interval offered (probably 12 hours).
 7. Make sure **Field editing in reports** is **on**. Charts need it to show a date as *Year Month*
    (verify in the UI: Google's docs do not say this setting is required for that).
 8. Apply the field fixes and add the calculated fields of 0.4 and 0.5.
@@ -166,8 +165,8 @@ For each row of the table below:
 | `FUN` | `MCRM FUN - MART_CONVERSION_FUNNEL` | `SELECT * FROM MARKETING_CRM.MART.MART_CONVERSION_FUNNEL` | 25 | full range, channel × funnel stage | none |
 | `DAILY` | `MCRM DAILY - FCT_CAMPAIGN_DAILY_ACTIVITY` | `SELECT * FROM MARKETING_CRM.MART.FCT_CAMPAIGN_DAILY_ACTIVITY` | 13,760 | activity, campaign × day (flight + 21 days) | `ACTIVITY_DATE` |
 
-The Phase 1 source on `CONNECTION_TEST` and its throwaway report are not part of this dashboard.
-Leave them private.
+The throwaway data source and report of the Phase 1 connection test are not part of this
+dashboard. Leave them private.
 
 ### 0.4 Field types per data source
 
@@ -187,7 +186,7 @@ they work either way. The same source also showed the defaults *Data freshness: 
 | Source | Field | Set Type to | Default aggregation | Why |
 |---|---|---|---|---|
 | `MM` | `MONTH_START` | keep **Date (YYYYMMDD)** | | The date range dimension (D2). Do not change it to *Year Month*. |
-| `MM` | `ACTIVE_CAMPAIGNS` | Number | Sum | Additive across channels within a month only. Use it only in charts with the month as dimension, never in a scorecard (it would add 490 campaign-months, `02cT [18]`). |
+| `MM` | `ACTIVE_CAMPAIGNS` | Number | Sum | Additive across channels within a month only. Use it only in charts with the month as dimension, never in a scorecard (it would add 490 campaign-months, [`02cT [18]`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02c_analysis_marts_tests.txt)). |
 | `COH` | `COHORT_MONTH` | keep **Date (YYYYMMDD)** | | The date range dimension (D2). |
 | `CH` | `CTR`, `CLICK_TO_LEAD_RATE`, `LEAD_CONVERSION_RATE`, `PURCHASE_RATE`, `BUDGET_UTILIZATION`, `SPEND_SHARE`, `LEADS_SHARE`, `REVENUE_SHARE`, `LCR_CI_LOW`, `LCR_CI_HIGH` | **Percent** | Sum | Stored ratios at channel grain. Only the last four are used in charts, each with one row per channel (D9). |
 | `CAMP` | `START_DATE`, `END_DATE`, `START_MONTH` | **Text** | | Removes the date dimension (D3). They may then display as `20240517`; no chart uses them. |
@@ -226,8 +225,8 @@ it is the naive cross-basis ratio that swings from 8.30% to 93.85% by month (`04
 | Source | Field name | Formula | Type | Full-range value (source) |
 |---|---|---|---|---|
 | `COH` | Lead conversion rate | `SUM(CONVERTED_LEADS) / SUM(LEADS)` | Percent | 15.17% (`03 [6]`) |
-| `COH` | Mean days to convert | `SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS)` | Number | 10.51 (`02cT [16]`) |
-| `COH` | Cross-month share | `SUM(CONVERTED_LATER_MONTH) / SUM(CONVERTED_LEADS)` | Percent | 34.45% (`02cT [16]`) |
+| `COH` | Mean days to convert | `SUM(SUM_DAYS_TO_CONVERT) / SUM(CONVERTED_LEADS)` | Number | 10.51 (`04 [18]`) |
+| `COH` | Cross-month share | `SUM(CONVERTED_LATER_MONTH) / SUM(CONVERTED_LEADS)` | Percent | 34.45% (`04 [17]`) |
 | `CH` | Click-through rate | `SUM(CLICKS) / SUM(IMPRESSIONS)` | Percent | 1.63% (`03 [6]`) |
 | `CH` | Click-to-lead rate | `SUM(LEADS) / SUM(CLICKS)` | Percent | 3.68% (`03 [6]`) |
 | `CH` | Lead conversion rate | `SUM(CONVERTED_LEADS) / SUM(LEADS)` | Percent | 15.17% (`03 [6]`) |
@@ -316,11 +315,10 @@ x=24..1176, y=0..120   (approximate; snap to the grid)
 | Attribution (CC BY 4.0) | `Data: Analytics Engineering, "Marketing Campaigns & Conversions Dataset v1.0.0" (https://www.analyticsengineering.com/datasets/marketing-campaigns), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Typed, cleaned and aggregated by Hoedong Kim; not endorsed by the publisher.` | x 24, y 74, w 760, h 40; 10 px, `#5F6368`, wraps to 2 lines |
 | Control hint | `Date range: whole months (monthly data is keyed on the 1st)` | x 800, y 60, w 376, h 18; 10 px, `#5F6368` |
 
-The attribution text is the one in [phase1_connection_test.md](phase1_connection_test.md#e-public-link)
-section E and [architecture.md](architecture.md#design-decisions), decision 8, which ask for a
-header or footer text box on every page. It sits in the header rather than a footer so that it is
-on every page without depending on page height. The public Sheets version adds one more header
-box under the controls (section 9).
+The attribution text is the one in [architecture.md](architecture.md#design-decisions), decision
+8, which asks for a header or footer text box on every page. It sits in the header rather than a
+footer so that it is on every page without depending on page height. The public Sheets version
+adds one more header box under the controls (section 9).
 
 Below the header, every page gets its own page-level subtitle at y 128 (section 2-5, "Page
 subtitle").
@@ -884,7 +882,7 @@ Each w 336, h 90, at x 840, y 972 / 1072 / 1172. **STYLE** as the KPI cards.
 
 Sources:
 
-- Default: `02cT [16]`, `02cT [9]`.
+- Default: `04 [18]`, `04 [17]`.
 - 2025: 3,330 / 10,138 from the 2025 rows of `04 [16]`.
 - video: `04 [18]`. The `AFTER_CAMPAIGN_END` column there counts the same conversions: converted
   after the campaign's `END_DATE`.
@@ -992,7 +990,7 @@ within 0-21 days. · Filters: channel`
 - **Filters:** channel. **Cross-filtering:** on.
 - **Caption:** `Reads as: each segment's leads, conversion and purchase rates, mean score and
   mean days to convert; the lag does not differ by segment. · Filters: channel`
-- **Expect** (`05 [6]`, `02cT [24]`, `05 [13]`):
+- **Expect** (`05 [6]`, `07 [21]`, `05 [13]`):
 
   | Segment | Leads | Share | Converted | Lead conv. rate | Purchase rate | Avg score | Mean days |
   |---|---:|---:|---:|---:|---:|---:|---:|
@@ -1289,21 +1287,18 @@ as you go.
    Never change a formula away from 0.5 to make a number fit. Record the mismatch instead.
    Claude can then check the SQL side.
 
-**Gates to record:**
+**Gates to record** (in the [sign-off](dashboard_validation.md#sign-off)): G2 (cross-source
+channel filter, 1.4) and G1 (report-level date control on other pages, 1.5).
 
-- G2 (cross-source channel filter, 1.4) and G1 (report-level date control on other pages, 1.5).
-- In [phase1_connection_test.md](phase1_connection_test.md#results-fill-in-do-not-invent):
-  - the data freshness options (row 6);
-  - whether the key-pair sign-in stayed stable over the build sessions (row 15).
-
-**Phase 1 checks deferred to now** ([phase1_connection_test.md](phase1_connection_test.md),
-sections D-F):
-
-- Section **D**, after page 1 is built, as admin in Snowsight: the wrapped queries of
-  `SVC_CRM_BI`; whether the `CHANNEL` filter is pushed down (the date filter is documented as
-  not pushed down); cache reuse; and the credits used. These are results rows 8-11.
-- Section **E**, with section 7 below (rows 12, 17, 18).
-- Section **F**, with the Sheets swap (row 13).
+**Connector checks carried over from Phase 1**, after page 1 is built, as admin in Snowsight
+(queries in section D of the Phase 1 checklist, in the git history:
+[phase1_connection_test.md at dbe41f7](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/phase1_connection_test.md#d-what-snowflake-saw-as-the-admin-in-snowsight)):
+the wrapped queries of `SVC_CRM_BI`; whether the `CHANNEL` filter is pushed down (the date filter
+is documented as not pushed down); cache reuse; and the credits used. Result on 2026-10-17, from
+the `SVC_CRM_BI` query history: the `CHANNEL` filter is pushed down as a `WHERE` with bind
+parameters; the date filter is not, so Data Studio applies the date range itself. The Phase 1
+public-link checks are part of section 7, and its one-chart Sheets rehearsal is covered by the
+full swap (section 9).
 
 ## 7. Publishing
 
@@ -1311,9 +1306,9 @@ Do this after section 6 passes.
 
 1. **Resource** » **Manage added data sources**: exactly the seven `MCRM ...` sources, every one
    **Reusable**, none **Embedded**. Fix an embedded one first (rebuild its charts on the reusable
-   source) ([phase1_connection_test.md](phase1_connection_test.md#e-public-link), row 17).
+   source).
 2. **Attribution and provenance**: open each of the four pages in view mode. The report-level
-   header shows the title, the provenance line and the CC BY 4.0 attribution (row 18).
+   header shows the title, the provenance line and the CC BY 4.0 attribution.
 3. **File** » **Report settings**: **Viewer data refresh** off. Every viewer cache miss runs a
    Snowflake query on the trial's credits.
 4. **File** » **Publishing settings**: turn on **report publishing**, so that later edits stay in
@@ -1326,7 +1321,6 @@ Do this after section 6 passes.
    - All four pages render, with the default view (full range, all channels).
    - P1-02 shows 4,523,050.02, P2-06 shows 16,691 purchases, P3-06 shows High 22.19%, P4-03
      shows 4.77.
-   - Write the result into row 12 of [phase1_connection_test.md](phase1_connection_test.md#results-fill-in-do-not-invent).
 7. **Optional:** **File** » **Embed report** » **Enable embedding**, for a portfolio site. A GitHub
    README cannot embed it: use the screenshots (section 8) linked to the report.
 8. **Cost while public.** Viewers share one cache (Owner's credentials, longest freshness). If a
@@ -1336,14 +1330,14 @@ Do this after section 6 passes.
 ## 8. Screenshots for the repository
 
 The repository layout ([README.md](../README.md#-repository-structure)) has four images in
-`dashboards/` (create the folder):
+`docs/images/`:
 
 | File | Page |
 |---|---|
-| `dashboards/overview.png` | 1. Marketing Overview |
-| `dashboards/funnel.png` | 2. Conversion Funnel |
-| `dashboards/lead_quality.png` | 3. Lead Quality & CRM |
-| `dashboards/efficiency.png` | 4. Marketing Efficiency & ROAS |
+| `docs/images/overview.png` | 1. Marketing Overview |
+| `docs/images/funnel.png` | 2. Conversion Funnel |
+| `docs/images/lead_quality.png` | 3. Lead Quality & CRM |
+| `docs/images/efficiency.png` | 4. Marketing Efficiency & ROAS |
 
 1. Open the report in **view** mode with the default view: full range, all channels, no campaign,
    no cross-filter. Reloading the link resets everything.
@@ -1366,9 +1360,13 @@ The repository layout ([README.md](../README.md#-repository-structure)) has four
 
 When the trial ends (about 2026-11-12), the live charts stop working once their cache expires. By
 about **2026-11-07** the public report must read a frozen Google Sheets snapshot of the same
-tables ([architecture.md](architecture.md#design-decisions), decision 8). The procedure is in
-[docs/sheets_snapshot.md](sheets_snapshot.md). The files come from `make export-marts`, which
-writes [exports/](../exports/README.md), and their integrity is proven by `make export-check`.
+tables ([architecture.md](architecture.md#design-decisions), decision 8). The swap was done on
+2026-10-18; what it took and how it was checked is in the
+[pass-2 build log](dashboard_validation.md#build-log-pass-2-the-google-sheets-copy) of
+dashboard_validation.md (the step-by-step runbook is in the git history:
+[sheets_snapshot.md at dbe41f7](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/sheets_snapshot.md)).
+The files come from `make export-marts`, which writes [exports/](../exports/README.md), and their
+integrity is proven by `make export-check`.
 
 What this spec already does to make the swap mechanical:
 

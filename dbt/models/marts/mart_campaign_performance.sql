@@ -1,6 +1,6 @@
 {#-
     MART_CAMPAIGN_PERFORMANCE: one row per campaign (120 rows), every funnel base and the
-    campaign KPIs. Ported from sql/02b_core_models.sql block 5, the plan's grain-safe pattern:
+    campaign KPIs, built with the plan's grain-safe pattern:
       STEP 1  aggregate each fact ON ITS OWN to one row per campaign (spend, leads, and
               conversions via their lead: conversions JOIN leads ON LEAD_ID is 1:1, so it only
               adds the campaign);

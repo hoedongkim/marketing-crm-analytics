@@ -59,20 +59,24 @@
 --   precision, rounded once to 6 dp. Every exact value behind them (60-digit [D]) lies at least
 --   4 x 10^-9 away from a rounding midpoint at 6 dp, far beyond double-precision error.
 -- Rounding
---   As in 02b_core_models.sql ("Rounding"): every exact division casts its dividend to
---   NUMBER(32,18), so ROUND to the printed scale is the only rounding (rates 6 dp, costs 4 dp).
+--   As in the dbt MART models: every exact division casts its dividend to NUMBER(32,18), so
+--   ROUND to the printed scale is the only rounding (rates 6 dp, costs 4 dp). Why: the
+--   "Rounding" note of the first, plain-SQL version of the marts (at commit dbe41f7,
+--   https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02b_core_models.sql#L100-L117).
 -- Where the expected values come from (never from the query under test)
 --   [P3]   The local "KPI reconciliation" profile (2026-10-13, DuckDB and Python Decimal, before
---          Snowflake existed), carried inline in 02b_core_models_tests.sql: channel bases
---          (block 13), channel ratios (block 14), the 36 monthly bases (block 17).
+--          Snowflake existed), carried inline in 02b_core_models_tests.sql (at commit dbe41f7,
+--          https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/sql/02b_core_models_tests.sql):
+--          channel bases (block 13), channel ratios (block 14), the 36 monthly bases (block 17).
 --   [PUB]  The publisher reference output: spend and attributed revenue by channel.
 --   [E01]  docs/evidence/01_data_profiling.txt: [23] 7 spend rows with zero leads, [24] 4,716
 --          conversions after their campaign ended (1,951 purchases, 2,765 trials) and 1,811
 --          same-day conversions, [25] the lag percentiles and means, [28] active campaigns per
 --          month.
---   [E02c] docs/evidence/02c_analysis_marts_tests.txt: [14] conversions of each cohort that land
---          in a later month, [16] 13,675 later-month and 26,021 same-month conversions (34.4493%),
---          [21] the channel Wilson bounds.
+--   [E02c] docs/evidence/02c_analysis_marts_tests.txt (at commit dbe41f7,
+--          https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/02c_analysis_marts_tests.txt):
+--          [14] conversions of each cohort that land in a later month, [16] 13,675 later-month
+--          and 26,021 same-month conversions (34.4493%), [21] the channel Wilson bounds.
 --   [PL]   docs/architecture.md decision 7 (local pre-load profiling): 13,675 conversions, 34.45%,
 --          land in a later calendar month than their lead.
 --   [D]    Python 3 csv + decimal / fractions (ROUND_HALF_UP) and mpmath (60 digits),
@@ -102,7 +106,8 @@
 --   The blocks recompute each figure from STAGING (or from the Phase 3 facts) and reconcile it
 --   with those tables, so the dashboard and this file cannot silently disagree.
 -- How to run
---   From the repository root, after sql/02c_analysis_marts.sql:
+--   From the repository root, after `make dbt-build` (it builds every STAGING view and MART
+--   table read here):
 --     .venv/bin/python scripts/run_sql.py --role CRM_TRANSFORMER --max-rows 300 sql/04_conversion_funnel.sql
 --   run_sql.py prints every result and exits 1 if any row has STATUS = 'FAIL'. 19 statements,
 --   well under a minute on the X-Small MARKETING_WH. Output of the last run:

@@ -5,7 +5,7 @@
     lag, maturity). Ephemeral: dbt compiles it into fct_lead_conversions as a CTE, so it creates
     no object in Snowflake.
 
-    The joins of sql/02b_core_models.sql block 4, unchanged:
+    The two joins:
       - leads -> conversions is a LEFT JOIN on LEAD_ID. LEAD_ID is unique in stg_conversions
         (a lead converts at most once, tested), so each lead matches 0 or 1 conversion rows:
         261,684 leads in, 261,684 rows out, the 221,988 unconverted leads included.

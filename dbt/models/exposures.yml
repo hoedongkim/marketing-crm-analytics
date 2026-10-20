@@ -10,9 +10,9 @@ exposures:
       (in progress).
       It reads seven MART tables, one reusable data source each (spec decision D1), live through
       the Snowflake connector as SVC_CRM_BI / CRM_REPORTER, and after the trial a frozen Google
-      Sheets snapshot of the same tables (exports/, docs/sheets_snapshot.md). It only visualises:
-      every KPI is computed in these models, and the only calculated fields allowed are ratios of
-      sums (docs/kpi_definitions.md).
+      Sheets snapshot of the same tables (exports/, docs/dashboard_spec.md section 9). It only
+      visualises: every KPI is computed in these models, and the only calculated fields allowed
+      are ratios of sums (docs/kpi_definitions.md).
     owner:
       name: Hoedong Kim
     depends_on:

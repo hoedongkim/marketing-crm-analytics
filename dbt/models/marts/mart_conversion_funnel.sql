@@ -1,8 +1,8 @@
 {#-
     MART_CONVERSION_FUNNEL: the funnel in long format, one row per channel x stage
     (5 channels x 5 stages = 25 rows), full date range 2023-01-01..2025-12-31, no date dimension.
-    Added in Phase 6 (dbt only, no hand-written SQL twin): the plan's mart_conversion_funnel, the
-    source a Data Studio funnel or bar chart needs (one dimension STAGE, one metric STAGE_VALUE).
+    Added in Phase 6: the plan's mart_conversion_funnel, the source a Data Studio funnel or bar
+    chart needs (one dimension STAGE, one metric STAGE_VALUE).
       STEP 1  the five funnel bases of each channel, read from MART_CHANNEL_PERFORMANCE (each
               fact aggregated to the channel on its own there), so every value equals the
               channel table and the known totals exactly;

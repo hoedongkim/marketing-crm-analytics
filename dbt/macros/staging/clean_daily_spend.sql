@@ -2,13 +2,12 @@
   clean_daily_spend(source_relation, fill_spend_date=false)
 
   The cleaning rules for a daily-spend extract, shared by stg_daily_spend (clean release) and
-  stg_challenge_daily_spend (cleaning-challenge extract). Ported unchanged from
-  sql/02_data_cleaning.sql blocks 2 and 6; the steps are those of clean_campaigns.
+  stg_challenge_daily_spend (cleaning-challenge extract). The steps are those of clean_campaigns.
 
   fill_spend_date (challenge track only) appends SPEND_DATE_FILLED: a blank spend date is filled
   with the previous date + 1 day only when that also equals the next date - 1 day (LAG / LEAD in
   spend_id order within the campaign), i.e. exactly one day fits between the neighbours. The fill
-  runs after de-duplication, so LAG / LEAD see one row per spend_id (02_data_cleaning.sql block 6).
+  runs after de-duplication, so LAG / LEAD see one row per spend_id.
 -#}
 {% macro clean_daily_spend(source_relation, fill_spend_date=false) -%}
 WITH source AS (

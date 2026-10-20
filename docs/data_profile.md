@@ -419,13 +419,15 @@ These are design inputs that follow from the facts above. They are not results.
   The reconciliation test will then expect 6,118 of 6,120 matching rows. MART and the dashboard
   stay on the clean release. Phase 3 refines the `01b` section 8 preview in four documented ways
   (de-dup order, trim characters, number patterns, blank ids) without changing any value; see
-  "Where the rules come from" in `sql/02_data_cleaning.sql`. Its gates read the trimmed value, so
-  a padded number such as `' 42'` keeps its value but is flagged `untrimmed`, never accepted
-  silently ("Whitespace" in the same header).
+  [Refinements over the Phase 2 preview](data_cleaning.md#refinements-over-the-phase-2-preview).
+  Its gates read the trimmed value, so a padded number such as `' 42'` keeps its value but is
+  flagged `untrimmed`, never accepted silently
+  ([rule 4](data_cleaning.md#4-numbers-pattern-and-cast-with-explicit-precision); the rules are in
+  `dbt/macros/staging/clean_*.sql`).
 
 **MART and the analyses (Phase 4).**
 
-- **Aggregate first, then join.** Spend, leads and conversions will be aggregated separately to a common grain (campaign, campaign × date, channel or month) before any join (see [The grain trap](#the-grain-trap)). Ratios will be ratios of sums. A test in `make marts` fails if total spend in any MART table differs from 4,523,050.02.
+- **Aggregate first, then join.** Spend, leads and conversions will be aggregated separately to a common grain (campaign, campaign × date, channel or month) before any join (see [The grain trap](#the-grain-trap)). Ratios will be ratios of sums. A test in `make dbt-build` (`assert_total_spend_in_every_mart`) fails if total spend in any MART table differs from 4,523,050.02.
 - **Activity fact on a daily spine to `end_date + 21`.** 4,716 conversions, with 2,532,266.74 of revenue, land up to 21 days after their campaign ends. A campaign × date spine built only from `daily_spend` rows, or a "within the campaign window" filter, would drop them.
 - **Lead-cohort fact, separate from the activity fact.** One row per lead, with conversion flag, type, lag and revenue, by the lead's cohort month. It will take an `as_of_date` parameter (2025-12-31, an assumption; see right-censoring under [Time](#time)) and flag maturity as `created_at <= as_of_date - 21`. Activity-month and cohort-month series must never be blended on one date axis (2025-12: 61 activity conversions, but 11 converted leads of 65).
 - **Budget proration for monthly and yearly views.** Budget is one amount per campaign, and 23 campaigns cross a year boundary. Monthly and yearly budget figures must prorate it by window days. Budget utilisation will be computed only at campaign grain.
@@ -437,7 +439,7 @@ These are design inputs that follow from the facts above. They are not results.
 
 ## Caveats
 
-- **Synthetic data.** The dataset models a fictional business, with no real companies, people or industry benchmarks ([data/README.md](../data/README.md)). Nothing here is a benchmark.
+- **Synthetic data.** The dataset models a fictional business, with no real companies, people or industry benchmarks ([data_source.md](data_source.md)). Nothing here is a benchmark.
 - **Regularities may be generator artefacts.** Exactly 24 campaigns per channel, a near-uniform lead score, the same lag percentiles in every channel and the late-2025 drop in active campaigns are properties of this deterministic synthetic data. They are recorded as shape facts, not read as marketing behaviour.
 - **Last-touch attribution.** Revenue by channel is attributed revenue, not causal impact. Offline and view-through conversions are not included.
 - **Descriptive facts, not insights.** This page states what the data contains and how it is shaped. Why a channel has more leads, why 2025 has fewer campaigns, or whether lead score predicts conversion is not addressed. Those are Phase 4 questions, and some cannot be answered from this data at all.

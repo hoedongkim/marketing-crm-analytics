@@ -1,6 +1,6 @@
 {#-
     DIM_DATE: one row per calendar day of the documented coverage, 2023-01-01..2025-12-31
-    (1,096 rows). Ported from sql/02b_core_models.sql block 1.
+    (1,096 rows).
     - A gap-free spine keeps the 32 days without spend on a time axis (they show as 0).
     - ROW_NUMBER() over GENERATOR numbers the rows 1..N without gaps; SEQ4() alone does not
       guarantee a gap-free sequence, so it only orders the rows.

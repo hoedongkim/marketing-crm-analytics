@@ -1,7 +1,6 @@
 # dbt unit tests of the staging rules: fixed RAW rows in, exact typed values and DQ codes out.
 # They test the logic on inputs the data does not contain (the clean release only exercises the
-# happy path, and the challenge extract fills its one blank spend date), the dbt replacement of
-# sql/02_data_cleaning_tests.sql block 2.
+# happy path, and the challenge extract fills its one blank spend date).
 # The expected output uses format: sql because DQ_ISSUES is an ARRAY (a dict fixture would be
 # cast with TRY_CAST, which Snowflake does not support for ARRAY); in that format every column
 # of the model is listed.

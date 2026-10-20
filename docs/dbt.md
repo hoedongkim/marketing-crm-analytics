@@ -1,29 +1,27 @@
 # dbt (Phase 5)
 
-Phase 5 moved the hand-written Phase 3-4 SQL build into a dbt Core project in [`dbt/`](../dbt/).
-dbt now builds every STAGING view and MART table, under the **same names in the same schemas**, so
-the four analysis files (`sql/03-06`) keep working unchanged (`P` C) and the Data Studio dashboard
-of Phase 6 is built on the same table names. The principle of the project holds: every business metric
-is computed in Snowflake SQL, dbt manages and tests that SQL pipeline, and Data Studio only
-visualises.
+A dbt Core project in [`dbt/`](../dbt/) builds and tests every STAGING view and MART table
+(Phase 5). The four analysis files (`sql/03-06`) read these objects, and all their checks pass on
+the dbt build (`P` C); the Data Studio dashboard of Phase 6 reads the same tables. The principle of
+the project holds: every business metric is computed in Snowflake SQL, dbt manages and tests that
+SQL pipeline, and Data Studio only visualises.
 
-Status (2026-10-14): done. `make dbt-build` ran with 0 errors and 0 deprecations, and the dbt-built
-objects have the same rows, columns and types as the SQL-built ones (only the comments differ, by
-design). Phase 6 (2026-10-14) added one model, `mart_conversion_funnel`
+Status (2026-10-14): done. `make dbt-build` ran with 0 errors and 0 deprecations. Phase 6
+(2026-10-14) added one model, `mart_conversion_funnel`
 ([below](#plan-names-and-the-models-that-serve-them)), built and tested with
 `make dbt-build-select DBT_SELECT=mart_conversion_funnel+` and `make dbt-test`, not with a full
 build: the project now has 20 models (11 MART tables), 258 data tests (16 singular) and 7 unit
 tests, all passing (`F`). The counts in [At a glance](#at-a-glance) and [Tests](#tests) are the
-Phase 5 full build (`B`, `P`); [lineage.md](lineage.md) always shows the current ones. Sources for
-every number on this page:
+Phase 5 full build (`B`, `P`); the dbt docs site (`make dbt-docs`) always shows the current ones.
+Sources for every number on this page:
 
 | Tag | Evidence file | Produced by |
 |---|---|---|
 | `B` | [`evidence/05_dbt_build.txt`](evidence/05_dbt_build.txt) | `make dbt-build`: parse, build, source freshness, docs generate (full log) |
-| `P` | [`evidence/05_dbt_parity.txt`](evidence/05_dbt_parity.txt) | the parity report: `make parity-snapshot` / `parity-diff` / `parity-check` / `sql-checks` / `seeds-check` (now `expected-seeds-check`), the test inventory and lineage from the manifest, the planted-defect runs, and the wiring checks that need no Snowflake query (section I) |
-| `F` | [`evidence/06_funnel_mart.txt`](evidence/06_funnel_mart.txt) | Phase 6: `make dbt-parse`, `make dbt-build-select DBT_SELECT=mart_conversion_funnel+`, `make dbt-test`, the read-only `sql/02b` and `sql/02c` test files, planted defects for the new singular test, the deployed types and grants |
+| `P` | [`evidence/05_dbt_parity.txt`](https://github.com/hoedongkim/marketing-crm-analytics/blob/dbe41f7/docs/evidence/05_dbt_parity.txt) (at commit dbe41f7) | the Phase 5 parity report: the comparison with the [first SQL version](#parity-with-the-hand-written-sql-build), `expected-seeds-check`, the test inventory and lineage from the manifest, the planted-defect runs, and the wiring checks that need no Snowflake query (section I) |
+| `F` | [`evidence/06_funnel_mart.txt`](evidence/06_funnel_mart.txt) | Phase 6: `make dbt-parse`, `make dbt-build-select DBT_SELECT=mart_conversion_funnel+`, `make dbt-test`, the read-only `sql/02b` and `sql/02c` test files (removed since), planted defects for the new singular test, the deployed types and grants |
 
-The lineage graph, generated from the dbt manifest, is on its own page: **[lineage.md](lineage.md)**.
+The lineage graph is on the dbt docs site, which `make dbt-docs` generates ([How to run](#how-to-run)).
 
 ## Contents
 
@@ -49,9 +47,6 @@ The lineage graph, generated from the dbt manifest, is on its own page: **[linea
 | `dbt build` | `PASS=273 WARN=0 ERROR=0 SKIP=0 NO-OP=2 REUSED=0 TOTAL=275` in 34.01 s (the 2 NO-OPs are the exposures) | `B` |
 | `dbt source freshness` | 8 of 8 PASS | `B` |
 | `dbt docs generate` | catalog written | `B` (last line) |
-| Parity with the SQL build | 18 of 18 objects with identical row count and `HASH_AGG(*)`; 245 of 245 columns with identical position, type and nullability | `P` sections A-A.2 |
-| Read-only rebuild of the hand-written SQL vs the dbt objects | 18 of 18 PASS (MINUS 0 / 0 both ways), 2 of 2 control rows detect their planted difference | `P` section A.3 |
-| The 7 hand-written Phase 3-4 check files on the dbt objects | 1,288 PASS rows (1,285 on the SQL build), 0 FAIL | `P` section C |
 
 `TOTAL=275` is every node the build ran: 3 seeds + 8 views + 10 tables + 245 data tests + 7 unit
 tests + 2 exposures. The ephemeral model is compiled into its child, so it is not a node of the run.
@@ -121,31 +116,29 @@ packages, logs). `package-lock.yml` and the seeds are committed.
 | sources | `models/staging/_sources.yml` | (RAW tables, loaded by `make load`) | `RAW` | 8: 4 clean + 4 `CHALLENGE_*` | - |
 | staging | `models/staging/` | view | `STAGING` | `STG_CAMPAIGNS`, `STG_DAILY_SPEND`, `STG_LEADS`, `STG_CONVERSIONS` and the 4 `STG_CHALLENGE_*` | one source each |
 | intermediate | `models/intermediate/` | ephemeral (no object) | - | `int_lead_conversions` | `stg_leads`, `stg_conversions`, `stg_campaigns` |
-| marts | `models/marts/` | permanent table | `MART` | `DIM_DATE`, `DIM_CAMPAIGN`, `FCT_DAILY_SPEND`, `FCT_LEAD_CONVERSIONS`, `MART_CAMPAIGN_PERFORMANCE`, `FCT_CAMPAIGN_DAILY_ACTIVITY`, `MART_MONTHLY_MARKETING`, `MART_MONTHLY_COHORT`, `MART_CHANNEL_PERFORMANCE`, `MART_LEAD_QUALITY`; since Phase 6 `MART_CONVERSION_FUNNEL` (dbt only, no SQL twin) | staging, intermediate, other marts |
+| marts | `models/marts/` | permanent table | `MART` | `DIM_DATE`, `DIM_CAMPAIGN`, `FCT_DAILY_SPEND`, `FCT_LEAD_CONVERSIONS`, `MART_CAMPAIGN_PERFORMANCE`, `FCT_CAMPAIGN_DAILY_ACTIVITY`, `MART_MONTHLY_MARKETING`, `MART_MONTHLY_COHORT`, `MART_CHANNEL_PERFORMANCE`, `MART_LEAD_QUALITY`; since Phase 6 `MART_CONVERSION_FUNNEL` | staging, intermediate, other marts |
 | seeds | `seeds/` | table (dbt's seed default: transient) | `STAGING` | `EXPECTED_CAMPAIGN_KPI`, `EXPECTED_TOTALS`, `PUBLISHER_CHANNEL_REFERENCE` | read by tests only |
 
-- **Same objects as the SQL build.** Every model has the name and schema of the object
-  `sql/02*.sql` built, the same column order and the same column types (`P` A.2), so dbt replaced
-  the SQL build in place. dbt names are lower case (`stg_leads`); Snowflake stores the unquoted
-  identifiers in upper case (`STAGING.STG_LEADS`).
+- **Names.** Every model is one object of the same name in its layer's schema. dbt names are
+  lower case (`stg_leads`); Snowflake stores the unquoted identifiers in upper case
+  (`STAGING.STG_LEADS`).
 - **Staging** views are one per RAW table, at the RAW grain after de-duplication; a problem is
   flagged in `DQ_ISSUES`, never dropped ([data_cleaning.md](data_cleaning.md)). The rules live in
   four macros (`macros/staging/clean_*.sql`), so each clean view and its challenge twin run the
   identical rules; each `stg_*.sql` is a single macro call on its source.
 - **Intermediate** is ephemeral: `int_lead_conversions` (one row per lead, LEFT JOIN its
   conversion, plus the attributes of its campaign) is compiled into `fct_lead_conversions` as a CTE
-  and creates no object. It reads the campaign attributes from `stg_campaigns`, where the SQL build
-  read `DIM_CAMPAIGN`; the values are identical (`P` A.1, and
-  `tests/marts/assert_campaign_attributes_match_independent_seed.sql`).
-- **Marts** are permanent tables (`+transient: false`; dbt-snowflake would default to transient),
-  as in the SQL build (`P` A.2: `IS_TRANSIENT = NO` for all 10).
+  and creates no object. It reads the campaign attributes from `stg_campaigns`; they equal those
+  of `DIM_CAMPAIGN` (`tests/marts/assert_campaign_attributes_match_independent_seed.sql` compares
+  both with the independent seed).
+- **Marts** are permanent tables (`+transient: false`; dbt-snowflake would default to transient;
+  `P` A.2: `IS_TRANSIENT = NO` for all 10).
 - **Grain rule** (architecture decision 6): every mart aggregates each fact to the target grain in
   its own CTE before any join. The singular test `assert_total_spend_in_every_mart` fails on any
   fan-out.
 - **Comments everywhere.** `+persist_docs: {relation: true, columns: true}` writes every model and
-  column description to Snowflake as a `COMMENT`. The MART column descriptions are the Phase 3-4
-  comments copied verbatim (155 of 155 identical, `P` B.1); the STAGING view columns gained 90
-  comments (`P` B.3). The Phase 3-4 contract tests check that every object and MART column has one.
+  column description to Snowflake as a `COMMENT`: in the Phase 5 build, all 155 MART columns and
+  all 90 STAGING view columns carry one (`P` B.1, B.3).
 - **Assumptions in one place.** `dbt_project.yml` `vars`: the coverage 2023-01-01..2025-12-31
   (the `DIM_DATE` spine), the as-of date 2025-12-31, the 21-day maturity window and the 21-day
   post-flight window. The tests that check model output do not read these vars back: the seeds,
@@ -153,7 +146,7 @@ packages, logs). `package-lock.yml` and the seeds are committed.
   fail until they agree. The one exception is on purpose: `assert_campaign_windows` reads
   `post_window_days` to check that the data still fits the assumption.
 - **`ref()` and `source()` only.** No model names a schema or a database; dbt derives the DAG
-  from the references ([lineage.md](lineage.md)).
+  from the references (the lineage graph of `make dbt-docs`).
 
 ## Schema names: the generate_schema_name override
 
@@ -217,15 +210,14 @@ The counts are `P` section G. They include the 8 tests on the RAW source keys an
 keys and values (each listed by name in `B`). The one `warn` test is
 `assert_lead_source_matches_campaign_channel`: `LEAD_SOURCE` matches the campaign's channel for
 every lead today, but MART never relies on it (every fact takes the channel from `DIM_CAMPAIGN`),
-so a mismatch would be drift in the source to look at, not a broken pipeline. The same check is a
-WARN in `sql/02_data_cleaning_tests.sql` (block 14). Per-model counts: [lineage.md](lineage.md#models).
+so a mismatch would be drift in the source to look at, not a broken pipeline. The dbt docs site
+(`make dbt-docs`) lists the tests of each model.
 
 ### Singular tests
 
 Sixteen SQL files in [`dbt/tests/`](../dbt/tests/) (fifteen in Phase 5), each returning the rows
-that violate a rule. Most are dbt ports of a block of the hand-written test files; 12 of them
-compare a model with a seed of independent expected values
-([lineage.md](lineage.md#seeds-and-singular-tests)).
+that violate a rule; 12 of them compare a model with a seed of independent expected values
+([Seeds](#seeds-independent-expected-values)).
 
 | Test | Guards |
 |---|---|
@@ -278,8 +270,7 @@ return 8 failing rows covering all 4 models it checks.
 ## Seeds: independent expected values
 
 The singular tests need expected values that were computed without Snowflake and without the
-SQL under test. In Phases 2-4 those values lived in scratch scripts and inline `VALUES` lists;
-Phase 5 makes them reproducible from the repository as dbt seeds
+SQL under test. They are dbt seeds, reproducible from the repository
 ([`seeds/_seeds.yml`](../dbt/seeds/_seeds.yml)):
 
 | Seed | Rows | Content | Made by |
@@ -298,53 +289,16 @@ Phase 5 makes them reproducible from the repository as dbt seeds
   stale expectations. `expected_campaign_kpi.csv` is byte-identical to the Phase 2 local
   baseline of 2026-10-13 (`P` E).
 - **Where they live.** `dbt build` loads them as three small transient tables in `STAGING`
-  (`P` A.2). No model reads them, and `CRM_REPORTER` (Data Studio) cannot see `STAGING`. After the dbt build, `SVC_CRM_BI` / `CRM_REPORTER` read all 11 MART tables (the 10 dbt-built ones plus `CONNECTION_TEST`) through the MART future grants and still cannot see `RAW` or `STAGING` (`P` section J).
-  `sql/02_data_cleaning_tests.sql` block 1 lists them as allowed non-contract objects (`P` D).
+  (`P` A.2). No model reads them, and `CRM_REPORTER` (Data Studio) cannot see `STAGING`: after
+  the dbt build, `SVC_CRM_BI` / `CRM_REPORTER` read the 10 dbt-built MART tables through the MART
+  future grants and still cannot see `RAW` or `STAGING` (`P` section J).
 
 ## Parity with the hand-written SQL build
 
-The goal was a port, not a rewrite: the dbt build had to produce exactly the objects the
-Phase 3-4 SQL produced. Four independent checks (`P`):
-
-1. **Snapshot before and after.** `sql/parity/parity_snapshot.sql` fingerprinted every STAGING and
-   MART object on the SQL build (before the first dbt run) and again on the dbt build;
-   `scripts/parity_diff.py` compared the two field by field (`P` A):
-   - **Data:** `COUNT(*)` and `HASH_AGG(*)` identical for 18 of 18 objects, for example
-     `STG_LEADS` 261,684 rows, hash 6233214971418270007 both times; `MART_CHANNEL_PERFORMANCE`
-     5 rows, hash -8733952273888884832 both times (all 18 in `P` A.1).
-   - **Shape:** 18 of 18 objects keep their type, transient flag and owner (8 views; 10 permanent
-     tables, owner `CRM_TRANSFORMER`); 245 of 245 columns keep their position, full type and
-     nullability (`P` A.2).
-2. **Read-only rebuild from RAW.** `scripts/parity_minus.py` turns the 18 `CREATE` bodies of
-   `sql/02*.sql` into one CTE chain from RAW per object and compares each with the deployed dbt
-   object by `COUNT`, `MINUS` in both directions and `HASH_AGG`. 18 of 18 PASS, and 2 of 2 control
-   rows detect a planted difference (a 1-cent budget change, and a duplicated row that only
-   `COUNT` and `HASH_AGG` can see) (`P` A.3). This check creates nothing and needs no SQL build,
-   so it can be repeated at any time (`make parity-check`).
-3. **Comments.** The 155 MART column comments are identical character for character; the 18
-   relation comments changed only in their provenance sentence ("Built by dbt (models/...,
-   ported from sql/...)"); 90 STAGING column comments were added (`P` B).
-4. **The hand-written checks on the dbt objects.** The 7 Phase 3-4 check files, run read-only on
-   the dbt build, all exit 0 (`P` C):
-
-   | File | PASS on the SQL build | PASS on the dbt build | FAIL |
-   |---|---:|---:|---:|
-   | `sql/02_data_cleaning_tests.sql` | 194 | 197 | 0 |
-   | `sql/02b_core_models_tests.sql` | 245 | 245 | 0 |
-   | `sql/02c_analysis_marts_tests.sql` | 258 | 258 | 0 |
-   | `sql/03_marketing_overview.sql` | 126 | 126 | 0 |
-   | `sql/04_conversion_funnel.sql` | 232 | 232 | 0 |
-   | `sql/05_lead_analysis.sql` | 150 | 150 | 0 |
-   | `sql/06_marketing_efficiency.sql` | 80 | 80 | 0 |
-   | **total** | **1,285** | **1,288** | **0** |
-
-   The 3 extra rows are the 3 seed tables in block 1 of the first file, the only edit in `sql/`
-   (`P` D). In the other six files every output line except the session line is identical to the
-   Phase 3-4 evidence, every printed analysis number included.
-
-The SQL files stay in `sql/` as the record of Phases 3-4 and as the reference of these checks.
-`make staging` / `marts` / `analysis-marts` / `models` still run them, but they are labelled
-legacy: they would replace the dbt-built objects (comments included) until the next dbt build.
+The models were first written as plain SQL (Phases 3-4) and moved to dbt with identical results
+(18 of 18 objects with the same row count and `HASH_AGG(*)`, 245 of 245 columns with the same
+position, type and nullability, `P` A); that version and its parity tooling are in the git
+history at commit [`dbe41f7`](https://github.com/hoedongkim/marketing-crm-analytics/tree/dbe41f7).
 
 ## Plan names and the models that serve them
 
@@ -406,9 +360,7 @@ make dbt-build         # seeds check, parse, build, source freshness, docs -> do
 | `make dbt-build-select DBT_SELECT=...` | `dbt build --select ...`, e.g. `stg_leads+`; output in `build/` | yes: the selected objects |
 | `make dbt-test [DBT_SELECT=...]` | data and unit tests on the deployed objects, no rebuild; output in `build/dbt_test.txt` | no deployed object (each unit test creates and drops an empty temporary table) |
 | `make dbt-freshness` | `dbt source freshness` | no |
-| `make dbt-docs` | `dbt docs generate --static`: `dbt/target/index.html` and the single-file `dbt/target/static_index.html` (git-ignored) | no |
-| `make dbt-lineage` | `dbt parse`, then `scripts/dbt_lineage.py` rewrites [lineage.md](lineage.md) | no |
-| `make dbt-parity` | read-only: parity snapshot, diff against the SQL-build snapshot when `build/parity_before.txt` exists, `parity-check`, `sql-checks`; output in `build/` | no |
+| `make dbt-docs` | `dbt docs generate --static`: the docs site with the lineage graph, `dbt/target/index.html` and the single-file `dbt/target/static_index.html` (git-ignored) | no |
 
 The same commands without make, from the repository root:
 
@@ -423,4 +375,4 @@ The same commands without make, from the repository root:
 `dbt-build-select` and `dbt-test` over repeated full builds. If a run fails with "cannot be
 resumed because resource monitor 'RM_ACCOUNT_DAILY' has exceeded its quota", stop: the monitor
 resets at 00:00 UTC, and no retry can succeed before then (this happened on 2026-10-14, after the
-Phase 5 build and parity runs).
+Phase 5 build and its check runs).

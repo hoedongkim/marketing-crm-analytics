@@ -1,6 +1,5 @@
 {#-
     MART_LEAD_QUALITY: one row per channel x 10-point lead score band (5 x 10 = 50 rows).
-    Ported from sql/02c_analysis_marts.sql block 5.
     - The bands are an explicit 10-row list (edges and plan segment in one place); the spine is
       5 channels x 10 bands, so a band without leads shows as 0.
     - Each lead goes to the band SCORE_BAND_MIN = FLOOR((LEAD_SCORE - 1) / 10) x 10 + 1; a NULL or

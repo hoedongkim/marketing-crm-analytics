@@ -1,11 +1,13 @@
 # exports/: the frozen data behind the dashboard
 
 These files are a frozen copy of the Snowflake `MARKETING_CRM.MART` tables that the Google Data
-Studio dashboard is built on (Phase 6: the report is being built by hand from
+Studio dashboard is built on (Phase 6: the report was built by hand from
 [docs/dashboard_spec.md](../docs/dashboard_spec.md)). The Snowflake trial ends about
-**2026-11-12**. From then on, the public dashboard is to serve these tables from Google Sheets
-instead of the live connector ([docs/architecture.md](../docs/architecture.md), decision 8). The
-steps to switch are in [docs/sheets_snapshot.md](../docs/sheets_snapshot.md).
+**2026-11-12**, so the public dashboard serves these tables from Google Sheets instead of the live
+connector ([docs/architecture.md](../docs/architecture.md), decision 8). The move to Sheets and its
+checks are recorded in
+[docs/dashboard_validation.md](../docs/dashboard_validation.md#build-log-pass-2-the-google-sheets-copy)
+(build log, pass 2).
 
 Nothing here was computed in Python or in a spreadsheet. Every number is a value of a dbt-built
 Snowflake table, written out exactly as stored.
@@ -123,4 +125,5 @@ terms. The repository's MIT license covers the code, not this data.
 - What was done: the four source CSVs were loaded byte for byte into Snowflake, then typed and
   cleaned in `STAGING`. They were aggregated into these `MART` tables by the dbt models in
   [`dbt/`](../dbt/).
-- What is not included: the raw source files themselves (see [data/README.md](../data/README.md)).
+- What is not included: the raw source files themselves (see
+  [docs/data_source.md](../docs/data_source.md)).

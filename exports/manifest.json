@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "description": "Frozen export of the MART tables the Data Studio dashboard reads (Google Sheets snapshot, docs/sheets_snapshot.md).",
+  "description": "Frozen export of the MART tables the Data Studio dashboard reads (Google Sheets snapshot, docs/dashboard_validation.md).",
   "exported_at_utc": "2026-10-14T19:18:06Z",
   "source": {
     "platform": "Snowflake",
