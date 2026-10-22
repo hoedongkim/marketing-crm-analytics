@@ -216,10 +216,10 @@ make analyses              # the seven business questions -> docs/evidence/
 ## 📁 Repository Structure
 
 ```
-├── sql/          Snowflake SQL: setup, data profiling, the analysis queries, dashboard check
-├── dbt/          dbt project: cleaning rules, every table the dashboard reads, and their checks
-├── scripts/      Tooling only (Python and shell): download, keys, load, connection checks, export
-├── docs/         Analysis, metrics, data dictionary, data source, dashboard spec and checks, setup
+├── sql/          Snowflake SQL: setup, profiling, analysis queries, dashboard check
+├── dbt/          dbt project: cleaning rules, dashboard tables and their checks
+├── scripts/      Tooling (Python and shell): download, keys, load, checks, export
+├── docs/         Analysis, metrics, data dictionary, data source, dashboard, setup
 │   ├── evidence/ Full output of every build, check and analysis run
 │   └── images/   Dashboard screenshots
 ├── exports/      The fixed dashboard tables behind the public report

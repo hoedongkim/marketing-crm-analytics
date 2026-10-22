@@ -1,0 +1,3 @@
+# GitHub language statistics: count the SQL (GitHub's Linguist leaves SQL out by default) and
+# read every .sql file, dbt models included, as plain SQL.
+*.sql linguist-language=SQL linguist-detectable
